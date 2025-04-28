@@ -11,12 +11,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    console.log(`Clearing all predictions for user ${user.id}`)
+
     // Delete all predictions for this user
     await sql`DELETE FROM predictions WHERE user_id = ${user.id}`
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error clearing user predictions:", error)
+    console.error("Error clearing predictions:", error)
     return NextResponse.json({ error: "Failed to clear predictions" }, { status: 500 })
   }
 }

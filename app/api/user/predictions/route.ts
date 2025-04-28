@@ -11,8 +11,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Fetch predictions for this user
+    console.log(`Fetching predictions for user ID: ${user.id}, email: ${user.email}`)
+
+    // Fetch predictions for this user only
     const predictions = await getPredictionsByUserId(user.id)
+
+    console.log(`Found ${predictions.length} predictions for user ${user.email}`)
 
     return NextResponse.json(predictions)
   } catch (error) {

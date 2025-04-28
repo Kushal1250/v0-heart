@@ -6,6 +6,10 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
   try {
     const predictionId = params.id
 
+    if (!predictionId) {
+      return NextResponse.json({ error: "Prediction ID is required" }, { status: 400 })
+    }
+
     // Get the authenticated user
     const user = await getUserFromRequest(request)
 
@@ -13,7 +17,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Delete the prediction, but only if it belongs to this user
+    console.log(`Deleting prediction ${predictionId} for user ${user.id}`)
+
+    // Important: Only delete the prediction if it belongs to the authenticated user
     const result = await sql`
       DELETE FROM predictions 
       WHERE id = ${predictionId} AND user_id = ${user.id}
@@ -21,7 +27,10 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     `
 
     if (result.length === 0) {
-      return NextResponse.json({ error: "Prediction not found or not authorized to delete" }, { status: 404 })
+      return NextResponse.json(
+        { error: "Prediction not found or does not belong to the authenticated user" },
+        { status: 404 },
+      )
     }
 
     return NextResponse.json({ success: true })

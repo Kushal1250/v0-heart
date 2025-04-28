@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ArrowLeft, Trash2, ArrowUpDown, Filter, Calendar, Heart, Info } from "lucide-react"
+import { ArrowLeft, Trash2, ArrowUpDown, Filter, Calendar, Heart, Info, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getHistory, deleteHistoryItem, clearHistory, type AssessmentHistoryItem } from "@/lib/history-storage"
@@ -45,6 +45,7 @@ export default function HistoryPage() {
   const [filterBy, setFilterBy] = useState<FilterOption>("all")
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("history")
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const isMobile = useMediaQuery("(max-width: 640px)")
   const { user, isAuthenticated } = useAuth()
@@ -53,14 +54,19 @@ export default function HistoryPage() {
     // Load history based on authentication status
     const loadHistory = async () => {
       setIsLoading(true)
+      setError(null)
 
       if (isAuthenticated && user) {
         try {
+          console.log(`Fetching predictions for authenticated user: ${user.email}`)
+
           // Fetch user's predictions from the server
           const response = await fetchWithAuth("/api/user/predictions")
 
           if (response.ok) {
             const userPredictions = await response.json()
+            console.log(`Received ${userPredictions.length} predictions from API for user ${user.email}`)
+
             // Transform server predictions to match AssessmentHistoryItem format
             const formattedHistory = userPredictions.map((pred: any) => ({
               id: pred.id,
@@ -91,20 +97,30 @@ export default function HistoryPage() {
             setHistory(formattedHistory)
             setFilteredHistory(formattedHistory)
           } else {
-            // If API fails, fall back to local storage
+            // Handle API error
+            const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
+            console.error("API error:", errorData)
+            setError(`Failed to load history: ${errorData.error || response.statusText}`)
+
+            // Fall back to local storage
+            console.log("Falling back to local storage due to API error")
             const localHistory = getHistory()
             setHistory(localHistory)
             setFilteredHistory(localHistory)
           }
         } catch (error) {
           console.error("Error fetching user predictions:", error)
+          setError(`Failed to load history: ${error instanceof Error ? error.message : "Unknown error"}`)
+
           // Fall back to local storage on error
+          console.log("Falling back to local storage due to exception")
           const localHistory = getHistory()
           setHistory(localHistory)
           setFilteredHistory(localHistory)
         }
       } else {
         // Not authenticated, use local storage
+        console.log("User not authenticated, using local storage")
         const localHistory = getHistory()
         setHistory(localHistory)
         setFilteredHistory(localHistory)
@@ -136,20 +152,20 @@ export default function HistoryPage() {
       case "risk-highest":
         result.sort((a, b) => {
           const riskOrder = { high: 3, moderate: 2, low: 1 }
-          return riskOrder[b.result.risk] - riskOrder[a.result.risk]
+          return riskOrder[b.result.risk as keyof typeof riskOrder] - riskOrder[a.result.risk as keyof typeof riskOrder]
         })
         break
       case "risk-lowest":
         result.sort((a, b) => {
           const riskOrder = { high: 3, moderate: 2, low: 1 }
-          return riskOrder[a.result.risk] - riskOrder[b.result.risk]
+          return riskOrder[a.result.risk as keyof typeof riskOrder] - riskOrder[b.result.risk as keyof typeof riskOrder]
         })
         break
       case "age-highest":
-        result.sort((a, b) => Number.parseInt(b.age) - Number.parseInt(a.age))
+        result.sort((a, b) => Number.parseInt(b.age as string) - Number.parseInt(a.age as string))
         break
       case "age-lowest":
-        result.sort((a, b) => Number.parseInt(a.age) - Number.parseInt(b.age))
+        result.sort((a, b) => Number.parseInt(a.age as string) - Number.parseInt(b.age as string))
         break
     }
 
@@ -176,9 +192,11 @@ export default function HistoryPage() {
           setHistory((prev) => prev.filter((item) => item.id !== id))
         } else {
           console.error("Failed to delete prediction from server")
+          setError("Failed to delete assessment. Please try again.")
         }
       } catch (error) {
         console.error("Error deleting prediction:", error)
+        setError(`Failed to delete assessment: ${error instanceof Error ? error.message : "Unknown error"}`)
       }
     } else {
       // Delete from local storage if not authenticated
@@ -199,9 +217,11 @@ export default function HistoryPage() {
           setHistory([])
         } else {
           console.error("Failed to clear predictions from server")
+          setError("Failed to clear history. Please try again.")
         }
       } catch (error) {
         console.error("Error clearing predictions:", error)
+        setError(`Failed to clear history: ${error instanceof Error ? error.message : "Unknown error"}`)
       }
     } else {
       // Clear local storage if not authenticated
@@ -324,11 +344,25 @@ export default function HistoryPage() {
           )}
         </div>
 
+        {/* User information banner */}
         {isAuthenticated && user && (
-          <div className="mb-4 text-center">
-            <p className="text-sm text-gray-400">
-              Showing history for <span className="font-medium text-white">{user.email}</span>
-            </p>
+          <Card className="mb-6 bg-gray-800 border-gray-700">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <User className="h-5 w-5 text-blue-400" />
+                <div>
+                  <p className="text-sm text-gray-300">Showing assessment history for:</p>
+                  <p className="font-medium text-white">{user.email}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Error message if any */}
+        {error && (
+          <div className="bg-red-900/30 border border-red-800 text-red-400 p-4 rounded-lg mb-6">
+            <p>{error}</p>
           </div>
         )}
 
@@ -589,6 +623,7 @@ export default function HistoryPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* About content remains the same */}
                 <div>
                   <h3 className="text-xl font-semibold mb-2 text-white">Why Track Your Heart Health?</h3>
                   <p className="text-gray-300 mb-4">

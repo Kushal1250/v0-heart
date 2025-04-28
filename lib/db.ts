@@ -462,11 +462,16 @@ export async function getPredictionsByUserId(userId: string) {
       throw new Error("User ID is required to get predictions")
     }
 
+    console.log(`Getting predictions for user ID: ${userId}`)
+
     const predictions = await sql`
       SELECT * FROM predictions
       WHERE user_id = ${userId}
       ORDER BY created_at DESC
     `
+
+    console.log(`Found ${predictions.length} predictions in database for user ID: ${userId}`)
+
     return predictions
   } catch (error) {
     console.error("Database error in getPredictionsByUserId:", error)

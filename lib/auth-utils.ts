@@ -1,6 +1,7 @@
 import { cookies } from "next/headers"
 import { v4 as uuidv4 } from "uuid"
 import { getSessionByToken, getUserById } from "@/lib/db"
+import type { NextRequest } from "next/server"
 
 export function getSessionToken(): string | undefined {
   return cookies().get("session")?.value
@@ -114,44 +115,33 @@ export async function verifyAdminSession(request: Request): Promise<{
 /**
  * Extracts user information from an incoming request
  */
-export async function getUserFromRequest(request: Request): Promise<{
-  id: string
-  email: string
-  name: string | null
-  role: string
-} | null> {
+export async function getUserFromRequest(request: NextRequest) {
   try {
-    // Extract the authorization header
-    const authHeader = request.headers.get("Authorization")
+    // Get the session token from the cookie
+    const sessionToken = request.cookies.get("session_token")?.value || cookies().get("session_token")?.value
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      // If no session in header, try to get from cookies (for server components)
-      const token = getSessionToken()
-      if (!token) {
-        return null
-      }
-
-      const session = await getSessionByToken(token)
-      if (!session) {
-        return null
-      }
-
-      return await getUserById(session.user_id)
-    }
-
-    // Extract token from Authorization header
-    const token = authHeader.split(" ")[1]
-    if (!token) {
+    if (!sessionToken) {
+      console.log("No session token found in request")
       return null
     }
 
-    // Get session and user
-    const session = await getSessionByToken(token)
+    // Get the session from the database
+    const session = await getSessionByToken(sessionToken)
+
     if (!session) {
+      console.log("No valid session found for token")
       return null
     }
 
-    return await getUserById(session.user_id)
+    // Get the user from the database
+    const user = await getUserById(session.user_id)
+
+    if (!user) {
+      console.log("No user found for session")
+      return null
+    }
+
+    return user
   } catch (error) {
     console.error("Error getting user from request:", error)
     return null
