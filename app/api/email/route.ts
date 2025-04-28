@@ -7,6 +7,7 @@ function formatAssessmentDataAsHtml(
   data: any,
   includePdfAttachment: boolean,
   userName?: string,
+  userPhone?: string,
   assessmentDate: Date = new Date(),
 ) {
   // Format date and time for display
@@ -67,6 +68,7 @@ function formatAssessmentDataAsHtml(
       
       <div style="background-color: #f9f9f9; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
         <p style="margin-top: 0; margin-bottom: 5px;"><strong>Patient:</strong> ${userName || "Anonymous User"}</p>
+        ${userPhone ? `<p style="margin-top: 0; margin-bottom: 5px;"><strong>Phone:</strong> ${userPhone}</p>` : ""}
         <p style="margin-top: 0; margin-bottom: 15px;"><strong>Date & Time:</strong> ${formattedDate} at ${formattedTime}</p>
         <h3 style="margin-top: 0; color: #333333;">
           ${riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1)} Risk Assessment
@@ -144,7 +146,12 @@ function formatAssessmentDataAsHtml(
 }
 
 // Generate PDF buffer from assessment data
-async function generatePdfBuffer(data: any, userName?: string, assessmentDate: Date = new Date()): Promise<Buffer> {
+async function generatePdfBuffer(
+  data: any,
+  userName?: string,
+  userPhone?: string,
+  assessmentDate: Date = new Date(),
+): Promise<Buffer> {
   // Format date and time for display
   const formattedDate = assessmentDate.toLocaleDateString("en-US", {
     year: "numeric",
@@ -176,67 +183,35 @@ async function generatePdfBuffer(data: any, userName?: string, assessmentDate: D
   pdf.setTextColor(0, 0, 0)
   pdf.text(`Patient: ${userName || "Anonymous User"}`, 20, 30)
 
+  // Add patient phone if available
+  let yOffset = 35
+  if (userPhone) {
+    pdf.text(`Phone: ${userPhone}`, 20, yOffset)
+    yOffset += 5
+  }
+
   // Add date and time
   pdf.setFontSize(10)
   pdf.setTextColor(100, 100, 100)
-  pdf.text(`Generated on ${formattedDate} at ${formattedTime}`, 20, 35)
+  pdf.text(`Generated on ${formattedDate} at ${formattedTime}`, 20, yOffset)
+  yOffset += 10
 
   // Add risk level
   pdf.setFontSize(16)
   pdf.setTextColor(0, 0, 0)
   const riskLevel = data.result.risk.charAt(0).toUpperCase() + data.result.risk.slice(1)
-  pdf.text(`Risk Level: ${riskLevel}`, 20, 45)
+  pdf.text(`Risk Level: ${riskLevel}`, 20, yOffset)
+  yOffset += 10
 
   // Add risk score
   pdf.setFontSize(14)
-  pdf.text(`Risk Score: ${data.result.score}%`, 20, 55)
-
-  // Add health metrics section
-  pdf.setFontSize(16)
-  pdf.text("Health Metrics", 20, 70)
-
-  // Draw a line
-  pdf.setDrawColor(200, 200, 200)
-  pdf.line(20, 72, 190, 72)
-
-  // Add metrics
-  pdf.setFontSize(12)
-  let y = 80
-
-  // Helper function to add a metric
-  const addMetric = (label: string, value: string) => {
-    pdf.setTextColor(80, 80, 80)
-    pdf.text(label, 20, y)
-    pdf.setTextColor(0, 0, 0)
-    pdf.text(value, 80, y)
-    y += 10
-  }
-
-  // Add basic metrics
-  addMetric("Age:", `${data.age} years`)
-  addMetric("Gender:", data.sex === "1" ? "Male" : "Female")
-  addMetric("Blood Pressure:", `${data.trestbps} mm Hg`)
-  addMetric("Cholesterol:", `${data.chol} mg/dl`)
-  addMetric(
-    "Chest Pain Type:",
-    (() => {
-      const types = ["Typical angina", "Atypical angina", "Non-anginal pain", "Asymptomatic"]
-      return types[Number.parseInt(data.cp)] || data.cp
-    })(),
-  )
-  addMetric("Fasting Blood Sugar:", data.fbs === "1" ? "Above 120 mg/dl" : "Below 120 mg/dl")
-
-  if (data.thalach) {
-    addMetric("Max Heart Rate:", data.thalach)
-  }
-
-  addMetric("Exercise Induced Angina:", data.exang === "1" ? "Yes" : "No")
+  pdf.text(`Risk Score: ${data.result.score}%`, 20, yOffset)
 
   // Add disclaimer
-  y += 10
+  yOffset += 10
   pdf.setFontSize(10)
   pdf.setTextColor(100, 100, 100)
-  pdf.text("This assessment is not a medical diagnosis. Please consult with a healthcare provider.", 20, y)
+  pdf.text("This assessment is not a medical diagnosis. Please consult with a healthcare provider.", 20, yOffset)
 
   // Add footer
   pdf.setFontSize(8)
@@ -251,7 +226,7 @@ async function generatePdfBuffer(data: any, userName?: string, assessmentDate: D
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { to, subject, message, assessmentData, includePdfAttachment, userName, assessmentDate } = body
+    const { to, subject, message, assessmentData, includePdfAttachment, userName, userPhone, assessmentDate } = body
 
     // Validate email
     if (!to || !/^\S+@\S+\.\S+$/.test(to)) {
@@ -275,7 +250,7 @@ export async function POST(request: NextRequest) {
 
     // Add assessment data if included
     if (assessmentData) {
-      htmlContent += formatAssessmentDataAsHtml(assessmentData, includePdfAttachment, userName, parsedDate)
+      htmlContent += formatAssessmentDataAsHtml(assessmentData, includePdfAttachment, userName, userPhone, parsedDate)
     } else {
       htmlContent += `
         <p style="margin-top: 20px;">
@@ -299,6 +274,7 @@ Health Assessment
 ${message || "Please find my health assessment results below."}
 
 Patient: ${userName || "Anonymous User"}
+${userPhone ? `Phone: ${userPhone}` : ""}
 Date: ${parsedDate.toLocaleDateString()}
 Time: ${parsedDate.toLocaleTimeString()}
 
@@ -335,7 +311,7 @@ This email was sent via HeartPredict.
     if (includePdfAttachment && assessmentData) {
       try {
         // Generate PDF buffer
-        const pdfBuffer = await generatePdfBuffer(assessmentData, userName, parsedDate)
+        const pdfBuffer = await generatePdfBuffer(assessmentData, userName, userPhone, parsedDate)
 
         // Create filename based on risk level and date
         const riskLevel = assessmentData.result.risk

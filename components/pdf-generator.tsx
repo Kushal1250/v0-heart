@@ -12,6 +12,7 @@ interface PdfGeneratorProps {
   fileName: string
   assessmentData: any
   userName?: string
+  userPhone?: string
   assessmentDate?: Date
 }
 
@@ -20,6 +21,7 @@ export default function PdfGenerator({
   fileName = "health-assessment-results",
   assessmentData,
   userName,
+  userPhone,
   assessmentDate = new Date(),
 }: PdfGeneratorProps) {
   const isMobile = useMediaQuery("(max-width: 640px)")
@@ -51,25 +53,6 @@ export default function PdfGenerator({
       }
       // Otherwise, if we have assessmentData, generate PDF from that
       else if (assessmentData) {
-        // Create PDF
-        const pdf = new jsPDF({
-          orientation: "portrait",
-          unit: "mm",
-        })
-
-        // Set font
-        pdf.setFont("helvetica")
-
-        // Add title
-        pdf.setFontSize(20)
-        pdf.setTextColor(0, 0, 0)
-        pdf.text("Health Assessment Results", 20, 20)
-
-        // Add patient name if available
-        pdf.setFontSize(12)
-        pdf.setTextColor(0, 0, 0)
-        pdf.text(`Patient: ${userName || "Anonymous User"}`, 20, 30)
-
         await generatePdfFromData(assessmentData)
       } else {
         throw new Error("No content to generate PDF from")
@@ -164,32 +147,44 @@ export default function PdfGenerator({
     pdf.setTextColor(0, 0, 0)
     pdf.text(`Patient: ${userName || "Anonymous User"}`, 20, 30)
 
+    // Add patient phone if available
+    let yOffset = 35
+    if (userPhone) {
+      pdf.text(`Phone: ${userPhone}`, 20, yOffset)
+      yOffset += 5
+    }
+
     // Add date and time
     pdf.setFontSize(10)
     pdf.setTextColor(100, 100, 100)
-    pdf.text(`Generated on ${formattedDate} at ${formattedTime}`, 20, 35)
+    pdf.text(`Generated on ${formattedDate} at ${formattedTime}`, 20, yOffset)
+    yOffset += 10
 
     // Add risk level
     pdf.setFontSize(16)
     pdf.setTextColor(0, 0, 0)
     const riskLevel = data.result.risk.charAt(0).toUpperCase() + data.result.risk.slice(1)
-    pdf.text(`Risk Level: ${riskLevel}`, 20, 45)
+    pdf.text(`Risk Level: ${riskLevel}`, 20, yOffset)
+    yOffset += 10
 
     // Add risk score
     pdf.setFontSize(14)
-    pdf.text(`Risk Score: ${data.result.score}%`, 20, 55)
+    pdf.text(`Risk Score: ${data.result.score}%`, 20, yOffset)
+    yOffset += 15
 
     // Add health metrics section
     pdf.setFontSize(16)
-    pdf.text("Health Metrics", 20, 70)
+    pdf.text("Health Metrics", 20, yOffset)
+    yOffset += 2
 
     // Draw a line
     pdf.setDrawColor(200, 200, 200)
-    pdf.line(20, 72, 190, 72)
+    pdf.line(20, yOffset, 190, yOffset)
+    yOffset += 8
 
     // Add metrics
     pdf.setFontSize(12)
-    let y = 80
+    let y = yOffset
 
     // Helper function to add a metric
     const addMetric = (label: string, value: string) => {
