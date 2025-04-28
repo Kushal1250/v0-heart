@@ -110,3 +110,50 @@ export async function verifyAdminSession(request: Request): Promise<{
 
   return user
 }
+
+/**
+ * Extracts user information from an incoming request
+ */
+export async function getUserFromRequest(request: Request): Promise<{
+  id: string
+  email: string
+  name: string | null
+  role: string
+} | null> {
+  try {
+    // Extract the authorization header
+    const authHeader = request.headers.get("Authorization")
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      // If no session in header, try to get from cookies (for server components)
+      const token = getSessionToken()
+      if (!token) {
+        return null
+      }
+
+      const session = await getSessionByToken(token)
+      if (!session) {
+        return null
+      }
+
+      return await getUserById(session.user_id)
+    }
+
+    // Extract token from Authorization header
+    const token = authHeader.split(" ")[1]
+    if (!token) {
+      return null
+    }
+
+    // Get session and user
+    const session = await getSessionByToken(token)
+    if (!session) {
+      return null
+    }
+
+    return await getUserById(session.user_id)
+  } catch (error) {
+    console.error("Error getting user from request:", error)
+    return null
+  }
+}

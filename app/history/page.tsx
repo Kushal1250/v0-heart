@@ -31,6 +31,8 @@ import { Badge } from "@/components/ui/badge"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import HistoryStatistics from "@/components/history-statistics"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useAuth } from "@/lib/auth-context"
+import { fetchWithAuth } from "@/lib/api-utils"
 
 type SortOption = "date-newest" | "date-oldest" | "risk-highest" | "risk-lowest" | "age-highest" | "age-lowest"
 type FilterOption = "all" | "high" | "moderate" | "low"
@@ -45,18 +47,74 @@ export default function HistoryPage() {
   const [activeTab, setActiveTab] = useState("history")
   const router = useRouter()
   const isMobile = useMediaQuery("(max-width: 640px)")
+  const { user, isAuthenticated } = useAuth()
 
   useEffect(() => {
-    // Load history from localStorage
-    const loadHistory = () => {
-      const assessmentHistory = getHistory()
-      setHistory(assessmentHistory)
-      setFilteredHistory(assessmentHistory)
+    // Load history based on authentication status
+    const loadHistory = async () => {
+      setIsLoading(true)
+
+      if (isAuthenticated && user) {
+        try {
+          // Fetch user's predictions from the server
+          const response = await fetchWithAuth("/api/user/predictions")
+
+          if (response.ok) {
+            const userPredictions = await response.json()
+            // Transform server predictions to match AssessmentHistoryItem format
+            const formattedHistory = userPredictions.map((pred: any) => ({
+              id: pred.id,
+              date: pred.created_at,
+              result: {
+                risk: getRiskLevel(pred.result),
+                score: Math.round(pred.result * 100),
+                hasDisease: pred.result >= 0.5,
+              },
+              age: pred.prediction_data?.age || "",
+              sex: pred.prediction_data?.sex || "",
+              trestbps: pred.prediction_data?.trestbps || "",
+              chol: pred.prediction_data?.chol || "",
+              cp: pred.prediction_data?.cp || "",
+              fbs: pred.prediction_data?.fbs || "",
+              restecg: pred.prediction_data?.restecg || "",
+              thalach: pred.prediction_data?.thalach || "",
+              exang: pred.prediction_data?.exang || "",
+              oldpeak: pred.prediction_data?.oldpeak || "",
+              slope: pred.prediction_data?.slope || "",
+              ca: pred.prediction_data?.ca || "",
+              thal: pred.prediction_data?.thal || "",
+              foodHabits: pred.prediction_data?.foodHabits || "",
+              junkFoodConsumption: pred.prediction_data?.junkFoodConsumption || "",
+              sleepingHours: pred.prediction_data?.sleepingHours || "",
+            }))
+
+            setHistory(formattedHistory)
+            setFilteredHistory(formattedHistory)
+          } else {
+            // If API fails, fall back to local storage
+            const localHistory = getHistory()
+            setHistory(localHistory)
+            setFilteredHistory(localHistory)
+          }
+        } catch (error) {
+          console.error("Error fetching user predictions:", error)
+          // Fall back to local storage on error
+          const localHistory = getHistory()
+          setHistory(localHistory)
+          setFilteredHistory(localHistory)
+        }
+      } else {
+        // Not authenticated, use local storage
+        const localHistory = getHistory()
+        setHistory(localHistory)
+        setFilteredHistory(localHistory)
+      }
+
       setIsLoading(false)
     }
 
     loadHistory()
-  }, [])
+  }, [isAuthenticated, user])
 
   useEffect(() => {
     // Apply filtering and sorting whenever history, filterBy, or sortBy changes
@@ -98,14 +156,58 @@ export default function HistoryPage() {
     setFilteredHistory(result)
   }, [history, filterBy, sortBy])
 
-  const handleDeleteItem = (id: string) => {
-    deleteHistoryItem(id)
-    setHistory((prev) => prev.filter((item) => item.id !== id))
+  // Helper function to determine risk level from score
+  const getRiskLevel = (score: number): "low" | "moderate" | "high" => {
+    const percentage = score * 100
+    if (percentage < 30) return "low"
+    if (percentage < 70) return "moderate"
+    return "high"
   }
 
-  const handleClearHistory = () => {
-    clearHistory()
-    setHistory([])
+  const handleDeleteItem = async (id: string) => {
+    if (isAuthenticated && user) {
+      try {
+        // Delete from server if authenticated
+        const response = await fetchWithAuth(`/api/user/predictions/${id}`, {
+          method: "DELETE",
+        })
+
+        if (response.ok) {
+          setHistory((prev) => prev.filter((item) => item.id !== id))
+        } else {
+          console.error("Failed to delete prediction from server")
+        }
+      } catch (error) {
+        console.error("Error deleting prediction:", error)
+      }
+    } else {
+      // Delete from local storage if not authenticated
+      deleteHistoryItem(id)
+      setHistory((prev) => prev.filter((item) => item.id !== id))
+    }
+  }
+
+  const handleClearHistory = async () => {
+    if (isAuthenticated && user) {
+      try {
+        // Clear all user predictions from server
+        const response = await fetchWithAuth("/api/user/predictions/clear", {
+          method: "DELETE",
+        })
+
+        if (response.ok) {
+          setHistory([])
+        } else {
+          console.error("Failed to clear predictions from server")
+        }
+      } catch (error) {
+        console.error("Error clearing predictions:", error)
+      }
+    } else {
+      // Clear local storage if not authenticated
+      clearHistory()
+      setHistory([])
+    }
   }
 
   const formatDate = (dateString: string) => {
@@ -251,7 +353,7 @@ export default function HistoryPage() {
             ) : (
               <>
                 {/* Add Statistics Component */}
-                <HistoryStatistics />
+                <HistoryStatistics history={history} />
 
                 {/* Filter and Sort Controls */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4">
@@ -583,8 +685,14 @@ export default function HistoryPage() {
         </Tabs>
 
         <div className="text-center text-sm text-gray-500 mt-8">
-          <p>Assessment history is stored locally in your browser.</p>
-          <p>Create an account to save your history across devices.</p>
+          {isAuthenticated ? (
+            <p>Your assessment history is securely stored in your account.</p>
+          ) : (
+            <>
+              <p>Assessment history is stored locally in your browser.</p>
+              <p>Create an account to save your history across devices.</p>
+            </>
+          )}
         </div>
       </div>
     </div>

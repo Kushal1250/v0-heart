@@ -66,3 +66,25 @@ export async function handleApiResponse<T>(response: Response): Promise<T> {
     throw error
   }
 }
+
+/**
+ * Makes an authenticated fetch request with the session token
+ */
+export async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+  // Get the session token from cookies
+  const cookies = document.cookie.split(";")
+  const sessionCookie = cookies.find((cookie) => cookie.trim().startsWith("session="))
+  const sessionToken = sessionCookie ? sessionCookie.trim().split("=")[1] : null
+
+  // Prepare headers with authentication
+  const headers = new Headers(options.headers || {})
+  if (sessionToken) {
+    headers.set("Authorization", `Bearer ${sessionToken}`)
+  }
+
+  // Return the fetch with updated options
+  return fetch(url, {
+    ...options,
+    headers,
+  })
+}
