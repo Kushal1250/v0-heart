@@ -84,7 +84,7 @@ function formatAssessmentDataAsHtml(
         </tbody>
       </table>
       
-      <h3 style="border-bottom: 1px solid #eaeaea; padding-bottom: 8px;">Advanced Parameters</h3>
+      <h3 style="border-bottom: 1px solid #eaeaea; padding-bottom: 8px;">Cardiac Assessment</h3>
       <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
         <tbody>
           ${formatMetric("Chest Pain Type", getChestPainText(data.cp))}

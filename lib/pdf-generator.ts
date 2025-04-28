@@ -76,11 +76,13 @@ export async function generatePdfBuffer(
     y += 10
   }
 
-  // Add all metrics
+  // Basic Health Metrics
   addMetric("Age:", `${data.age} years`)
   addMetric("Gender:", data.sex === "1" ? "Male" : "Female")
   addMetric("Blood Pressure:", `${data.trestbps} mm Hg`)
   addMetric("Cholesterol:", `${data.chol} mg/dl`)
+
+  // Chest Pain and Related Metrics
   addMetric(
     "Chest Pain Type:",
     (() => {
@@ -89,36 +91,51 @@ export async function generatePdfBuffer(
     })(),
   )
   addMetric("Fasting Blood Sugar:", data.fbs === "1" ? "Above 120 mg/dl" : "Below 120 mg/dl")
+  addMetric(
+    "Resting ECG:",
+    (() => {
+      const types = ["Normal", "ST-T wave abnormality", "Left ventricular hypertrophy"]
+      return types[Number.parseInt(data.restecg)] || data.restecg
+    })(),
+  )
 
+  // Heart Rate and Exercise Metrics
   if (data.thalach) {
     addMetric("Max Heart Rate:", data.thalach)
   }
-
   addMetric("Exercise Induced Angina:", data.exang === "1" ? "Yes" : "No")
 
-  // Add advanced parameters
-  if (data.restecg) {
-    const restecgValues = ["Normal", "ST-T wave abnormality", "Left ventricular hypertrophy"]
-    addMetric("Resting ECG:", restecgValues[Number.parseInt(data.restecg)] || data.restecg)
-  }
-
+  // ST Depression and Slope
   if (data.oldpeak) {
     addMetric("ST Depression:", data.oldpeak)
   }
-
   if (data.slope) {
     const slopeValues = ["Upsloping", "Flat", "Downsloping"]
     addMetric("ST Slope:", slopeValues[Number.parseInt(data.slope)] || data.slope)
   }
 
+  // Vessels and Thalassemia
   if (data.ca) {
     addMetric("Number of Major Vessels:", data.ca)
   }
-
   if (data.thal) {
     const thalValues = ["Normal", "Fixed defect", "Reversible defect"]
     addMetric("Thalassemia:", thalValues[Number.parseInt(data.thal)] || data.thal)
   }
+
+  // Lifestyle Factors
+  y += 5
+  pdf.setFontSize(16)
+  pdf.setTextColor(0, 0, 0)
+  pdf.text("Lifestyle Factors", 20, y)
+  y += 5
+
+  // Draw a line
+  pdf.setDrawColor(200, 200, 200)
+  pdf.line(20, y, 190, y)
+  y += 10
+
+  pdf.setFontSize(12)
 
   // Add lifestyle metrics
   if (data.foodHabits) {

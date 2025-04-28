@@ -9,8 +9,8 @@ import { useMediaQuery } from "@/hooks/use-media-query"
 
 interface PdfGeneratorProps {
   contentRef: React.RefObject<HTMLDivElement>
-  fileName?: string
-  assessmentData?: any
+  fileName: string
+  assessmentData: any
   userName?: string
   assessmentDate?: Date
 }
@@ -51,6 +51,25 @@ export default function PdfGenerator({
       }
       // Otherwise, if we have assessmentData, generate PDF from that
       else if (assessmentData) {
+        // Create PDF
+        const pdf = new jsPDF({
+          orientation: "portrait",
+          unit: "mm",
+        })
+
+        // Set font
+        pdf.setFont("helvetica")
+
+        // Add title
+        pdf.setFontSize(20)
+        pdf.setTextColor(0, 0, 0)
+        pdf.text("Health Assessment Results", 20, 20)
+
+        // Add patient name if available
+        pdf.setFontSize(12)
+        pdf.setTextColor(0, 0, 0)
+        pdf.text(`Patient: ${userName || "Anonymous User"}`, 20, 30)
+
         await generatePdfFromData(assessmentData)
       } else {
         throw new Error("No content to generate PDF from")
@@ -181,11 +200,13 @@ export default function PdfGenerator({
       y += 10
     }
 
-    // Add all metrics
+    // Basic Health Metrics
     addMetric("Age:", `${assessmentData.age} years`)
     addMetric("Gender:", assessmentData.sex === "1" ? "Male" : "Female")
     addMetric("Blood Pressure:", `${assessmentData.trestbps} mm Hg`)
     addMetric("Cholesterol:", `${assessmentData.chol} mg/dl`)
+
+    // Chest Pain and Related Metrics
     addMetric(
       "Chest Pain Type:",
       (() => {
@@ -195,17 +216,17 @@ export default function PdfGenerator({
     )
     addMetric("Fasting Blood Sugar:", assessmentData.fbs === "1" ? "Above 120 mg/dl" : "Below 120 mg/dl")
 
-    if (assessmentData.thalach) {
-      addMetric("Max Heart Rate:", assessmentData.thalach)
-    }
-
-    addMetric("Exercise Induced Angina:", assessmentData.exang === "1" ? "Yes" : "No")
-
     // Add advanced parameters
     if (assessmentData.restecg) {
       const restecgValues = ["Normal", "ST-T wave abnormality", "Left ventricular hypertrophy"]
       addMetric("Resting ECG:", restecgValues[Number.parseInt(assessmentData.restecg)] || assessmentData.restecg)
     }
+
+    if (assessmentData.thalach) {
+      addMetric("Max Heart Rate:", assessmentData.thalach)
+    }
+
+    addMetric("Exercise Induced Angina:", assessmentData.exang === "1" ? "Yes" : "No")
 
     if (assessmentData.oldpeak) {
       addMetric("ST Depression:", assessmentData.oldpeak)
@@ -224,6 +245,20 @@ export default function PdfGenerator({
       const thalValues = ["Normal", "Fixed defect", "Reversible defect"]
       addMetric("Thalassemia:", thalValues[Number.parseInt(assessmentData.thal)] || assessmentData.thal)
     }
+
+    // Add lifestyle section header
+    y += 5
+    pdf.setFontSize(16)
+    pdf.setTextColor(0, 0, 0)
+    pdf.text("Lifestyle Factors", 20, y)
+    y += 5
+
+    // Draw a line
+    pdf.setDrawColor(200, 200, 200)
+    pdf.line(20, y, 190, y)
+    y += 10
+
+    pdf.setFontSize(12)
 
     // Add lifestyle metrics
     if (assessmentData.foodHabits) {

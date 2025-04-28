@@ -83,13 +83,13 @@ Time: ${formattedTime}
 Risk Level: ${riskLevel.toUpperCase()}
 Risk Score: ${riskScore}%
 
-Basic Health Metrics:
+BASIC HEALTH METRICS:
 - Age: ${assessmentData.age} years
 - Gender: ${getReadableValue("sex", assessmentData.sex)}
 - Blood Pressure: ${assessmentData.trestbps} mm Hg
 - Cholesterol: ${assessmentData.chol} mg/dl
 
-Advanced Parameters:
+CARDIAC ASSESSMENT:
 - Chest Pain Type: ${getReadableValue("cp", assessmentData.cp)}
 - Fasting Blood Sugar: ${getReadableValue("fbs", assessmentData.fbs)}
 - Resting ECG: ${getReadableValue("restecg", assessmentData.restecg)}
@@ -100,7 +100,7 @@ Advanced Parameters:
 - Number of Major Vessels: ${assessmentData.ca || "N/A"}
 - Thalassemia: ${getReadableValue("thal", assessmentData.thal) || "N/A"}
 
-Lifestyle Factors:
+LIFESTYLE FACTORS:
 - Food Habits: ${foodHabits}
 - Junk Food Consumption: ${junkFood}
 - Sleeping Hours: ${assessmentData.sleepingHours || "N/A"} hours/day
