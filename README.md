@@ -1,30 +1,59 @@
-# heart
+# HeartPredict - Heart Disease Risk Assessment
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+A web application that uses machine learning to predict heart disease risk based on health metrics.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/k1533s-projects/v0-heart)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/09rvUplvzFZ)
+## Features
 
-## Overview
+- User-friendly interface for inputting health metrics
+- Advanced machine learning model for accurate predictions
+- Detailed risk assessment results
+- Educational content about heart disease risk factors
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+## Setup Instructions
 
-## Deployment
+1. Clone the repository
+2. Install dependencies:
+   \`\`\`
+   npm install
+   \`\`\`
+3. Download the dataset and train the model:
+   \`\`\`
+   npm run setup
+   \`\`\`
+4. Start the development server:
+   \`\`\`
+   npm run dev
+   \`\`\`
 
-Your project is live at:
+## Data Sources
 
-**[https://vercel.com/k1533s-projects/v0-heart](https://vercel.com/k1533s-projects/v0-heart)**
+The heart disease prediction model is trained on the UCI Heart Disease dataset, which includes the following features:
 
-## Build your app
+- age: Age in years
+- sex: Sex (1 = male, 0 = female)
+- cp: Chest pain type (0-3)
+- trestbps: Resting blood pressure (mm Hg)
+- chol: Serum cholesterol (mg/dl)
+- fbs: Fasting blood sugar > 120 mg/dl (1 = true, 0 = false)
+- restecg: Resting electrocardiographic results (0-2)
+- thalach: Maximum heart rate achieved
+- exang: Exercise induced angina (1 = yes, 0 = no)
+- oldpeak: ST depression induced by exercise relative to rest
+- slope: Slope of the peak exercise ST segment (0-2)
+- ca: Number of major vessels colored by fluoroscopy (0-3)
+- thal: Thalassemia (0-2)
+- target: Heart disease diagnosis (1 = disease, 0 = no disease)
 
-Continue building your app on:
+## Technology Stack
 
-**[https://v0.dev/chat/projects/09rvUplvzFZ](https://v0.dev/chat/projects/09rvUplvzFZ)**
+- Next.js for frontend and API routes
+- TailwindCSS for styling
+- scikit-learn for machine learning model
+- Python for data processing and model training
 
-## How It Works
+## Disclaimer
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+This application is for educational purposes only and should not be used as a substitute for professional medical advice, diagnosis, or treatment.
+\`\`\`
+
+Let's update the package.json to include the setup script:
