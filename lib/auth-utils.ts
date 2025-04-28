@@ -118,7 +118,8 @@ export async function verifyAdminSession(request: Request): Promise<{
 export async function getUserFromRequest(request: NextRequest) {
   try {
     // Get the session token from the cookie
-    const sessionToken = request.cookies.get("session_token")?.value || cookies().get("session_token")?.value
+    const cookieStore = request.cookies || cookies()
+    const sessionToken = cookieStore.get("session")?.value
 
     if (!sessionToken) {
       console.log("No session token found in request")

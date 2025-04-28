@@ -456,7 +456,6 @@ export async function getAllPredictions() {
   }
 }
 
-// Add this function or update if it already exists
 export async function getPredictionsByUserId(userId: string) {
   try {
     if (!userId) {
@@ -471,7 +470,8 @@ export async function getPredictionsByUserId(userId: string) {
       ORDER BY created_at DESC
     `
 
-    console.log(`Found ${predictions.length} predictions for user ID: ${userId}`)
+    console.log(`Found ${predictions.length} predictions in database for user ID: ${userId}`)
+
     return predictions
   } catch (error) {
     console.error("Database error in getPredictionsByUserId:", error)
