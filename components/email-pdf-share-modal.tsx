@@ -15,9 +15,16 @@ import { useMediaQuery } from "@/hooks/use-media-query"
 interface EmailPdfShareModalProps {
   assessmentData: any
   patientName?: string
+  userPhone?: string
+  assessmentDate?: Date
 }
 
-export default function EmailPdfShareModal({ assessmentData, patientName = "Patient" }: EmailPdfShareModalProps) {
+export default function EmailPdfShareModal({
+  assessmentData,
+  patientName = "Patient",
+  userPhone = "",
+  assessmentDate = new Date(),
+}: EmailPdfShareModalProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [emailData, setEmailData] = useState({
     to: "",
@@ -77,6 +84,21 @@ export default function EmailPdfShareModal({ assessmentData, patientName = "Pati
     setErrorDetails("")
 
     try {
+      // Validate email
+      if (!emailData.to || !/^\S+@\S+\.\S+$/.test(emailData.to)) {
+        throw new Error("Valid recipient email is required")
+      }
+
+      // Validate subject
+      if (!emailData.subject || emailData.subject.trim().length === 0) {
+        throw new Error("Email subject is required")
+      }
+
+      // Validate assessment data
+      if (!assessmentData) {
+        throw new Error("Assessment data is required")
+      }
+
       // Use the new API route that includes PDF attachment
       const response = await fetch("/api/email-with-pdf", {
         method: "POST",
@@ -88,14 +110,18 @@ export default function EmailPdfShareModal({ assessmentData, patientName = "Pati
           subject: emailData.subject,
           message: emailData.message,
           assessmentData: emailData.includeFullData ? assessmentData : null,
+          userName: patientName,
+          userPhone: userPhone,
+          assessmentDate: assessmentDate.toISOString(),
         }),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to send email")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to send email")
       }
+
+      const data = await response.json()
 
       setStatus("success")
 

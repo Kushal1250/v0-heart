@@ -16,9 +16,16 @@ import { useMediaQuery } from "@/hooks/use-media-query"
 interface EmailShareModalProps {
   assessmentData: any
   patientName?: string
+  userPhone?: string
+  assessmentDate?: Date
 }
 
-export default function EmailShareModal({ assessmentData, patientName = "Patient" }: EmailShareModalProps) {
+export default function EmailShareModal({
+  assessmentData,
+  patientName = "Patient",
+  userPhone = "",
+  assessmentDate = new Date(),
+}: EmailShareModalProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [emailData, setEmailData] = useState({
     to: "",
@@ -73,6 +80,21 @@ export default function EmailShareModal({ assessmentData, patientName = "Patient
     setErrorMessage("")
 
     try {
+      // Validate email
+      if (!emailData.to || !/^\S+@\S+\.\S+$/.test(emailData.to)) {
+        throw new Error("Valid recipient email is required")
+      }
+
+      // Validate subject
+      if (!emailData.subject || emailData.subject.trim().length === 0) {
+        throw new Error("Email subject is required")
+      }
+
+      // Validate assessment data
+      if (!assessmentData) {
+        throw new Error("Assessment data is required")
+      }
+
       const response = await fetch("/api/email", {
         method: "POST",
         headers: {
@@ -84,14 +106,18 @@ export default function EmailShareModal({ assessmentData, patientName = "Patient
           message: emailData.message,
           assessmentData: assessmentData,
           includePdfAttachment: emailData.includePdfAttachment,
+          userName: patientName,
+          userPhone: userPhone,
+          assessmentDate: assessmentDate.toISOString(),
         }),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to send email")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to send email")
       }
+
+      const data = await response.json()
 
       setStatus("success")
 
@@ -159,7 +185,14 @@ export default function EmailShareModal({ assessmentData, patientName = "Patient
               <AlertDescription>The email service is not properly configured.</AlertDescription>
             </Alert>
             <div className="mt-4">
-              <PdfGenerator contentRef={{ current: null }} fileName={pdfFileName} assessmentData={assessmentData} />
+              <PdfGenerator
+                contentRef={{ current: null }}
+                fileName={pdfFileName}
+                assessmentData={assessmentData}
+                userName={patientName}
+                userPhone={userPhone}
+                assessmentDate={assessmentDate}
+              />
             </div>
           </div>
         ) : (
