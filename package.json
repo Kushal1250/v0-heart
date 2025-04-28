@@ -66,12 +66,12 @@
     "crypto": "latest",
     "nodemailer": "latest",
     "uuid": "latest",
-    "@neondatabase/serverless": "latest",
-    "bcrypt-ts": "latest",
     "jspdf-autotable": "latest",
-    "pdfkit": "latest",
     "html2canvas": "latest",
-    "util": "latest"
+    "util": "latest",
+    "pdfkit": "latest",
+    "@neondatabase/serverless": "latest",
+    "bcrypt-ts": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

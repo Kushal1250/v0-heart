@@ -35,7 +35,7 @@ async function generatePdfBuffer(
   pdf.setTextColor(0, 0, 0)
   pdf.text("Health Assessment Results", 20, 20)
 
-  // Add patient name if available
+  // Add patient name if available - Fix: Use the actual userName instead of hardcoded "Patient"
   pdf.setFontSize(12)
   pdf.setTextColor(0, 0, 0)
   pdf.text(`Patient: ${userName || "Anonymous User"}`, 20, 30)

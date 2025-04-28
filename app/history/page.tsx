@@ -324,6 +324,14 @@ export default function HistoryPage() {
           )}
         </div>
 
+        {isAuthenticated && user && (
+          <div className="mb-4 text-center">
+            <p className="text-sm text-gray-400">
+              Showing history for <span className="font-medium text-white">{user.email}</span>
+            </p>
+          </div>
+        )}
+
         <Tabs defaultValue="history" className="w-full" onValueChange={setActiveTab}>
           <TabsList className="grid grid-cols-2 mb-6">
             <TabsTrigger value="history">Assessment History</TabsTrigger>

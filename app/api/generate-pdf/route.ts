@@ -10,10 +10,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Prediction data is required" }, { status: 400 })
     }
 
-    // Generate PDF
+    // Generate PDF - Fix: Ensure userName is passed correctly
     const pdfBuffer = await generateEnhancedPDF(
       predictionData as PredictionResult,
-      userName || "Anonymous User",
+      userName || "Anonymous User", // Use provided userName or fallback to "Anonymous User"
       phoneNumber || "",
     )
 

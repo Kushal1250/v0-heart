@@ -27,7 +27,7 @@ export async function generateEnhancedPDF(
     doc.fontSize(24).font("Helvetica-Bold").text("Health Assessment Results", { align: "center" })
     doc.moveDown(1)
 
-    // Add patient information section
+    // Add patient information section - Fix: Use the actual userName instead of hardcoded "Patient"
     doc.fontSize(14).font("Helvetica-Bold").text(`Patient: ${userName}`)
 
     if (phoneNumber) {
