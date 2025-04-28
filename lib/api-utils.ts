@@ -3,7 +3,15 @@
  */
 export async function safeParseJSON(response: Response) {
   try {
-    return await response.json()
+    // Check if the response is empty
+    const text = await response.text()
+    if (!text || text.trim() === "") {
+      console.error("Empty response received")
+      return null
+    }
+
+    // Parse the text as JSON
+    return JSON.parse(text)
   } catch (error) {
     console.error("Error parsing JSON response:", error)
     return null
@@ -18,20 +26,43 @@ export async function handleApiResponse<T>(response: Response): Promise<T> {
     let errorMessage = `Error: ${response.status} ${response.statusText}`
 
     try {
-      const errorData = await response.json()
-      if (errorData && errorData.message) {
-        errorMessage = errorData.message
+      // Get the response text first
+      const text = await response.text()
+
+      // Only try to parse as JSON if there's content
+      if (text && text.trim() !== "") {
+        try {
+          const errorData = JSON.parse(text)
+          if (errorData && errorData.message) {
+            errorMessage = errorData.message
+          }
+        } catch (parseError) {
+          // If JSON parsing fails, use the text as the error message
+          errorMessage = text || errorMessage
+        }
       }
     } catch (e) {
-      // If JSON parsing fails, use the default error message
+      // If text extraction fails, use the default error message
     }
 
     throw new Error(errorMessage)
   }
 
   try {
-    return (await response.json()) as T
+    // Get the response text first
+    const text = await response.text()
+
+    // Check if the response is empty
+    if (!text || text.trim() === "") {
+      throw new Error("Empty response received from server")
+    }
+
+    // Parse the text as JSON
+    return JSON.parse(text) as T
   } catch (error) {
-    throw new Error("Failed to parse response data")
+    if (error instanceof SyntaxError) {
+      throw new Error("Failed to parse response data: Invalid JSON")
+    }
+    throw error
   }
 }

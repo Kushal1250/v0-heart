@@ -70,7 +70,8 @@
     "bcrypt-ts": "latest",
     "jspdf-autotable": "latest",
     "pdfkit": "latest",
-    "html2canvas": "latest"
+    "html2canvas": "latest",
+    "util": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
