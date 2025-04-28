@@ -1,192 +1,242 @@
 import { jsPDF } from "jspdf"
+import "jspdf-autotable"
+import type { PredictionResult } from "@/types/prediction"
 
-/**
- * Generate a PDF buffer from assessment data
- * This is a server-side function that doesn't rely on DOM elements
- */
-export async function generatePdfBuffer(
-  data: any,
-  userName?: string,
-  userPhone?: string,
-  assessmentDate: Date = new Date(),
-): Promise<Buffer> {
-  // Format date and time for display
-  const formattedDate = assessmentDate.toLocaleDateString("en-US", {
-    year: "numeric",
+export const generatePDF = (
+  result: PredictionResult,
+  userName = "Anonymous User",
+  phoneNumber = "",
+  includeDetails = true,
+) => {
+  const doc = new jsPDF()
+  const pageWidth = doc.internal.pageSize.getWidth()
+
+  // Add title
+  doc.setFontSize(24)
+  doc.setFont("helvetica", "bold")
+  doc.text("Health Assessment Results", pageWidth / 2, 30, { align: "center" })
+
+  // Add patient information
+  doc.setFontSize(14)
+  doc.setFont("helvetica", "bold")
+  doc.text(`Patient: ${userName}`, 20, 50)
+
+  if (phoneNumber) {
+    doc.text(`Phone No: ${phoneNumber}`, 20, 60)
+  }
+
+  // Add date
+  const now = new Date()
+  const formattedDate = now.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
+    year: "numeric",
   })
-
-  const formattedTime = assessmentDate.toLocaleTimeString("en-US", {
+  const formattedTime = now.toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
   })
-
-  // Create PDF
-  const pdf = new jsPDF({
-    orientation: "portrait",
-    unit: "mm",
-  })
-
-  // Set font
-  pdf.setFont("helvetica")
-
-  // Add title
-  pdf.setFontSize(20)
-  pdf.setTextColor(0, 0, 0)
-  pdf.text("Health Assessment Results", 20, 20)
-
-  // Add patient name if available
-  pdf.setFontSize(12)
-  pdf.setTextColor(0, 0, 0)
-  pdf.text(`Patient: ${userName || "Anonymous User"}`, 20, 30)
-
-  // Add patient phone if available
-  let yOffset = 35
-  if (userPhone) {
-    pdf.text(`Phone: ${userPhone}`, 20, yOffset)
-    yOffset += 5
-  }
-
-  // Add date and time
-  pdf.setFontSize(10)
-  pdf.setTextColor(100, 100, 100)
-  pdf.text(`Generated on ${formattedDate} at ${formattedTime}`, 20, yOffset)
-  yOffset += 10
+  doc.setFont("helvetica", "normal")
+  doc.text(`Generated on ${formattedDate} at ${formattedTime}`, 20, phoneNumber ? 70 : 60)
 
   // Add risk level
-  pdf.setFontSize(16)
-  pdf.setTextColor(0, 0, 0)
-  const riskLevel = data.result.risk.charAt(0).toUpperCase() + data.result.risk.slice(1)
-  pdf.text(`Risk Level: ${riskLevel}`, 20, yOffset)
-  yOffset += 10
+  const yPos = phoneNumber ? 90 : 80
+  doc.setFontSize(18)
+  doc.setFont("helvetica", "bold")
+  doc.text(`Risk Level: ${result.riskLevel}`, 20, yPos)
 
   // Add risk score
-  pdf.setFontSize(14)
-  pdf.text(`Risk Score: ${data.result.score}%`, 20, yOffset)
-  yOffset += 15
+  doc.text(`Risk Score: ${result.probability}%`, 20, yPos + 20)
 
-  // Add health metrics section
-  pdf.setFontSize(16)
-  pdf.text("Health Metrics", 20, yOffset)
-  yOffset += 2
+  let currentY = 0
 
-  // Draw a line
-  pdf.setDrawColor(200, 200, 200)
-  pdf.line(20, yOffset, 190, yOffset)
-  yOffset += 8
+  if (includeDetails && result.parameters) {
+    // Basic Health Metrics
+    currentY = yPos + 50
+    doc.setFontSize(16)
+    doc.text("Basic Health Metrics:", 20, currentY)
+    currentY += 10
 
-  // Add metrics
-  pdf.setFontSize(12)
-  let y = yOffset
+    doc.setFontSize(12)
+    doc.setFont("helvetica", "normal")
+    if (result.parameters.age) {
+      doc.text(`- Age: ${result.parameters.age} years`, 30, currentY)
+      currentY += 10
+    }
+    if (result.parameters.sex) {
+      doc.text(`- Gender: ${result.parameters.sex === 1 ? "Male" : "Female"}`, 30, currentY)
+      currentY += 10
+    }
+    if (result.parameters.trestbps) {
+      doc.text(`- Blood Pressure: ${result.parameters.trestbps} mm Hg`, 30, currentY)
+      currentY += 10
+    }
+    if (result.parameters.chol) {
+      doc.text(`- Cholesterol: ${result.parameters.chol} mg/dl`, 30, currentY)
+      currentY += 10
+    }
 
-  // Helper function to add a metric
-  const addMetric = (label: string, value: string) => {
-    pdf.setTextColor(80, 80, 80)
-    pdf.text(label, 20, y)
-    pdf.setTextColor(0, 0, 0)
-    pdf.text(value, 80, y)
-    y += 10
-  }
+    // Advanced Parameters
+    currentY += 10
+    doc.setFontSize(16)
+    doc.setFont("helvetica", "bold")
+    doc.text("Advanced Parameters:", 20, currentY)
+    currentY += 10
 
-  // Basic Health Metrics
-  addMetric("Age:", `${data.age} years`)
-  addMetric("Gender:", data.sex === "1" ? "Male" : "Female")
-  addMetric("Blood Pressure:", `${data.trestbps} mm Hg`)
-  addMetric("Cholesterol:", `${data.chol} mg/dl`)
+    doc.setFontSize(12)
+    doc.setFont("helvetica", "normal")
 
-  // Chest Pain and Related Metrics
-  addMetric(
-    "Chest Pain Type:",
-    (() => {
-      const types = ["Typical angina", "Atypical angina", "Non-anginal pain", "Asymptomatic"]
-      return types[Number.parseInt(data.cp)] || data.cp
-    })(),
-  )
-  addMetric("Fasting Blood Sugar:", data.fbs === "1" ? "Above 120 mg/dl" : "Below 120 mg/dl")
-  addMetric(
-    "Resting ECG:",
-    (() => {
-      const types = ["Normal", "ST-T wave abnormality", "Left ventricular hypertrophy"]
-      return types[Number.parseInt(data.restecg)] || data.restecg
-    })(),
-  )
+    if (result.parameters.cp !== undefined) {
+      let chestPainType = ""
+      switch (result.parameters.cp) {
+        case 0:
+          chestPainType = "Typical angina"
+          break
+        case 1:
+          chestPainType = "Atypical angina"
+          break
+        case 2:
+          chestPainType = "Non-anginal pain"
+          break
+        case 3:
+          chestPainType = "Asymptomatic"
+          break
+        default:
+          chestPainType = "Unknown"
+      }
+      doc.text(`- Chest Pain Type: ${chestPainType}`, 30, currentY)
+      currentY += 10
+    }
 
-  // Heart Rate and Exercise Metrics
-  if (data.thalach) {
-    addMetric("Max Heart Rate:", data.thalach)
-  }
-  addMetric("Exercise Induced Angina:", data.exang === "1" ? "Yes" : "No")
+    if (result.parameters.fbs !== undefined) {
+      doc.text(`- Fasting Blood Sugar: ${result.parameters.fbs === 1 ? "> 120 mg/dl" : "≤ 120 mg/dl"}`, 30, currentY)
+      currentY += 10
+    }
 
-  // ST Depression and Slope
-  if (data.oldpeak) {
-    addMetric("ST Depression:", data.oldpeak)
-  }
-  if (data.slope) {
-    const slopeValues = ["Upsloping", "Flat", "Downsloping"]
-    addMetric("ST Slope:", slopeValues[Number.parseInt(data.slope)] || data.slope)
-  }
+    if (result.parameters.restecg !== undefined) {
+      let ecgResult = ""
+      switch (result.parameters.restecg) {
+        case 0:
+          ecgResult = "Normal"
+          break
+        case 1:
+          ecgResult = "ST-T wave abnormality"
+          break
+        case 2:
+          ecgResult = "Left ventricular hypertrophy"
+          break
+        default:
+          ecgResult = "Unknown"
+      }
+      doc.text(`- Resting ECG: ${ecgResult}`, 30, currentY)
+      currentY += 10
+    }
 
-  // Vessels and Thalassemia
-  if (data.ca) {
-    addMetric("Number of Major Vessels:", data.ca)
-  }
-  if (data.thal) {
-    const thalValues = ["Normal", "Fixed defect", "Reversible defect"]
-    addMetric("Thalassemia:", thalValues[Number.parseInt(data.thal)] || data.thal)
-  }
+    if (result.parameters.thalach) {
+      doc.text(`- Max Heart Rate: ${result.parameters.thalach}`, 30, currentY)
+      currentY += 10
+    }
 
-  // Lifestyle Factors
-  y += 5
-  pdf.setFontSize(16)
-  pdf.setTextColor(0, 0, 0)
-  pdf.text("Lifestyle Factors", 20, y)
-  y += 5
+    if (result.parameters.exang !== undefined) {
+      doc.text(`- Exercise Induced Angina: ${result.parameters.exang === 1 ? "Yes" : "No"}`, 30, currentY)
+      currentY += 10
+    }
 
-  // Draw a line
-  pdf.setDrawColor(200, 200, 200)
-  pdf.line(20, y, 190, y)
-  y += 10
+    if (result.parameters.oldpeak !== undefined) {
+      doc.text(`- ST Depression: ${result.parameters.oldpeak}`, 30, currentY)
+      currentY += 10
+    }
 
-  pdf.setFontSize(12)
+    if (result.parameters.slope !== undefined) {
+      let slopeType = ""
+      switch (result.parameters.slope) {
+        case 0:
+          slopeType = "Upsloping"
+          break
+        case 1:
+          slopeType = "Flat"
+          break
+        case 2:
+          slopeType = "Downsloping"
+          break
+        default:
+          slopeType = "Unknown"
+      }
+      doc.text(`- ST Slope: ${slopeType}`, 30, currentY)
+      currentY += 10
+    }
 
-  // Add lifestyle metrics
-  if (data.foodHabits) {
-    const foodHabitsText =
-      data.foodHabits === "vegetarian"
-        ? "Vegetarian"
-        : data.foodHabits === "non-vegetarian"
-          ? "Non-Vegetarian"
-          : "Mixed Diet"
-    addMetric("Food Habits:", foodHabitsText)
-  }
+    if (result.parameters.ca !== undefined) {
+      doc.text(`- Number of Major Vessels: ${result.parameters.ca}`, 30, currentY)
+      currentY += 10
+    }
 
-  if (data.junkFoodConsumption) {
-    const junkFoodText =
-      data.junkFoodConsumption === "low"
-        ? "Low (rarely)"
-        : data.junkFoodConsumption === "moderate"
-          ? "Moderate (weekly)"
-          : "High (daily)"
-    addMetric("Junk Food Consumption:", junkFoodText)
-  }
+    if (result.parameters.thal !== undefined) {
+      let thalResult = ""
+      switch (result.parameters.thal) {
+        case 1:
+          thalResult = "Normal"
+          break
+        case 2:
+          thalResult = "Fixed defect"
+          break
+        case 3:
+          thalResult = "Reversible defect"
+          break
+        default:
+          thalResult = "Unknown"
+      }
+      doc.text(`- Thalassemia: ${thalResult}`, 30, currentY)
+      currentY += 10
+    }
 
-  if (data.sleepingHours) {
-    addMetric("Sleeping Hours:", `${data.sleepingHours} hours/day`)
+    // Check if we need a new page for lifestyle factors
+    if (currentY > 250) {
+      doc.addPage()
+      currentY = 30
+    }
+
+    // Lifestyle Factors (if available)
+    if (result.parameters.foodHabits || result.parameters.junkFood || result.parameters.sleepingHours) {
+      currentY += 10
+      doc.setFontSize(16)
+      doc.setFont("helvetica", "bold")
+      doc.text("Lifestyle Factors:", 20, currentY)
+      currentY += 10
+
+      doc.setFontSize(12)
+      doc.setFont("helvetica", "normal")
+
+      if (result.parameters.foodHabits) {
+        doc.text(`- Food Habits: ${result.parameters.foodHabits}`, 30, currentY)
+        currentY += 10
+      }
+
+      if (result.parameters.junkFood) {
+        doc.text(`- Junk Food Consumption: ${result.parameters.junkFood}`, 30, currentY)
+        currentY += 10
+      }
+
+      if (result.parameters.sleepingHours) {
+        doc.text(`- Sleeping Hours: ${result.parameters.sleepingHours} hours/day`, 30, currentY)
+        currentY += 10
+      }
+    }
   }
 
   // Add disclaimer
-  y += 10
-  pdf.setFontSize(10)
-  pdf.setTextColor(100, 100, 100)
-  pdf.text("This assessment is not a medical diagnosis. Please consult with a healthcare provider.", 20, y)
+  if (currentY > 250) {
+    doc.addPage()
+    currentY = 30
+  } else {
+    currentY += 20
+  }
 
-  // Add footer
-  pdf.setFontSize(8)
-  pdf.setTextColor(150, 150, 150)
-  pdf.text(`Generated by HeartPredict on ${formattedDate} at ${formattedTime}`, 20, pdf.internal.pageSize.height - 10)
+  doc.setFontSize(12)
+  doc.setFont("helvetica", "italic")
+  doc.text("This assessment is not a medical diagnosis. Please consult with a healthcare provider.", 20, currentY, {
+    maxWidth: pageWidth - 40,
+  })
 
-  // Convert to buffer
-  const pdfOutput = pdf.output("arraybuffer")
-  return Buffer.from(pdfOutput)
+  return doc
 }

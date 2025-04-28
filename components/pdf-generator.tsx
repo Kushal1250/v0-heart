@@ -16,7 +16,8 @@ interface PdfGeneratorProps {
   assessmentDate?: Date
 }
 
-export default function PdfGenerator({
+// Define the component function
+function PdfGenerator({
   contentRef,
   fileName = "health-assessment-results",
   assessmentData,
@@ -142,149 +143,166 @@ export default function PdfGenerator({
     pdf.setTextColor(0, 0, 0)
     pdf.text("Health Assessment Results", 20, 20)
 
+    // Add patient information section
+    let yPos = 35
+
     // Add patient name if available
     pdf.setFontSize(12)
     pdf.setTextColor(0, 0, 0)
-    pdf.text(`Patient: ${userName || "Anonymous User"}`, 20, 30)
+    pdf.text(`Patient: ${userName || "Anonymous User"}`, 20, yPos)
+    yPos += 7
 
     // Add patient phone if available
-    let yOffset = 35
     if (userPhone) {
-      pdf.text(`Phone: ${userPhone}`, 20, yOffset)
-      yOffset += 5
+      pdf.text(`Phone: ${userPhone}`, 20, yPos)
+      yPos += 7
     }
 
     // Add date and time
-    pdf.setFontSize(10)
-    pdf.setTextColor(100, 100, 100)
-    pdf.text(`Generated on ${formattedDate} at ${formattedTime}`, 20, yOffset)
-    yOffset += 10
+    pdf.text(`Generated on ${formattedDate} at ${formattedTime}`, 20, yPos)
+    yPos += 12
 
     // Add risk level
     pdf.setFontSize(16)
     pdf.setTextColor(0, 0, 0)
     const riskLevel = data.result.risk.charAt(0).toUpperCase() + data.result.risk.slice(1)
-    pdf.text(`Risk Level: ${riskLevel}`, 20, yOffset)
-    yOffset += 10
+    pdf.text(`Risk Level: ${riskLevel}`, 20, yPos)
+    yPos += 8
 
     // Add risk score
     pdf.setFontSize(14)
-    pdf.text(`Risk Score: ${data.result.score}%`, 20, yOffset)
-    yOffset += 15
+    pdf.text(`Risk Score: ${data.result.score}%`, 20, yPos)
+    yPos += 15
 
-    // Add health metrics section
+    // Add basic health metrics section
     pdf.setFontSize(16)
-    pdf.text("Health Metrics", 20, yOffset)
-    yOffset += 2
+    pdf.text("Basic Health Metrics", 20, yPos)
+    yPos += 2
 
     // Draw a line
     pdf.setDrawColor(200, 200, 200)
-    pdf.line(20, yOffset, 190, yOffset)
-    yOffset += 8
+    pdf.line(20, yPos, 190, yPos)
+    yPos += 8
 
     // Add metrics
     pdf.setFontSize(12)
-    let y = yOffset
 
     // Helper function to add a metric
     const addMetric = (label: string, value: string) => {
       pdf.setTextColor(80, 80, 80)
-      pdf.text(label, 20, y)
+      pdf.text(label, 20, yPos)
       pdf.setTextColor(0, 0, 0)
-      pdf.text(value, 80, y)
-      y += 10
+      pdf.text(value, 80, yPos)
+      yPos += 7
     }
 
     // Basic Health Metrics
-    addMetric("Age:", `${assessmentData.age} years`)
-    addMetric("Gender:", assessmentData.sex === "1" ? "Male" : "Female")
-    addMetric("Blood Pressure:", `${assessmentData.trestbps} mm Hg`)
-    addMetric("Cholesterol:", `${assessmentData.chol} mg/dl`)
+    addMetric("Age:", `${data.age} years`)
+    addMetric("Gender:", data.sex === "1" ? "Male" : "Female")
+    addMetric("Blood Pressure:", `${data.trestbps} mm Hg`)
+    addMetric("Cholesterol:", `${data.chol} mg/dl`)
+    yPos += 5
+
+    // Advanced Parameters section
+    pdf.setFontSize(16)
+    pdf.setTextColor(0, 0, 0)
+    pdf.text("Advanced Parameters", 20, yPos)
+    yPos += 2
+
+    // Draw a line
+    pdf.setDrawColor(200, 200, 200)
+    pdf.line(20, yPos, 190, yPos)
+    yPos += 8
+
+    // Reset font for metrics
+    pdf.setFontSize(12)
 
     // Chest Pain and Related Metrics
     addMetric(
       "Chest Pain Type:",
       (() => {
         const types = ["Typical angina", "Atypical angina", "Non-anginal pain", "Asymptomatic"]
-        return types[Number.parseInt(assessmentData.cp)] || assessmentData.cp
+        return types[Number.parseInt(data.cp)] || data.cp
       })(),
     )
-    addMetric("Fasting Blood Sugar:", assessmentData.fbs === "1" ? "Above 120 mg/dl" : "Below 120 mg/dl")
+    addMetric("Fasting Blood Sugar:", data.fbs === "1" ? "Above 120 mg/dl" : "Below 120 mg/dl")
 
     // Add advanced parameters
-    if (assessmentData.restecg) {
+    if (data.restecg) {
       const restecgValues = ["Normal", "ST-T wave abnormality", "Left ventricular hypertrophy"]
-      addMetric("Resting ECG:", restecgValues[Number.parseInt(assessmentData.restecg)] || assessmentData.restecg)
+      addMetric("Resting ECG:", restecgValues[Number.parseInt(data.restecg)] || data.restecg)
     }
 
-    if (assessmentData.thalach) {
-      addMetric("Max Heart Rate:", assessmentData.thalach)
+    if (data.thalach) {
+      addMetric("Max Heart Rate:", data.thalach)
     }
 
-    addMetric("Exercise Induced Angina:", assessmentData.exang === "1" ? "Yes" : "No")
+    addMetric("Exercise Induced Angina:", data.exang === "1" ? "Yes" : "No")
 
-    if (assessmentData.oldpeak) {
-      addMetric("ST Depression:", assessmentData.oldpeak)
+    if (data.oldpeak) {
+      addMetric("ST Depression:", data.oldpeak)
     }
 
-    if (assessmentData.slope) {
+    if (data.slope) {
       const slopeValues = ["Upsloping", "Flat", "Downsloping"]
-      addMetric("ST Slope:", slopeValues[Number.parseInt(assessmentData.slope)] || assessmentData.slope)
+      addMetric("ST Slope:", slopeValues[Number.parseInt(data.slope)] || data.slope)
     }
 
-    if (assessmentData.ca) {
-      addMetric("Number of Major Vessels:", assessmentData.ca)
+    if (data.ca) {
+      addMetric("Number of Major Vessels:", data.ca)
     }
 
-    if (assessmentData.thal) {
+    if (data.thal) {
       const thalValues = ["Normal", "Fixed defect", "Reversible defect"]
-      addMetric("Thalassemia:", thalValues[Number.parseInt(assessmentData.thal)] || assessmentData.thal)
+      addMetric("Thalassemia:", thalValues[Number.parseInt(data.thal)] || data.thal)
     }
+    yPos += 5
 
     // Add lifestyle section header
-    y += 5
     pdf.setFontSize(16)
     pdf.setTextColor(0, 0, 0)
-    pdf.text("Lifestyle Factors", 20, y)
-    y += 5
+    pdf.text("Lifestyle Factors", 20, yPos)
+    yPos += 2
 
     // Draw a line
     pdf.setDrawColor(200, 200, 200)
-    pdf.line(20, y, 190, y)
-    y += 10
+    pdf.line(20, yPos, 190, yPos)
+    yPos += 8
 
     pdf.setFontSize(12)
 
     // Add lifestyle metrics
-    if (assessmentData.foodHabits) {
+    if (data.foodHabits) {
       const foodHabitsText =
-        assessmentData.foodHabits === "vegetarian"
+        data.foodHabits === "vegetarian"
           ? "Vegetarian"
-          : assessmentData.foodHabits === "non-vegetarian"
+          : data.foodHabits === "non-vegetarian"
             ? "Non-Vegetarian"
             : "Mixed Diet"
       addMetric("Food Habits:", foodHabitsText)
     }
 
-    if (assessmentData.junkFoodConsumption) {
+    if (data.junkFoodConsumption) {
       const junkFoodText =
-        assessmentData.junkFoodConsumption === "low"
+        data.junkFoodConsumption === "low"
           ? "Low (rarely)"
-          : assessmentData.junkFoodConsumption === "moderate"
+          : data.junkFoodConsumption === "moderate"
             ? "Moderate (weekly)"
             : "High (daily)"
       addMetric("Junk Food Consumption:", junkFoodText)
     }
 
-    if (assessmentData.sleepingHours) {
-      addMetric("Sleeping Hours:", `${assessmentData.sleepingHours} hours/day`)
+    if (data.sleepingHours) {
+      addMetric("Sleeping Hours:", `${data.sleepingHours} hours/day`)
+    } else {
+      addMetric("Sleeping Hours:", "N/A hours/day")
     }
 
     // Add disclaimer
-    y += 10
+    yPos += 10
     pdf.setFontSize(10)
     pdf.setTextColor(100, 100, 100)
-    pdf.text("This assessment is not a medical diagnosis. Please consult with a healthcare provider.", 20, y)
+    pdf.text("This assessment is not a medical diagnosis. Please consult with a healthcare provider.", 20, yPos)
 
     // Add footer
     pdf.setFontSize(8)
@@ -307,3 +325,7 @@ export default function PdfGenerator({
     </Button>
   )
 }
+
+// Export both as default and named export to support both import styles
+export default PdfGenerator
+export { PdfGenerator as PDFGenerator }

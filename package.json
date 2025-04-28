@@ -58,6 +58,7 @@
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.6",
     "zod": "^3.24.1",
+    "jspdf": "latest",
     "fs": "latest",
     "path": "latest",
     "child_process": "latest",
@@ -65,11 +66,11 @@
     "crypto": "latest",
     "nodemailer": "latest",
     "uuid": "latest",
-    "util": "latest",
-    "html2canvas": "latest",
-    "jspdf": "latest",
     "@neondatabase/serverless": "latest",
-    "bcrypt-ts": "latest"
+    "bcrypt-ts": "latest",
+    "jspdf-autotable": "latest",
+    "pdfkit": "latest",
+    "html2canvas": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
