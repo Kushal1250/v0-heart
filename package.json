@@ -65,11 +65,11 @@
     "crypto": "latest",
     "nodemailer": "latest",
     "uuid": "latest",
-    "@neondatabase/serverless": "latest",
-    "bcrypt-ts": "latest",
     "util": "latest",
+    "html2canvas": "latest",
     "jspdf": "latest",
-    "html2canvas": "latest"
+    "@neondatabase/serverless": "latest",
+    "bcrypt-ts": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

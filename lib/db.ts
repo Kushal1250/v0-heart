@@ -80,6 +80,18 @@ export async function getUserByEmail(email: string) {
   }
 }
 
+// Add this function after the getUserByEmail function
+
+export async function getUserByPhone(phone: string) {
+  try {
+    const users = await sql`SELECT * FROM users WHERE phone = ${phone}`
+    return users[0] || null
+  } catch (error) {
+    console.error("Error getting user by phone:", error)
+    return null
+  }
+}
+
 export async function getUserByEmailAndPhone(email: string, phone: string) {
   try {
     if (!email || !phone) {

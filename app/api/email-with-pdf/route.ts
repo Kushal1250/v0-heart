@@ -145,6 +145,13 @@ export async function POST(request: NextRequest) {
 
     // Add assessment data if included
     if (assessmentData) {
+      // Add phone number to assessment data
+      if (assessmentData.userPhone) {
+        htmlContent = htmlContent.replace(
+          "</p>",
+          `<p style="margin: 5px 0;"><strong>Phone:</strong> ${assessmentData.userPhone || "Not provided"}</p></p>`,
+        )
+      }
       htmlContent += formatAssessmentDataAsHtml(assessmentData)
     } else {
       htmlContent += `

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createUser, getUserByEmail, createSession } from "@/lib/db"
+import { createUser, getUserByEmail, getUserByPhone, createSession } from "@/lib/db"
 import { generateToken, isValidEmail, isStrongPassword, createResponseWithCookie } from "@/lib/auth-utils"
 
 export async function POST(request: Request) {
@@ -40,10 +40,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Password must be at least 8 characters" }, { status: 400 })
     }
 
-    // Check if user already exists
-    const existingUser = await getUserByEmail(email)
-    if (existingUser) {
-      return NextResponse.json({ message: "Email already in use" }, { status: 409 })
+    // Check if user already exists by email
+    const existingUserByEmail = await getUserByEmail(email)
+    if (existingUserByEmail) {
+      return NextResponse.json({ message: "Email already in use", field: "email" }, { status: 409 })
+    }
+
+    // Check if user already exists by phone
+    const existingUserByPhone = await getUserByPhone(phone)
+    if (existingUserByPhone) {
+      return NextResponse.json({ message: "Phone number already in use", field: "phone" }, { status: 409 })
     }
 
     // Create user

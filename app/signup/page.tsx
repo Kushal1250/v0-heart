@@ -18,6 +18,7 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [phone, setPhone] = useState("")
   const [error, setError] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({})
   const [success, setSuccess] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
@@ -26,30 +27,31 @@ export default function SignupPage() {
     e.preventDefault()
     setError("")
     setSuccess("")
+    setFieldErrors({})
 
     // Enhanced validation
     if (!name.trim()) {
-      setError("Full name is required")
+      setFieldErrors((prev) => ({ ...prev, name: "Full name is required" }))
       return
     }
 
     if (!email.trim()) {
-      setError("Email address is required")
+      setFieldErrors((prev) => ({ ...prev, email: "Email address is required" }))
       return
     }
 
     if (!phone.trim()) {
-      setError("Phone number is required")
+      setFieldErrors((prev) => ({ ...prev, phone: "Phone number is required" }))
       return
     }
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters long")
+      setFieldErrors((prev) => ({ ...prev, password: "Password must be at least 8 characters long" }))
       return
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match")
+      setFieldErrors((prev) => ({ ...prev, confirmPassword: "Passwords do not match" }))
       return
     }
 
@@ -82,9 +84,15 @@ export default function SignupPage() {
 
       // Check if the response is ok
       if (!response.ok) {
-        // Use the error message from the response if available
-        const errorMessage = data?.message || `Signup failed: ${response.statusText || "Server error"}`
-        throw new Error(errorMessage)
+        // Handle field-specific errors
+        if (response.status === 409 && data.field) {
+          setFieldErrors((prev) => ({ ...prev, [data.field]: data.message }))
+        } else {
+          // Use the error message from the response if available
+          const errorMessage = data?.message || `Signup failed: ${response.statusText || "Server error"}`
+          throw new Error(errorMessage)
+        }
+        return
       }
 
       // Show success message before redirecting
@@ -160,12 +168,13 @@ export default function SignupPage() {
                   type="text"
                   autoComplete="name"
                   required
-                  className="form-input pl-10"
+                  className={`form-input pl-10 ${fieldErrors.name ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
                   placeholder="John Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
               </div>
+              {fieldErrors.name && <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>}
             </div>
 
             <div className="form-group">
@@ -182,12 +191,13 @@ export default function SignupPage() {
                   type="email"
                   autoComplete="email"
                   required
-                  className="form-input pl-10"
+                  className={`form-input pl-10 ${fieldErrors.email ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
+              {fieldErrors.email && <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>}
             </div>
 
             <div className="form-group">
@@ -204,12 +214,13 @@ export default function SignupPage() {
                   type="tel"
                   autoComplete="tel"
                   required
-                  className="form-input pl-10"
+                  className={`form-input pl-10 ${fieldErrors.phone ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
                   placeholder="+1 (555) 123-4567"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                 />
               </div>
+              {fieldErrors.phone && <p className="mt-1 text-xs text-red-500">{fieldErrors.phone}</p>}
             </div>
 
             <div className="form-group">
@@ -226,13 +237,17 @@ export default function SignupPage() {
                   type="password"
                   autoComplete="new-password"
                   required
-                  className="form-input pl-10"
+                  className={`form-input pl-10 ${fieldErrors.password ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
-              <p className="mt-1 text-xs text-gray-500">Must be at least 8 characters</p>
+              {fieldErrors.password ? (
+                <p className="mt-1 text-xs text-red-500">{fieldErrors.password}</p>
+              ) : (
+                <p className="mt-1 text-xs text-gray-500">Must be at least 8 characters</p>
+              )}
             </div>
 
             <div className="form-group">
@@ -249,12 +264,15 @@ export default function SignupPage() {
                   type="password"
                   autoComplete="new-password"
                   required
-                  className="form-input pl-10"
+                  className={`form-input pl-10 ${fieldErrors.confirmPassword ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
                   placeholder="••••••••"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
               </div>
+              {fieldErrors.confirmPassword && (
+                <p className="mt-1 text-xs text-red-500">{fieldErrors.confirmPassword}</p>
+              )}
             </div>
 
             <div className="flex items-center">
