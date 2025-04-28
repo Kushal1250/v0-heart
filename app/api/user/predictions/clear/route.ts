@@ -11,9 +11,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log(`Clearing all predictions for user ${user.id}`)
-
-    // Delete all predictions for this user
+    // Delete all predictions for this user only
     await sql`DELETE FROM predictions WHERE user_id = ${user.id}`
 
     return NextResponse.json({ success: true })

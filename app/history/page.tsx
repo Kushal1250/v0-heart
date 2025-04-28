@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ArrowLeft, Trash2, ArrowUpDown, Filter, Calendar, Heart, Info, Shield } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { ArrowLeft, Trash2, Shield, Heart, Info, Calendar, ArrowUpDown, Filter } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getHistory, deleteHistoryItem, clearHistory, type AssessmentHistoryItem } from "@/lib/history-storage"
-import { useRouter } from "next/navigation"
+import type { AssessmentHistoryItem } from "@/lib/history-storage"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +18,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
+import { useMediaQuery } from "@/hooks/use-media-query"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useAuth } from "@/lib/auth-context"
+import { fetchWithAuth } from "@/lib/api-utils"
+import HistoryStatistics from "@/components/history-statistics"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,12 +33,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
-import { useMediaQuery } from "@/hooks/use-media-query"
-import HistoryStatistics from "@/components/history-statistics"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAuth } from "@/lib/auth-context"
-import { fetchWithAuth } from "@/lib/api-utils"
 
 type SortOption = "date-newest" | "date-oldest" | "risk-highest" | "risk-lowest" | "age-highest" | "age-lowest"
 type FilterOption = "all" | "high" | "moderate" | "low"
@@ -43,29 +43,33 @@ export default function HistoryPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [sortBy, setSortBy] = useState<SortOption>("date-newest")
   const [filterBy, setFilterBy] = useState<FilterOption>("all")
-  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState("history")
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const isMobile = useMediaQuery("(max-width: 640px)")
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth()
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthLoading && !isAuthenticated) {
+      router.push("/login?redirect=/history")
+    }
+  }, [isAuthenticated, isAuthLoading, router])
 
   useEffect(() => {
-    // Load history based on authentication status
+    // Only load history if user is authenticated
     const loadHistory = async () => {
+      if (isAuthLoading) return // Wait for auth to complete
+
       setIsLoading(true)
       setError(null)
 
       if (isAuthenticated && user) {
         try {
-          console.log("Fetching predictions for authenticated user")
-
           // Fetch user's predictions from the server
           const response = await fetchWithAuth("/api/user/predictions")
 
           if (response.ok) {
             const userPredictions = await response.json()
-            console.log(`Received ${userPredictions.length} predictions from API`)
 
             // Transform server predictions to match AssessmentHistoryItem format
             const formattedHistory = userPredictions.map((pred: any) => ({
@@ -99,38 +103,22 @@ export default function HistoryPage() {
           } else {
             // Handle API error
             const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
-            console.error("API error:", errorData)
             setError(`Failed to load history: ${errorData.error || response.statusText}`)
-
-            // Fall back to local storage
-            console.log("Falling back to local storage due to API error")
-            const localHistory = getHistory()
-            setHistory(localHistory)
-            setFilteredHistory(localHistory)
           }
         } catch (error) {
           console.error("Error fetching user predictions:", error)
           setError(`Failed to load history: ${error instanceof Error ? error.message : "Unknown error"}`)
-
-          // Fall back to local storage on error
-          console.log("Falling back to local storage due to exception")
-          const localHistory = getHistory()
-          setHistory(localHistory)
-          setFilteredHistory(localHistory)
         }
-      } else {
-        // Not authenticated, use local storage
-        console.log("User not authenticated, using local storage")
-        const localHistory = getHistory()
-        setHistory(localHistory)
-        setFilteredHistory(localHistory)
+      } else if (!isAuthLoading && !isAuthenticated) {
+        // Not authenticated - this should not happen due to the redirect
+        router.push("/login?redirect=/history")
       }
 
       setIsLoading(false)
     }
 
     loadHistory()
-  }, [isAuthenticated, user])
+  }, [isAuthenticated, user, isAuthLoading, router])
 
   useEffect(() => {
     // Apply filtering and sorting whenever history, filterBy, or sortBy changes
@@ -158,7 +146,7 @@ export default function HistoryPage() {
       case "risk-lowest":
         result.sort((a, b) => {
           const riskOrder = { high: 3, moderate: 2, low: 1 }
-          return riskOrder[a.result.risk as keyof typeof riskOrder] - riskOrder[a.result.risk as keyof typeof riskOrder]
+          return riskOrder[a.result.risk as keyof typeof riskOrder] - riskOrder[b.result.risk as keyof typeof riskOrder]
         })
         break
       case "age-highest":
@@ -181,52 +169,40 @@ export default function HistoryPage() {
   }
 
   const handleDeleteItem = async (id: string) => {
-    if (isAuthenticated && user) {
-      try {
-        // Delete from server if authenticated
-        const response = await fetchWithAuth(`/api/user/predictions/${id}`, {
-          method: "DELETE",
-        })
+    try {
+      // Delete from server
+      const response = await fetchWithAuth(`/api/user/predictions/${id}`, {
+        method: "DELETE",
+      })
 
-        if (response.ok) {
-          setHistory((prev) => prev.filter((item) => item.id !== id))
-        } else {
-          console.error("Failed to delete prediction from server")
-          setError("Failed to delete assessment. Please try again.")
-        }
-      } catch (error) {
-        console.error("Error deleting prediction:", error)
-        setError(`Failed to delete assessment: ${error instanceof Error ? error.message : "Unknown error"}`)
+      if (response.ok) {
+        setHistory((prev) => prev.filter((item) => item.id !== id))
+      } else {
+        console.error("Failed to delete prediction from server")
+        setError("Failed to delete assessment. Please try again.")
       }
-    } else {
-      // Delete from local storage if not authenticated
-      deleteHistoryItem(id)
-      setHistory((prev) => prev.filter((item) => item.id !== id))
+    } catch (error) {
+      console.error("Error deleting prediction:", error)
+      setError(`Failed to delete assessment: ${error instanceof Error ? error.message : "Unknown error"}`)
     }
   }
 
   const handleClearHistory = async () => {
-    if (isAuthenticated && user) {
-      try {
-        // Clear all user predictions from server
-        const response = await fetchWithAuth("/api/user/predictions/clear", {
-          method: "DELETE",
-        })
+    try {
+      // Clear all user predictions from server
+      const response = await fetchWithAuth("/api/user/predictions/clear", {
+        method: "DELETE",
+      })
 
-        if (response.ok) {
-          setHistory([])
-        } else {
-          console.error("Failed to clear predictions from server")
-          setError("Failed to clear history. Please try again.")
-        }
-      } catch (error) {
-        console.error("Error clearing predictions:", error)
-        setError(`Failed to clear history: ${error instanceof Error ? error.message : "Unknown error"}`)
+      if (response.ok) {
+        setHistory([])
+      } else {
+        console.error("Failed to clear predictions from server")
+        setError("Failed to clear history. Please try again.")
       }
-    } else {
-      // Clear local storage if not authenticated
-      clearHistory()
-      setHistory([])
+    } catch (error) {
+      console.error("Error clearing predictions:", error)
+      setError(`Failed to clear history: ${error instanceof Error ? error.message : "Unknown error"}`)
     }
   }
 
@@ -273,34 +249,19 @@ export default function HistoryPage() {
     router.push("/predict/results")
   }
 
-  const getSortLabel = (option: SortOption) => {
-    switch (option) {
-      case "date-newest":
-        return "Date (Newest First)"
-      case "date-oldest":
-        return "Date (Oldest First)"
-      case "risk-highest":
-        return "Risk (Highest First)"
-      case "risk-lowest":
-        return "Risk (Lowest First)"
-      case "age-highest":
-        return "Age (Highest First)"
-      case "age-lowest":
-        return "Age (Lowest First)"
-    }
+  // If still loading auth or not authenticated, show loading or redirect
+  if (isAuthLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8 md:py-12">
+        <div className="flex justify-center py-12">
+          <div className="animate-pulse">Verifying access...</div>
+        </div>
+      </div>
+    )
   }
 
-  const getFilterLabel = (option: FilterOption) => {
-    switch (option) {
-      case "all":
-        return "All Risk Levels"
-      case "high":
-        return "High Risk Only"
-      case "moderate":
-        return "Moderate Risk Only"
-      case "low":
-        return "Low Risk Only"
-    }
+  if (!isAuthenticated) {
+    return null // Will redirect due to the useEffect
   }
 
   return (
@@ -313,10 +274,10 @@ export default function HistoryPage() {
       </div>
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <Link href="/" className="flex items-center gap-2 text-xl font-bold">
+          <Link href="/dashboard" className="flex items-center gap-2 text-xl font-bold">
             <Button variant="ghost" className="flex items-center gap-2">
               <ArrowLeft className="h-4 w-4" />
-              Back to Home
+              Back to Dashboard
             </Button>
           </Link>
 
@@ -344,20 +305,18 @@ export default function HistoryPage() {
           )}
         </div>
 
-        {/* User information banner */}
-        {isAuthenticated && user && (
-          <Card className="mb-6 bg-gray-800 border-gray-700">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Shield className="h-5 w-5 text-green-400" />
-                <div>
-                  <p className="text-sm text-gray-300">Personal Assessment History</p>
-                  <p className="font-medium text-white">{user.name ? `${user.name} (${user.email})` : user.email}</p>
-                </div>
+        {/* Privacy banner */}
+        <Card className="mb-6 bg-gray-800 border-gray-700">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Shield className="h-5 w-5 text-green-400" />
+              <div>
+                <p className="text-sm text-gray-300">Private Assessment History</p>
+                <p className="font-medium text-white">{user?.name ? `${user.name} (${user.email})` : user?.email}</p>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Error message if any */}
         {error && (
@@ -366,7 +325,7 @@ export default function HistoryPage() {
           </div>
         )}
 
-        <Tabs defaultValue="history" className="w-full" onValueChange={setActiveTab}>
+        <Tabs defaultValue="history" className="w-full">
           <TabsList className="grid grid-cols-2 mb-6">
             <TabsTrigger value="history">Assessment History</TabsTrigger>
             <TabsTrigger value="about">About Heart Health Tracking</TabsTrigger>
@@ -375,7 +334,7 @@ export default function HistoryPage() {
           <TabsContent value="history">
             {isLoading ? (
               <div className="flex justify-center py-12">
-                <div className="animate-pulse">Loading history...</div>
+                <div className="animate-pulse">Loading your history...</div>
               </div>
             ) : history.length === 0 ? (
               <Card className="bg-gray-900 border-gray-800 mb-6">
@@ -412,7 +371,7 @@ export default function HistoryPage() {
 
                   <div className="flex gap-2">
                     {/* Filter Dropdown */}
-                    <DropdownMenu open={isFilterMenuOpen} onOpenChange={setIsFilterMenuOpen}>
+                    <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm" className="flex items-center gap-2">
                           <Filter className="h-4 w-4" />
@@ -463,7 +422,6 @@ export default function HistoryPage() {
                         <DropdownMenuLabel>Sort by</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuGroup>
-                          <DropdownMenuLabel className="text-xs text-gray-500 font-normal">Date</DropdownMenuLabel>
                           <DropdownMenuItem
                             className={sortBy === "date-newest" ? "bg-accent" : ""}
                             onClick={() => setSortBy("date-newest")}
@@ -476,12 +434,6 @@ export default function HistoryPage() {
                           >
                             <Calendar className="h-4 w-4 mr-2" /> Oldest First
                           </DropdownMenuItem>
-                        </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuGroup>
-                          <DropdownMenuLabel className="text-xs text-gray-500 font-normal">
-                            Risk Level
-                          </DropdownMenuLabel>
                           <DropdownMenuItem
                             className={sortBy === "risk-highest" ? "bg-accent" : ""}
                             onClick={() => setSortBy("risk-highest")}
@@ -495,42 +447,10 @@ export default function HistoryPage() {
                             <Heart className="h-4 w-4 mr-2 text-green-500" /> Lowest Risk First
                           </DropdownMenuItem>
                         </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuGroup>
-                          <DropdownMenuLabel className="text-xs text-gray-500 font-normal">Age</DropdownMenuLabel>
-                          <DropdownMenuItem
-                            className={sortBy === "age-highest" ? "bg-accent" : ""}
-                            onClick={() => setSortBy("age-highest")}
-                          >
-                            Highest Age First
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className={sortBy === "age-lowest" ? "bg-accent" : ""}
-                            onClick={() => setSortBy("age-lowest")}
-                          >
-                            Lowest Age First
-                          </DropdownMenuItem>
-                        </DropdownMenuGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                 </div>
-
-                {/* Mobile active filters display */}
-                {isMobile && (
-                  <div className="mb-4 text-sm">
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <span className="text-gray-400">Showing:</span>
-                      <Badge variant="outline" className="bg-gray-800">
-                        {getFilterLabel(filterBy)}
-                      </Badge>
-                      <span className="text-gray-400">Sorted by:</span>
-                      <Badge variant="outline" className="bg-gray-800">
-                        {getSortLabel(sortBy)}
-                      </Badge>
-                    </div>
-                  </div>
-                )}
 
                 {filteredHistory.length === 0 ? (
                   <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 text-center">
@@ -623,7 +543,7 @@ export default function HistoryPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* About content remains the same */}
+                {/* About content */}
                 <div>
                   <h3 className="text-xl font-semibold mb-2 text-white">Why Track Your Heart Health?</h3>
                   <p className="text-gray-300 mb-4">
@@ -631,26 +551,6 @@ export default function HistoryPage() {
                     HeartPredict allows you to track changes in your cardiovascular health over time, helping you make
                     informed decisions about lifestyle changes and medical interventions.
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                    <div className="bg-gray-800 p-4 rounded-lg">
-                      <h4 className="font-medium text-white mb-2">Early Detection</h4>
-                      <p className="text-sm text-gray-300">
-                        Identify potential heart issues before they become serious medical problems.
-                      </p>
-                    </div>
-                    <div className="bg-gray-800 p-4 rounded-lg">
-                      <h4 className="font-medium text-white mb-2">Track Progress</h4>
-                      <p className="text-sm text-gray-300">
-                        Monitor how lifestyle changes affect your heart disease risk over time.
-                      </p>
-                    </div>
-                    <div className="bg-gray-800 p-4 rounded-lg">
-                      <h4 className="font-medium text-white mb-2">Data-Driven Decisions</h4>
-                      <p className="text-sm text-gray-300">
-                        Share your history with healthcare providers for more informed medical care.
-                      </p>
-                    </div>
-                  </div>
                 </div>
 
                 <div>
@@ -686,61 +586,18 @@ export default function HistoryPage() {
                     </div>
                   </div>
                 </div>
-
-                <div>
-                  <h3 className="text-xl font-semibold mb-2 text-white">The Science Behind HeartPredict</h3>
-                  <p className="text-gray-300 mb-4">
-                    HeartPredict uses a sophisticated machine learning model trained on extensive cardiovascular data.
-                    Our algorithm analyzes multiple risk factors to provide a comprehensive assessment of your heart
-                    health.
-                  </p>
-                  <div className="bg-gray-800 p-4 rounded-lg">
-                    <h4 className="font-medium text-white mb-2">Data Sources</h4>
-                    <p className="text-sm text-gray-300">
-                      Our model is trained on the Cleveland Heart Disease Dataset, Framingham Heart Study data, and
-                      other validated cardiovascular research databases. The algorithm has been validated with a 95%
-                      accuracy rate in predicting heart disease risk.
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-xl font-semibold mb-2 text-white">Taking Action</h3>
-                  <p className="text-gray-300 mb-2">
-                    Based on your assessment history, here are recommended next steps:
-                  </p>
-                  <ul className="list-disc pl-5 text-gray-300 space-y-2">
-                    <li>Schedule regular assessments (at least quarterly) to track changes in your heart health</li>
-                    <li>Share your assessment history with your healthcare provider during checkups</li>
-                    <li>Implement recommended lifestyle changes based on your risk factors</li>
-                    <li>Set up email notifications for regular heart health check-in reminders</li>
-                    <li>Export your data as PDF reports for your personal health records</li>
-                  </ul>
-                  <div className="mt-6">
-                    <Button asChild className="bg-red-600 hover:bg-red-700">
-                      <Link href="/predict">Take a New Assessment</Link>
-                    </Button>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
 
         <div className="text-center text-sm text-gray-500 mt-8">
-          {isAuthenticated ? (
-            <div className="space-y-1">
-              <p>Your assessment history is securely stored in your account.</p>
-              <p className="text-green-500 flex items-center justify-center gap-1">
-                <Shield className="h-3 w-3" /> Your data is private and only visible to you
-              </p>
-            </div>
-          ) : (
-            <>
-              <p>Assessment history is stored locally in your browser.</p>
-              <p>Create an account to save your history across devices.</p>
-            </>
-          )}
+          <div className="space-y-1">
+            <p>Your assessment history is securely stored in your account.</p>
+            <p className="text-green-500 flex items-center justify-center gap-1">
+              <Shield className="h-3 w-3" /> Your data is private and only visible to you
+            </p>
+          </div>
         </div>
       </div>
     </div>
