@@ -1,17 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getUserFromRequest } from "@/lib/auth-utils"
+import { getCurrentUser } from "@/lib/auth-utils"
 import { getPredictionsByUserId } from "@/lib/db"
 
 export async function GET(request: NextRequest) {
   try {
     // Get the authenticated user
-    const user = await getUserFromRequest(request)
+    const user = await getCurrentUser()
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log(`Fetching predictions for user ID: ${user.id}, email: ${user.email}`)
+    console.log(`Fetching predictions for user: ${user.email} (ID: ${user.id})`)
 
     // Fetch predictions for this user only
     const predictions = await getPredictionsByUserId(user.id)
