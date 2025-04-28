@@ -25,6 +25,24 @@ function formatAssessmentDataAsHtml(data: any) {
     return types[Number.parseInt(value)] || value
   }
 
+  // Map resting ECG values
+  const getRestEcgText = (value: string) => {
+    const types = ["Normal", "ST-T wave abnormality", "Left ventricular hypertrophy"]
+    return types[Number.parseInt(value)] || value
+  }
+
+  // Map slope values
+  const getSlopeText = (value: string) => {
+    const types = ["Upsloping", "Flat", "Downsloping"]
+    return types[Number.parseInt(value)] || value
+  }
+
+  // Map thal values
+  const getThalText = (value: string) => {
+    const types = ["Normal", "Fixed defect", "Reversible defect"]
+    return types[Number.parseInt(value)] || value
+  }
+
   // Create HTML email content - extremely simplified to avoid spam triggers
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333333;">
@@ -37,17 +55,59 @@ function formatAssessmentDataAsHtml(data: any) {
         <p>Risk Score: ${riskScore}%</p>
       </div>
 
-      <h3 style="border-bottom: 1px solid #eaeaea; padding-bottom: 8px;">Health Information</h3>
+      <h3 style="border-bottom: 1px solid #eaeaea; padding-bottom: 8px;">Basic Health Information</h3>
       <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
         <tbody>
           ${formatMetric("Age", data.age, "years")}
           ${formatMetric("Gender", getSexText(data.sex))}
           ${formatMetric("Blood Pressure", data.trestbps, "mm Hg")}
           ${formatMetric("Cholesterol", data.chol, "mg/dl")}
+        </tbody>
+      </table>
+      
+      <h3 style="border-bottom: 1px solid #eaeaea; padding-bottom: 8px;">Advanced Parameters</h3>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <tbody>
           ${formatMetric("Chest Pain Type", getChestPainText(data.cp))}
           ${formatMetric("Fasting Blood Sugar > 120 mg/dl", data.fbs === "1" ? "Yes" : "No")}
+          ${data.restecg ? formatMetric("Resting ECG", getRestEcgText(data.restecg)) : ""}
           ${data.thalach ? formatMetric("Max Heart Rate", data.thalach) : ""}
           ${formatMetric("Exercise Induced Angina", data.exang === "1" ? "Yes" : "No")}
+          ${data.oldpeak ? formatMetric("ST Depression", data.oldpeak) : ""}
+          ${data.slope ? formatMetric("ST Slope", getSlopeText(data.slope)) : ""}
+          ${data.ca ? formatMetric("Number of Major Vessels", data.ca) : ""}
+          ${data.thal ? formatMetric("Thalassemia", getThalText(data.thal)) : ""}
+        </tbody>
+      </table>
+      
+      <h3 style="border-bottom: 1px solid #eaeaea; padding-bottom: 8px;">Lifestyle Factors</h3>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <tbody>
+          ${
+            data.foodHabits
+              ? formatMetric(
+                  "Food Habits",
+                  data.foodHabits === "vegetarian"
+                    ? "Vegetarian"
+                    : data.foodHabits === "non-vegetarian"
+                      ? "Non-Vegetarian"
+                      : "Mixed Diet",
+                )
+              : ""
+          }
+          ${
+            data.junkFoodConsumption
+              ? formatMetric(
+                  "Junk Food Consumption",
+                  data.junkFoodConsumption === "low"
+                    ? "Low (rarely)"
+                    : data.junkFoodConsumption === "moderate"
+                      ? "Moderate (weekly)"
+                      : "High (daily)",
+                )
+              : ""
+          }
+          ${data.sleepingHours ? formatMetric("Sleeping Hours", data.sleepingHours, "hours/day") : ""}
         </tbody>
       </table>
 

@@ -55,7 +55,7 @@ export async function generatePdfBuffer(data: any): Promise<Buffer> {
     y += 10
   }
 
-  // Add basic metrics
+  // Add all metrics
   addMetric("Age:", `${data.age} years`)
   addMetric("Gender:", data.sex === "1" ? "Male" : "Female")
   addMetric("Blood Pressure:", `${data.trestbps} mm Hg`)
@@ -74,6 +74,30 @@ export async function generatePdfBuffer(data: any): Promise<Buffer> {
   }
 
   addMetric("Exercise Induced Angina:", data.exang === "1" ? "Yes" : "No")
+
+  // Add advanced parameters
+  if (data.restecg) {
+    const restecgValues = ["Normal", "ST-T wave abnormality", "Left ventricular hypertrophy"]
+    addMetric("Resting ECG:", restecgValues[Number.parseInt(data.restecg)] || data.restecg)
+  }
+
+  if (data.oldpeak) {
+    addMetric("ST Depression:", data.oldpeak)
+  }
+
+  if (data.slope) {
+    const slopeValues = ["Upsloping", "Flat", "Downsloping"]
+    addMetric("ST Slope:", slopeValues[Number.parseInt(data.slope)] || data.slope)
+  }
+
+  if (data.ca) {
+    addMetric("Number of Major Vessels:", data.ca)
+  }
+
+  if (data.thal) {
+    const thalValues = ["Normal", "Fixed defect", "Reversible defect"]
+    addMetric("Thalassemia:", thalValues[Number.parseInt(data.thal)] || data.thal)
+  }
 
   // Add lifestyle metrics
   if (data.foodHabits) {

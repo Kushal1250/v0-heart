@@ -267,6 +267,77 @@ export default function ResultsPage() {
     }
   }
 
+  // Create a simple text representation of the assessment
+  const getTextSummary = (assessmentData: PredictionResult) => {
+    const riskLevel = assessmentData.result.risk
+    const riskScore = assessmentData.result.score
+
+    // Format food habits
+    const foodHabits =
+      assessmentData.foodHabits === "vegetarian"
+        ? "Vegetarian"
+        : assessmentData.foodHabits === "non-vegetarian"
+          ? "Non-Vegetarian"
+          : "Mixed Diet"
+
+    // Format junk food consumption
+    const junkFood =
+      assessmentData.junkFoodConsumption === "low"
+        ? "Low (rarely)"
+        : assessmentData.junkFoodConsumption === "moderate"
+          ? "Moderate (weekly)"
+          : "High (daily)"
+
+    // Get readable values for categorical fields
+    const getReadableValue = (field: string, value: string) => {
+      const mappings = {
+        sex: { "0": "Female", "1": "Male" },
+        cp: { "0": "Typical angina", "1": "Atypical angina", "2": "Non-anginal pain", "3": "Asymptomatic" },
+        fbs: { "0": "≤ 120 mg/dl", "1": "> 120 mg/dl" },
+        restecg: { "0": "Normal", "1": "ST-T wave abnormality", "2": "Left ventricular hypertrophy" },
+        exang: { "0": "No", "1": "Yes" },
+        slope: { "0": "Upsloping", "1": "Flat", "2": "Downsloping" },
+        thal: { "0": "Normal", "1": "Fixed defect", "2": "Reversible defect" },
+      }
+
+      if (field in mappings && value in mappings[field]) {
+        return mappings[field][value]
+      }
+      return value
+    }
+
+    return `
+Heart Assessment Results
+
+Risk Level: ${riskLevel.toUpperCase()}
+Risk Score: ${riskScore}%
+
+Basic Health Metrics:
+- Age: ${assessmentData.age} years
+- Gender: ${getReadableValue("sex", assessmentData.sex)}
+- Blood Pressure: ${assessmentData.trestbps} mm Hg
+- Cholesterol: ${assessmentData.chol} mg/dl
+
+Advanced Parameters:
+- Chest Pain Type: ${getReadableValue("cp", assessmentData.cp)}
+- Fasting Blood Sugar: ${getReadableValue("fbs", assessmentData.fbs)}
+- Resting ECG: ${getReadableValue("restecg", assessmentData.restecg)}
+- Max Heart Rate: ${assessmentData.thalach || "N/A"}
+- Exercise Induced Angina: ${getReadableValue("exang", assessmentData.exang)}
+- ST Depression: ${assessmentData.oldpeak || "N/A"}
+- ST Slope: ${getReadableValue("slope", assessmentData.slope) || "N/A"}
+- Number of Major Vessels: ${assessmentData.ca || "N/A"}
+- Thalassemia: ${getReadableValue("thal", assessmentData.thal) || "N/A"}
+
+Lifestyle Factors:
+- Food Habits: ${foodHabits}
+- Junk Food Consumption: ${junkFood}
+- Sleeping Hours: ${assessmentData.sleepingHours || "N/A"} hours/day
+
+Assessment generated on ${new Date().toLocaleDateString()}
+`.trim()
+  }
+
   return (
     <div className="container mx-auto px-4 py-6 md:py-12">
       <div className="max-w-3xl mx-auto">

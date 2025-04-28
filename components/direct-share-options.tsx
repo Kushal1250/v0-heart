@@ -37,17 +37,46 @@ export default function DirectShareOptions({ assessmentData }: DirectShareOption
           ? "Moderate (weekly)"
           : "High (daily)"
 
+    // Get readable values for categorical fields
+    const getReadableValue = (field, value) => {
+      const mappings = {
+        sex: { "0": "Female", "1": "Male" },
+        cp: { "0": "Typical angina", "1": "Atypical angina", "2": "Non-anginal pain", "3": "Asymptomatic" },
+        fbs: { "0": "≤ 120 mg/dl", "1": "> 120 mg/dl" },
+        restecg: { "0": "Normal", "1": "ST-T wave abnormality", "2": "Left ventricular hypertrophy" },
+        exang: { "0": "No", "1": "Yes" },
+        slope: { "0": "Upsloping", "1": "Flat", "2": "Downsloping" },
+        thal: { "0": "Normal", "1": "Fixed defect", "2": "Reversible defect" },
+      }
+
+      if (field in mappings && value in mappings[field]) {
+        return mappings[field][value]
+      }
+      return value
+    }
+
     return `
-Health Assessment Results
+Heart Assessment Results
 
 Risk Level: ${riskLevel.toUpperCase()}
 Risk Score: ${riskScore}%
 
-Key Health Metrics:
+Basic Health Metrics:
 - Age: ${assessmentData.age} years
-- Gender: ${assessmentData.sex === "1" ? "Male" : "Female"}
+- Gender: ${getReadableValue("sex", assessmentData.sex)}
 - Blood Pressure: ${assessmentData.trestbps} mm Hg
 - Cholesterol: ${assessmentData.chol} mg/dl
+
+Advanced Parameters:
+- Chest Pain Type: ${getReadableValue("cp", assessmentData.cp)}
+- Fasting Blood Sugar: ${getReadableValue("fbs", assessmentData.fbs)}
+- Resting ECG: ${getReadableValue("restecg", assessmentData.restecg)}
+- Max Heart Rate: ${assessmentData.thalach || "N/A"}
+- Exercise Induced Angina: ${getReadableValue("exang", assessmentData.exang)}
+- ST Depression: ${assessmentData.oldpeak || "N/A"}
+- ST Slope: ${getReadableValue("slope", assessmentData.slope) || "N/A"}
+- Number of Major Vessels: ${assessmentData.ca || "N/A"}
+- Thalassemia: ${getReadableValue("thal", assessmentData.thal) || "N/A"}
 
 Lifestyle Factors:
 - Food Habits: ${foodHabits}
@@ -55,7 +84,7 @@ Lifestyle Factors:
 - Sleeping Hours: ${assessmentData.sleepingHours || "N/A"} hours/day
 
 Assessment generated on ${new Date().toLocaleDateString()}
-    `.trim()
+`.trim()
   }
 
   const copyToClipboard = async () => {

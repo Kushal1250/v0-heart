@@ -161,25 +161,74 @@ export default function PdfGenerator({
       y += 10
     }
 
-    // Add basic metrics
-    addMetric("Age:", `${data.age} years`)
-    addMetric("Gender:", data.sex === "1" ? "Male" : "Female")
-    addMetric("Blood Pressure:", `${data.trestbps} mm Hg`)
-    addMetric("Cholesterol:", `${data.chol} mg/dl`)
+    // Add all metrics
+    addMetric("Age:", `${assessmentData.age} years`)
+    addMetric("Gender:", assessmentData.sex === "1" ? "Male" : "Female")
+    addMetric("Blood Pressure:", `${assessmentData.trestbps} mm Hg`)
+    addMetric("Cholesterol:", `${assessmentData.chol} mg/dl`)
     addMetric(
       "Chest Pain Type:",
       (() => {
         const types = ["Typical angina", "Atypical angina", "Non-anginal pain", "Asymptomatic"]
-        return types[Number.parseInt(data.cp)] || data.cp
+        return types[Number.parseInt(assessmentData.cp)] || assessmentData.cp
       })(),
     )
-    addMetric("Fasting Blood Sugar:", data.fbs === "1" ? "Above 120 mg/dl" : "Below 120 mg/dl")
+    addMetric("Fasting Blood Sugar:", assessmentData.fbs === "1" ? "Above 120 mg/dl" : "Below 120 mg/dl")
 
-    if (data.thalach) {
-      addMetric("Max Heart Rate:", data.thalach)
+    if (assessmentData.thalach) {
+      addMetric("Max Heart Rate:", assessmentData.thalach)
     }
 
-    addMetric("Exercise Induced Angina:", data.exang === "1" ? "Yes" : "No")
+    addMetric("Exercise Induced Angina:", assessmentData.exang === "1" ? "Yes" : "No")
+
+    // Add advanced parameters
+    if (assessmentData.restecg) {
+      const restecgValues = ["Normal", "ST-T wave abnormality", "Left ventricular hypertrophy"]
+      addMetric("Resting ECG:", restecgValues[Number.parseInt(assessmentData.restecg)] || assessmentData.restecg)
+    }
+
+    if (assessmentData.oldpeak) {
+      addMetric("ST Depression:", assessmentData.oldpeak)
+    }
+
+    if (assessmentData.slope) {
+      const slopeValues = ["Upsloping", "Flat", "Downsloping"]
+      addMetric("ST Slope:", slopeValues[Number.parseInt(assessmentData.slope)] || assessmentData.slope)
+    }
+
+    if (assessmentData.ca) {
+      addMetric("Number of Major Vessels:", assessmentData.ca)
+    }
+
+    if (assessmentData.thal) {
+      const thalValues = ["Normal", "Fixed defect", "Reversible defect"]
+      addMetric("Thalassemia:", thalValues[Number.parseInt(assessmentData.thal)] || assessmentData.thal)
+    }
+
+    // Add lifestyle metrics
+    if (assessmentData.foodHabits) {
+      const foodHabitsText =
+        assessmentData.foodHabits === "vegetarian"
+          ? "Vegetarian"
+          : assessmentData.foodHabits === "non-vegetarian"
+            ? "Non-Vegetarian"
+            : "Mixed Diet"
+      addMetric("Food Habits:", foodHabitsText)
+    }
+
+    if (assessmentData.junkFoodConsumption) {
+      const junkFoodText =
+        assessmentData.junkFoodConsumption === "low"
+          ? "Low (rarely)"
+          : assessmentData.junkFoodConsumption === "moderate"
+            ? "Moderate (weekly)"
+            : "High (daily)"
+      addMetric("Junk Food Consumption:", junkFoodText)
+    }
+
+    if (assessmentData.sleepingHours) {
+      addMetric("Sleeping Hours:", `${assessmentData.sleepingHours} hours/day`)
+    }
 
     // Add disclaimer
     y += 10

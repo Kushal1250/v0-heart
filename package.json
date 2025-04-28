@@ -64,12 +64,12 @@
     "axios": "latest",
     "crypto": "latest",
     "nodemailer": "latest",
-    "html2canvas": "latest",
-    "jspdf": "latest",
     "uuid": "latest",
     "@neondatabase/serverless": "latest",
     "bcrypt-ts": "latest",
-    "util": "latest"
+    "util": "latest",
+    "jspdf": "latest",
+    "html2canvas": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
