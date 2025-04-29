@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -11,6 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AlertCircle } from "lucide-react"
+import { isValidEmail, isValidPhone } from "@/lib/client-validation"
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
@@ -18,32 +18,40 @@ export default function ForgotPasswordPage() {
   const [phone, setPhone] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
   const [activeTab, setActiveTab] = useState<"email" | "sms">("email")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    setSuccess(false)
     setLoading(true)
 
     try {
       // Basic client-side validation
-      if (activeTab === "email" && !email.trim()) {
-        setError("Please enter your email address")
-        setLoading(false)
-        return
+      if (activeTab === "email") {
+        if (!email.trim()) {
+          setError("Please enter your email address")
+          setLoading(false)
+          return
+        }
+
+        if (!isValidEmail(email)) {
+          setError("Please enter a valid email address")
+          setLoading(false)
+          return
+        }
       }
 
-      if (activeTab === "sms" && !phone.trim()) {
-        setError("Please enter your phone number")
-        setLoading(false)
-        return
-      }
-
-      // Basic phone number format validation
       if (activeTab === "sms") {
-        const phoneDigits = phone.replace(/\D/g, "")
-        if (phoneDigits.length < 10) {
-          setError("Please enter a valid phone number")
+        if (!phone.trim()) {
+          setError("Please enter your phone number")
+          setLoading(false)
+          return
+        }
+
+        if (!isValidPhone(phone)) {
+          setError("Please enter a valid phone number including country code (e.g., +1 for US)")
           setLoading(false)
           return
         }
@@ -66,26 +74,23 @@ export default function ForgotPasswordPage() {
         }),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        let errorMessage = "Failed to send verification code"
-        try {
-          const data = await response.json()
-          errorMessage = data.message || errorMessage
-        } catch (e) {
-          console.error("Error parsing error response:", e)
-        }
-        throw new Error(errorMessage)
+        throw new Error(data.message || "Failed to send verification code")
       }
 
-      const data = await response.json()
       console.log("Verification code sent successfully:", data)
+      setSuccess(true)
 
-      // Redirect to OTP verification page
-      const identifier = activeTab === "email" ? email : phone
-      router.push(`/otp-verification?identifier=${encodeURIComponent(identifier)}&method=${activeTab}`)
+      // Redirect after a short delay to show success message
+      setTimeout(() => {
+        const identifier = activeTab === "email" ? email : phone
+        router.push(`/otp-verification?identifier=${encodeURIComponent(identifier)}&method=${activeTab}`)
+      }, 1000)
     } catch (err: any) {
       console.error("Error sending verification code:", err)
-      setError(err.message || "An error occurred while sending the verification code")
+      setError(err.message || "An error occurred while sending the verification code. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -100,24 +105,28 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-gray-900 px-4 py-12 sm:px-6 lg:px-8 text-white">
+      <Card className="w-full max-w-md bg-gray-800 border-gray-700">
         <CardHeader>
-          <CardTitle className="text-center text-2xl font-bold">Reset Your Password</CardTitle>
-          <CardDescription className="text-center">
+          <CardTitle className="text-center text-2xl font-bold text-white">Reset Your Password</CardTitle>
+          <CardDescription className="text-center text-gray-300">
             We'll send you a verification code to reset your password
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "email" | "sms")} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="email">Email</TabsTrigger>
-              <TabsTrigger value="sms">SMS</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 bg-gray-700">
+              <TabsTrigger value="email" className="data-[state=active]:bg-blue-600">
+                Email
+              </TabsTrigger>
+              <TabsTrigger value="sms" className="data-[state=active]:bg-blue-600">
+                SMS
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="email">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-300">
                     Email Address
                   </label>
                   <Input
@@ -126,20 +135,27 @@ export default function ForgotPasswordPage() {
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    className="block w-full bg-gray-700 border-gray-600 text-white"
                     required
                   />
                 </div>
 
                 {error && (
-                  <Alert variant="destructive">
+                  <Alert variant="destructive" className="bg-red-900 border-red-800 text-red-200">
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Error</AlertTitle>
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
 
-                <Button type="submit" className="w-full" disabled={loading || !email}>
+                {success && (
+                  <Alert className="bg-green-900 border-green-800 text-green-200">
+                    <AlertTitle>Success</AlertTitle>
+                    <AlertDescription>Verification code sent! Redirecting...</AlertDescription>
+                  </Alert>
+                )}
+
+                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading || !email}>
                   {loading ? "Sending..." : "Send Verification Code"}
                 </Button>
               </form>
@@ -147,7 +163,7 @@ export default function ForgotPasswordPage() {
             <TabsContent value="sms">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-300">
                     Phone Number
                   </label>
                   <Input
@@ -156,23 +172,30 @@ export default function ForgotPasswordPage() {
                     placeholder="+1 (555) 123-4567"
                     value={phone}
                     onChange={handlePhoneChange}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    className="block w-full bg-gray-700 border-gray-600 text-white"
                     required
                   />
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-400">
                     Enter your full phone number including country code (e.g., +1 for US)
                   </p>
                 </div>
 
                 {error && (
-                  <Alert variant="destructive">
+                  <Alert variant="destructive" className="bg-red-900 border-red-800 text-red-200">
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Error</AlertTitle>
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
 
-                <Button type="submit" className="w-full" disabled={loading || !phone}>
+                {success && (
+                  <Alert className="bg-green-900 border-green-800 text-green-200">
+                    <AlertTitle>Success</AlertTitle>
+                    <AlertDescription>Verification code sent! Redirecting...</AlertDescription>
+                  </Alert>
+                )}
+
+                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading || !phone}>
                   {loading ? "Sending..." : "Send Verification Code"}
                 </Button>
               </form>
@@ -180,7 +203,7 @@ export default function ForgotPasswordPage() {
           </Tabs>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <Button variant="link" asChild>
+          <Button variant="link" className="text-blue-400 hover:text-blue-300">
             <Link href="/login">Back to Login</Link>
           </Button>
         </CardFooter>
