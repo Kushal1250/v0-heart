@@ -20,10 +20,11 @@ import {
   HeartPulse,
   Dumbbell,
   Moon,
-  ArrowRight,
 } from "lucide-react"
 import { HealthMetricsOverview } from "@/components/health-metrics-overview"
 import { RecentActivity } from "@/components/recent-activity"
+import { HeartHealthRoutine } from "@/components/heart-health-routine"
+import { HeartHealthTips } from "@/components/heart-health-tips"
 
 export default function Dashboard() {
   const { user, isLoading } = useAuth()
@@ -32,6 +33,9 @@ export default function Dashboard() {
   const [currentTime, setCurrentTime] = useState("")
   const [showLoginSuccess, setShowLoginSuccess] = useState(false)
   const [healthTipIndex, setHealthTipIndex] = useState(0)
+  const [userRiskLevel, setUserRiskLevel] = useState<"low" | "moderate" | "high">("moderate")
+  const [predictionScore, setPredictionScore] = useState(65)
+  const [userAge, setUserAge] = useState(45)
 
   // Health tips array
   const healthTips = [
@@ -99,6 +103,29 @@ export default function Dashboard() {
     const tipTimer = setInterval(() => {
       setHealthTipIndex((prevIndex) => (prevIndex + 1) % healthTips.length)
     }, 10000)
+
+    // Fetch user's latest risk assessment data
+    const fetchUserRiskData = async () => {
+      try {
+        // This would be an actual API call in a real application
+        // For now, we'll simulate with random data
+        const mockRiskLevels = ["low", "moderate", "high"] as const
+        const randomRisk = mockRiskLevels[Math.floor(Math.random() * mockRiskLevels.length)]
+        const randomScore = Math.floor(Math.random() * 100)
+
+        setUserRiskLevel(randomRisk)
+        setPredictionScore(randomScore)
+
+        // Set age based on user data or default
+        if (user?.age) {
+          setUserAge(user.age)
+        }
+      } catch (error) {
+        console.error("Error fetching risk data:", error)
+      }
+    }
+
+    fetchUserRiskData()
 
     return () => {
       clearInterval(timer)
@@ -175,6 +202,11 @@ export default function Dashboard() {
           </Card>
         </div>
 
+        {/* Personalized Heart Health Routine */}
+        <div className="mb-8">
+          <HeartHealthRoutine riskLevel={userRiskLevel} predictionScore={predictionScore} userAge={userAge} />
+        </div>
+
         {/* Quick actions */}
         <div className="mb-8">
           <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
@@ -226,18 +258,17 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="mb-8">
-          <Card className="p-6 border-l-4 border-l-primary bg-primary/5">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Next Steps</h3>
-            <p className="text-gray-700 mb-4">Click below to create a new health assessment.</p>
-            <Button onClick={() => router.push("/predict")} className="bg-primary hover:bg-primary/90">
-              Create New Assessment <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Card>
-        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="md:col-span-2">
+            {/* Health Overview */}
+            <HealthMetricsOverview />
+          </div>
 
-        {/* Health Overview */}
-        <HealthMetricsOverview />
+          <div>
+            {/* Heart Health Tips */}
+            <HeartHealthTips riskLevel={userRiskLevel} />
+          </div>
+        </div>
 
         {/* Recent activity */}
         <RecentActivity />
@@ -252,7 +283,8 @@ export default function Dashboard() {
               <div className="ml-4 flex-1">
                 <h3 className="text-lg font-medium text-blue-900">New Features Available!</h3>
                 <p className="text-sm text-blue-700 mt-1">
-                  We've added new prediction models and improved accuracy. Try them out and let us know what you think!
+                  We've added personalized daily routines to help you reduce heart disease risk. Check out your custom
+                  plan above!
                 </p>
                 <div className="mt-3">
                   <Button
