@@ -25,10 +25,17 @@ export async function middleware(request: NextRequest) {
   if (isAuthRequired || isAdminRequired) {
     // Get the session token from the cookie
     const sessionToken = request.cookies.get("session")?.value
+    const isAdminCookie = request.cookies.get("is_admin")?.value === "true"
+
+    // Special case for admin paths
+    if (isAdminRequired && isAdminCookie) {
+      // If is_admin cookie is set, allow access to admin paths
+      return NextResponse.next()
+    }
 
     if (!sessionToken) {
       // No session token, redirect to login
-      const url = new URL("/login", request.url)
+      const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
       url.searchParams.set("redirect", pathname)
       return NextResponse.redirect(url)
     }
@@ -39,7 +46,7 @@ export async function middleware(request: NextRequest) {
 
       if (!session || new Date(session.expires_at) < new Date()) {
         // Invalid or expired session, redirect to login
-        const url = new URL("/login", request.url)
+        const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
         url.searchParams.set("redirect", pathname)
         return NextResponse.redirect(url)
       }
@@ -59,7 +66,7 @@ export async function middleware(request: NextRequest) {
     } catch (error) {
       console.error("Error in middleware:", error)
       // Error occurred, redirect to login
-      const url = new URL("/login", request.url)
+      const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
       url.searchParams.set("redirect", pathname)
       return NextResponse.redirect(url)
     }

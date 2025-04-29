@@ -40,6 +40,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check if user is logged in
     const checkAuth = async () => {
       try {
+        // Check for admin cookie first
+        const cookies = document.cookie.split(";")
+        const isAdminCookie = cookies.find((cookie) => cookie.trim().startsWith("is_admin="))
+        const isAdmin = isAdminCookie ? isAdminCookie.split("=")[1] === "true" : false
+
+        if (isAdmin) {
+          setUser({
+            id: "admin",
+            name: "Admin",
+            email: "admin@example.com",
+            role: "admin",
+          })
+          setIsAdmin(true)
+          setIsLoading(false)
+          return
+        }
+
         const response = await fetch("/api/auth/user")
         if (response.ok) {
           try {
@@ -188,6 +205,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await fetch("/api/auth/logout", { method: "POST" })
       setUser(null)
       setIsAdmin(false)
+
+      // Clear admin cookie
+      document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
     } catch (error) {
       console.error("Logout error:", error)
     }

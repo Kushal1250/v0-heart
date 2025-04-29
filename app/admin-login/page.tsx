@@ -68,7 +68,8 @@ export default function AdminLoginPage() {
 
       // Redirect after a short delay to show success message
       setTimeout(() => {
-        router.push(redirectPath)
+        // Force a hard navigation to the admin page
+        window.location.href = redirectPath
       }, 1500)
     } catch (err) {
       console.error("Admin login error:", err)

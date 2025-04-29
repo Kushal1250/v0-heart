@@ -67,11 +67,15 @@ export default function AdminPage() {
 
       if (!isAdmin) {
         setError("Not authenticated as admin. Please login again.")
+        // Redirect to admin login if not admin
+        setTimeout(() => {
+          router.push("/admin-login?redirect=/admin")
+        }, 2000)
       }
     }
 
     checkAdmin()
-  }, [])
+  }, [router])
 
   // Function to fetch users from the API
   const fetchUsers = async () => {
