@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       "cp",
       "fbs",
       "restecg",
-      "thalach",
+      "thalach", // Make sure thalach is included in required fields
       "exang",
       "oldpeak",
       "slope",
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     ]
 
     for (const field of requiredFields) {
-      if (body[field] === undefined || body[field] === "") {
+      if (body[field] === undefined || body[field] === "" || body[field] === null) {
         return NextResponse.json({ error: `Missing required field: ${field}` }, { status: 400 })
       }
     }
@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
         saveToHistory(userEmail, {
           ...body,
           result: predictionResult,
+          timestamp: new Date().toISOString(),
         })
         console.log(`Prediction saved for email ${userEmail} with result ${JSON.stringify(predictionResult)}`)
       } catch (storageError) {

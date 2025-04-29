@@ -54,6 +54,7 @@ export function PredictionForm() {
   const [activeTab, setActiveTab] = useState("basic")
   const [loading, setLoading] = useState(false)
   const isMobile = useMediaQuery("(max-width: 640px)")
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
   const [formData, setFormData] = useState({
     // Basic info
@@ -66,7 +67,7 @@ export function PredictionForm() {
     cp: "0", // Chest pain type (0-3)
     fbs: "0", // Fasting blood sugar
     restecg: "0", // Resting ECG
-    thalach: "", // Max heart rate
+    thalach: "", // Max heart rate - This is required
     exang: "0", // Exercise induced angina
     oldpeak: "0", // ST depression
     slope: "0", // Slope of ST segment
@@ -82,20 +83,59 @@ export function PredictionForm() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+
+    // Clear validation error when field is filled
+    if (validationErrors[name]) {
+      setValidationErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors[name]
+        return newErrors
+      })
+    }
   }
 
   const handleSelectChange = (name: string, value: string) => {
     setFormData((prev) => ({ ...prev, [name]: value }))
+
+    // Clear validation error when field is filled
+    if (validationErrors[name]) {
+      setValidationErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors[name]
+        return newErrors
+      })
+    }
+  }
+
+  // Validate all required fields
+  const validateForm = () => {
+    const errors: Record<string, string> = {}
+
+    // Basic info validation
+    if (!formData.age) errors.age = "Age is required"
+    if (!formData.sex) errors.sex = "Sex is required"
+    if (!formData.trestbps) errors.trestbps = "Blood pressure is required"
+    if (!formData.chol) errors.chol = "Cholesterol is required"
+
+    // Advanced parameters validation - thalach is required
+    if (!formData.thalach) errors.thalach = "Maximum heart rate is required"
+
+    setValidationErrors(errors)
+    return Object.keys(errors).length === 0
   }
 
   // Update the handleSubmit function to validate all required fields before submission
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
-    // Validate required fields
-    if (!formData.age || !formData.sex || !formData.trestbps || !formData.chol) {
-      alert("Please fill in all required fields in the Basic Information tab")
-      setActiveTab("basic")
+    // Validate all required fields
+    if (!validateForm()) {
+      // Find the first tab with errors
+      if (validationErrors.age || validationErrors.sex || validationErrors.trestbps || validationErrors.chol) {
+        setActiveTab("basic")
+      } else if (validationErrors.thalach) {
+        setActiveTab("advanced")
+      }
       return
     }
 
@@ -108,7 +148,6 @@ export function PredictionForm() {
       // Prepare form data
       const formDataToSend = {
         ...formData,
-
         // Add user email if available
         userEmail: userEmail || null,
       }
@@ -146,9 +185,6 @@ export function PredictionForm() {
       setLoading(false)
     }
   }
-
-  // Remove this line
-  //const [isSubmitting, setIsSubmitting] = useState(false)
 
   return (
     <Card className="bg-gray-900 border-gray-800">
@@ -188,8 +224,11 @@ export function PredictionForm() {
                     value={formData.age}
                     onChange={handleChange}
                     required
-                    className={`bg-gray-800 border-gray-700 ${isMobile ? "h-12 text-base" : ""}`}
+                    className={`bg-gray-800 border-gray-700 ${isMobile ? "h-12 text-base" : ""} ${
+                      validationErrors.age ? "border-red-500" : ""
+                    }`}
                   />
+                  {validationErrors.age && <p className="text-red-500 text-sm mt-1">{validationErrors.age}</p>}
                 </FormField>
 
                 <FormField
@@ -199,7 +238,11 @@ export function PredictionForm() {
                   isMobile={isMobile}
                 >
                   <Select value={formData.sex} onValueChange={(value) => handleSelectChange("sex", value)} required>
-                    <SelectTrigger className={`bg-gray-800 border-gray-700 ${isMobile ? "h-12 text-base" : ""}`}>
+                    <SelectTrigger
+                      className={`bg-gray-800 border-gray-700 ${isMobile ? "h-12 text-base" : ""} ${
+                        validationErrors.sex ? "border-red-500" : ""
+                      }`}
+                    >
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
                     <SelectContent>
@@ -207,6 +250,7 @@ export function PredictionForm() {
                       <SelectItem value="0">Female</SelectItem>
                     </SelectContent>
                   </Select>
+                  {validationErrors.sex && <p className="text-red-500 text-sm mt-1">{validationErrors.sex}</p>}
                 </FormField>
 
                 <FormField
@@ -224,8 +268,13 @@ export function PredictionForm() {
                     value={formData.trestbps}
                     onChange={handleChange}
                     required
-                    className={`bg-gray-800 border-gray-700 ${isMobile ? "h-12 text-base" : ""}`}
+                    className={`bg-gray-800 border-gray-700 ${isMobile ? "h-12 text-base" : ""} ${
+                      validationErrors.trestbps ? "border-red-500" : ""
+                    }`}
                   />
+                  {validationErrors.trestbps && (
+                    <p className="text-red-500 text-sm mt-1">{validationErrors.trestbps}</p>
+                  )}
                 </FormField>
 
                 <FormField
@@ -243,8 +292,11 @@ export function PredictionForm() {
                     value={formData.chol}
                     onChange={handleChange}
                     required
-                    className={`bg-gray-800 border-gray-700 ${isMobile ? "h-12 text-base" : ""}`}
+                    className={`bg-gray-800 border-gray-700 ${isMobile ? "h-12 text-base" : ""} ${
+                      validationErrors.chol ? "border-red-500" : ""
+                    }`}
                   />
+                  {validationErrors.chol && <p className="text-red-500 text-sm mt-1">{validationErrors.chol}</p>}
                 </FormField>
               </div>
 
@@ -330,8 +382,12 @@ export function PredictionForm() {
                     placeholder="Enter maximum heart rate"
                     value={formData.thalach}
                     onChange={handleChange}
-                    className={`bg-gray-800 border-gray-700 ${isMobile ? "h-12 text-base" : ""}`}
+                    required
+                    className={`bg-gray-800 border-gray-700 ${isMobile ? "h-12 text-base" : ""} ${
+                      validationErrors.thalach ? "border-red-500" : ""
+                    }`}
                   />
+                  {validationErrors.thalach && <p className="text-red-500 text-sm mt-1">{validationErrors.thalach}</p>}
                 </FormField>
 
                 <FormField
