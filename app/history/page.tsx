@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { ArrowLeft, Trash2, Shield, Heart, Info, Calendar, ArrowUpDown, Filter } from "lucide-react"
+import { ArrowLeft, Trash2, ArrowUpDown, Filter, Calendar, Heart, Info, Shield, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { AssessmentHistoryItem } from "@/lib/history-storage"
+import { useRouter } from "next/navigation"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,12 +18,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Badge } from "@/components/ui/badge"
-import { useMediaQuery } from "@/hooks/use-media-query"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAuth } from "@/lib/auth-context"
-import { fetchWithAuth } from "@/lib/api-utils"
-import HistoryStatistics from "@/components/history-statistics"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +27,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
+import { useMediaQuery } from "@/hooks/use-media-query"
+import HistoryStatistics from "@/components/history-statistics"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useAuth } from "@/lib/auth-context"
+import { fetchWithAuth } from "@/lib/api-utils"
 
 type SortOption = "date-newest" | "date-oldest" | "risk-highest" | "risk-lowest" | "age-highest" | "age-lowest"
 type FilterOption = "all" | "high" | "moderate" | "low"
@@ -43,82 +43,89 @@ export default function HistoryPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [sortBy, setSortBy] = useState<SortOption>("date-newest")
   const [filterBy, setFilterBy] = useState<FilterOption>("all")
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState("history")
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const isMobile = useMediaQuery("(max-width: 640px)")
-  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth()
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isAuthLoading && !isAuthenticated) {
+    if (!authLoading && !isAuthenticated) {
       router.push("/login?redirect=/history")
     }
-  }, [isAuthenticated, isAuthLoading, router])
+  }, [isAuthenticated, authLoading, router])
 
   useEffect(() => {
     // Only load history if user is authenticated
     const loadHistory = async () => {
-      if (isAuthLoading) return // Wait for auth to complete
+      if (authLoading) return // Wait for auth to complete
+
+      if (!isAuthenticated || !user) {
+        // Not authenticated, redirect to login
+        router.push("/login?redirect=/history")
+        return
+      }
 
       setIsLoading(true)
       setError(null)
 
-      if (isAuthenticated && user) {
-        try {
-          // Fetch user's predictions from the server
-          const response = await fetchWithAuth("/api/user/predictions")
+      try {
+        console.log("Fetching predictions for authenticated user")
 
-          if (response.ok) {
-            const userPredictions = await response.json()
+        // Fetch user's predictions from the server
+        const response = await fetchWithAuth("/api/user/predictions")
 
-            // Transform server predictions to match AssessmentHistoryItem format
-            const formattedHistory = userPredictions.map((pred: any) => ({
-              id: pred.id,
-              date: pred.created_at,
-              result: {
-                risk: getRiskLevel(pred.result),
-                score: Math.round(pred.result * 100),
-                hasDisease: pred.result >= 0.5,
-              },
-              age: pred.prediction_data?.age || "",
-              sex: pred.prediction_data?.sex || "",
-              trestbps: pred.prediction_data?.trestbps || "",
-              chol: pred.prediction_data?.chol || "",
-              cp: pred.prediction_data?.cp || "",
-              fbs: pred.prediction_data?.fbs || "",
-              restecg: pred.prediction_data?.restecg || "",
-              thalach: pred.prediction_data?.thalach || "",
-              exang: pred.prediction_data?.exang || "",
-              oldpeak: pred.prediction_data?.oldpeak || "",
-              slope: pred.prediction_data?.slope || "",
-              ca: pred.prediction_data?.ca || "",
-              thal: pred.prediction_data?.thal || "",
-              foodHabits: pred.prediction_data?.foodHabits || "",
-              junkFoodConsumption: pred.prediction_data?.junkFoodConsumption || "",
-              sleepingHours: pred.prediction_data?.sleepingHours || "",
-            }))
+        if (response.ok) {
+          const userPredictions = await response.json()
+          console.log(`Received ${userPredictions.length} predictions from API`)
 
-            setHistory(formattedHistory)
-            setFilteredHistory(formattedHistory)
-          } else {
-            // Handle API error
-            const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
-            setError(`Failed to load history: ${errorData.error || response.statusText}`)
-          }
-        } catch (error) {
-          console.error("Error fetching user predictions:", error)
-          setError(`Failed to load history: ${error instanceof Error ? error.message : "Unknown error"}`)
+          // Transform server predictions to match AssessmentHistoryItem format
+          const formattedHistory = userPredictions.map((pred: any) => ({
+            id: pred.id,
+            date: pred.created_at,
+            result: {
+              risk: getRiskLevel(pred.result),
+              score: Math.round(pred.result * 100),
+              hasDisease: pred.result >= 0.5,
+            },
+            age: pred.prediction_data?.age || "",
+            sex: pred.prediction_data?.sex || "",
+            trestbps: pred.prediction_data?.trestbps || "",
+            chol: pred.prediction_data?.chol || "",
+            cp: pred.prediction_data?.cp || "",
+            fbs: pred.prediction_data?.fbs || "",
+            restecg: pred.prediction_data?.restecg || "",
+            thalach: pred.prediction_data?.thalach || "",
+            exang: pred.prediction_data?.exang || "",
+            oldpeak: pred.prediction_data?.oldpeak || "",
+            slope: pred.prediction_data?.slope || "",
+            ca: pred.prediction_data?.ca || "",
+            thal: pred.prediction_data?.thal || "",
+            foodHabits: pred.prediction_data?.foodHabits || "",
+            junkFoodConsumption: pred.prediction_data?.junkFoodConsumption || "",
+            sleepingHours: pred.prediction_data?.sleepingHours || "",
+          }))
+
+          setHistory(formattedHistory)
+          setFilteredHistory(formattedHistory)
+        } else {
+          // Handle API error
+          const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
+          console.error("API error:", errorData)
+          setError(`Failed to load history: ${errorData.error || response.statusText}`)
         }
-      } else if (!isAuthLoading && !isAuthenticated) {
-        // Not authenticated - this should not happen due to the redirect
-        router.push("/login?redirect=/history")
+      } catch (error) {
+        console.error("Error fetching user predictions:", error)
+        setError(`Failed to load history: ${error instanceof Error ? error.message : "Unknown error"}`)
       }
 
       setIsLoading(false)
     }
 
     loadHistory()
-  }, [isAuthenticated, user, isAuthLoading, router])
+  }, [isAuthenticated, user, authLoading, router])
 
   useEffect(() => {
     // Apply filtering and sorting whenever history, filterBy, or sortBy changes
@@ -249,19 +256,50 @@ export default function HistoryPage() {
     router.push("/predict/results")
   }
 
-  // If still loading auth or not authenticated, show loading or redirect
-  if (isAuthLoading) {
+  const getSortLabel = (option: SortOption) => {
+    switch (option) {
+      case "date-newest":
+        return "Date (Newest First)"
+      case "date-oldest":
+        return "Date (Oldest First)"
+      case "risk-highest":
+        return "Risk (Highest First)"
+      case "risk-lowest":
+        return "Risk (Lowest First)"
+      case "age-highest":
+        return "Age (Highest First)"
+      case "age-lowest":
+        return "Age (Lowest First)"
+    }
+  }
+
+  const getFilterLabel = (option: FilterOption) => {
+    switch (option) {
+      case "all":
+        return "All Risk Levels"
+      case "high":
+        return "High Risk Only"
+      case "moderate":
+        return "Moderate Risk Only"
+      case "low":
+        return "Low Risk Only"
+    }
+  }
+
+  // Show loading state while checking authentication
+  if (authLoading) {
     return (
       <div className="container mx-auto px-4 py-8 md:py-12">
         <div className="flex justify-center py-12">
-          <div className="animate-pulse">Verifying access...</div>
+          <div className="animate-pulse">Verifying your account...</div>
         </div>
       </div>
     )
   }
 
-  if (!isAuthenticated) {
-    return null // Will redirect due to the useEffect
+  // If not authenticated, don't render anything (redirect will happen)
+  if (!isAuthenticated || !user) {
+    return null
   }
 
   return (
@@ -305,14 +343,18 @@ export default function HistoryPage() {
           )}
         </div>
 
-        {/* Privacy banner */}
+        {/* User information banner with privacy indicator */}
         <Card className="mb-6 bg-gray-800 border-gray-700">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <Shield className="h-5 w-5 text-green-400" />
-              <div>
+              <div className="flex-1">
                 <p className="text-sm text-gray-300">Private Assessment History</p>
-                <p className="font-medium text-white">{user?.name ? `${user.name} (${user.email})` : user?.email}</p>
+                <p className="font-medium text-white">{user.name ? `${user.name} (${user.email})` : user.email}</p>
+              </div>
+              <div className="flex items-center gap-1 bg-green-900/30 text-green-400 border border-green-800 rounded-full px-2 py-1">
+                <Lock className="h-3 w-3" />
+                <span className="text-xs">Private</span>
               </div>
             </div>
           </CardContent>
@@ -325,7 +367,7 @@ export default function HistoryPage() {
           </div>
         )}
 
-        <Tabs defaultValue="history" className="w-full">
+        <Tabs defaultValue="history" className="w-full" onValueChange={setActiveTab}>
           <TabsList className="grid grid-cols-2 mb-6">
             <TabsTrigger value="history">Assessment History</TabsTrigger>
             <TabsTrigger value="about">About Heart Health Tracking</TabsTrigger>
@@ -334,7 +376,7 @@ export default function HistoryPage() {
           <TabsContent value="history">
             {isLoading ? (
               <div className="flex justify-center py-12">
-                <div className="animate-pulse">Loading your history...</div>
+                <div className="animate-pulse">Loading your personal history...</div>
               </div>
             ) : history.length === 0 ? (
               <Card className="bg-gray-900 border-gray-800 mb-6">
@@ -371,7 +413,7 @@ export default function HistoryPage() {
 
                   <div className="flex gap-2">
                     {/* Filter Dropdown */}
-                    <DropdownMenu>
+                    <DropdownMenu open={isFilterMenuOpen} onOpenChange={setIsFilterMenuOpen}>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm" className="flex items-center gap-2">
                           <Filter className="h-4 w-4" />
@@ -422,6 +464,7 @@ export default function HistoryPage() {
                         <DropdownMenuLabel>Sort by</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuGroup>
+                          <DropdownMenuLabel className="text-xs text-gray-500 font-normal">Date</DropdownMenuLabel>
                           <DropdownMenuItem
                             className={sortBy === "date-newest" ? "bg-accent" : ""}
                             onClick={() => setSortBy("date-newest")}
@@ -434,6 +477,12 @@ export default function HistoryPage() {
                           >
                             <Calendar className="h-4 w-4 mr-2" /> Oldest First
                           </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuGroup>
+                          <DropdownMenuLabel className="text-xs text-gray-500 font-normal">
+                            Risk Level
+                          </DropdownMenuLabel>
                           <DropdownMenuItem
                             className={sortBy === "risk-highest" ? "bg-accent" : ""}
                             onClick={() => setSortBy("risk-highest")}
@@ -447,10 +496,42 @@ export default function HistoryPage() {
                             <Heart className="h-4 w-4 mr-2 text-green-500" /> Lowest Risk First
                           </DropdownMenuItem>
                         </DropdownMenuGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuGroup>
+                          <DropdownMenuLabel className="text-xs text-gray-500 font-normal">Age</DropdownMenuLabel>
+                          <DropdownMenuItem
+                            className={sortBy === "age-highest" ? "bg-accent" : ""}
+                            onClick={() => setSortBy("age-highest")}
+                          >
+                            Highest Age First
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className={sortBy === "age-lowest" ? "bg-accent" : ""}
+                            onClick={() => setSortBy("age-lowest")}
+                          >
+                            Lowest Age First
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                 </div>
+
+                {/* Mobile active filters display */}
+                {isMobile && (
+                  <div className="mb-4 text-sm">
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <span className="text-gray-400">Showing:</span>
+                      <Badge variant="outline" className="bg-gray-800">
+                        {getFilterLabel(filterBy)}
+                      </Badge>
+                      <span className="text-gray-400">Sorted by:</span>
+                      <Badge variant="outline" className="bg-gray-800">
+                        {getSortLabel(sortBy)}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
 
                 {filteredHistory.length === 0 ? (
                   <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 text-center">
@@ -543,7 +624,7 @@ export default function HistoryPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* About content */}
+                {/* About content remains the same */}
                 <div>
                   <h3 className="text-xl font-semibold mb-2 text-white">Why Track Your Heart Health?</h3>
                   <p className="text-gray-300 mb-4">
@@ -551,6 +632,26 @@ export default function HistoryPage() {
                     HeartPredict allows you to track changes in your cardiovascular health over time, helping you make
                     informed decisions about lifestyle changes and medical interventions.
                   </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                    <div className="bg-gray-800 p-4 rounded-lg">
+                      <h4 className="font-medium text-white mb-2">Early Detection</h4>
+                      <p className="text-sm text-gray-300">
+                        Identify potential heart issues before they become serious medical problems.
+                      </p>
+                    </div>
+                    <div className="bg-gray-800 p-4 rounded-lg">
+                      <h4 className="font-medium text-white mb-2">Track Progress</h4>
+                      <p className="text-sm text-gray-300">
+                        Monitor how lifestyle changes affect your heart disease risk over time.
+                      </p>
+                    </div>
+                    <div className="bg-gray-800 p-4 rounded-lg">
+                      <h4 className="font-medium text-white mb-2">Data-Driven Decisions</h4>
+                      <p className="text-sm text-gray-300">
+                        Share your history with healthcare providers for more informed medical care.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -584,6 +685,55 @@ export default function HistoryPage() {
                         Risk score below 30%. Continue maintaining a heart-healthy lifestyle.
                       </p>
                     </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-semibold mb-2 text-white">Your Data Privacy</h3>
+                  <p className="text-gray-300 mb-4">
+                    At HeartPredict, we take your privacy seriously. Your health data is:
+                  </p>
+                  <div className="bg-gray-800 p-4 rounded-lg space-y-3">
+                    <div className="flex items-start gap-3">
+                      <Shield className="h-5 w-5 text-green-400 mt-0.5" />
+                      <p className="text-sm text-gray-300">
+                        <span className="font-medium text-white">Securely stored</span> - All your data is encrypted and
+                        stored securely in our database
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Lock className="h-5 w-5 text-green-400 mt-0.5" />
+                      <p className="text-sm text-gray-300">
+                        <span className="font-medium text-white">Private</span> - Only you can access your personal
+                        assessment history
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Heart className="h-5 w-5 text-green-400 mt-0.5" />
+                      <p className="text-sm text-gray-300">
+                        <span className="font-medium text-white">Protected</span> - We never share your personal health
+                        data with third parties
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-semibold mb-2 text-white">Taking Action</h3>
+                  <p className="text-gray-300 mb-2">
+                    Based on your assessment history, here are recommended next steps:
+                  </p>
+                  <ul className="list-disc pl-5 text-gray-300 space-y-2">
+                    <li>Schedule regular assessments (at least quarterly) to track changes in your heart health</li>
+                    <li>Share your assessment history with your healthcare provider during checkups</li>
+                    <li>Implement recommended lifestyle changes based on your risk factors</li>
+                    <li>Set up email notifications for regular heart health check-in reminders</li>
+                    <li>Export your data as PDF reports for your personal health records</li>
+                  </ul>
+                  <div className="mt-6">
+                    <Button asChild className="bg-red-600 hover:bg-red-700">
+                      <Link href="/predict">Take a New Assessment</Link>
+                    </Button>
                   </div>
                 </div>
               </CardContent>

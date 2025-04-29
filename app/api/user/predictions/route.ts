@@ -8,11 +8,14 @@ export async function GET(request: NextRequest) {
     const user = await getUserFromRequest(request)
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized - Please log in to view your history" }, { status: 401 })
     }
 
     // Fetch predictions for this user only
     const predictions = await getPredictionsByUserId(user.id)
+
+    // Log for security auditing (without exposing sensitive data)
+    console.log(`User ${user.id} accessed their predictions (${predictions.length} records)`)
 
     return NextResponse.json(predictions)
   } catch (error) {

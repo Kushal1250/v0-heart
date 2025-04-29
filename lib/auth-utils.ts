@@ -114,7 +114,6 @@ export async function verifyAdminSession(request: Request): Promise<{
 
 /**
  * Extracts user information from an incoming request
- * This is the key function that ensures user-specific data access
  */
 export async function getUserFromRequest(request: NextRequest) {
   try {

@@ -14,22 +14,29 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     const user = await getUserFromRequest(request)
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized - Please log in to delete predictions" }, { status: 401 })
     }
 
-    // Important: Only delete the prediction if it belongs to the authenticated user
-    const result = await sql`
-      DELETE FROM predictions 
+    // First verify the prediction belongs to this user
+    const verifyOwnership = await sql`
+      SELECT id FROM predictions 
       WHERE id = ${predictionId} AND user_id = ${user.id}
-      RETURNING id
     `
 
-    if (result.length === 0) {
+    if (verifyOwnership.length === 0) {
+      // Either the prediction doesn't exist or it doesn't belong to this user
+      // We return the same error message either way to avoid information leakage
       return NextResponse.json(
-        { error: "Prediction not found or does not belong to the authenticated user" },
+        { error: "Prediction not found or you don't have permission to delete it" },
         { status: 404 },
       )
     }
+
+    // Now delete the prediction
+    await sql`DELETE FROM predictions WHERE id = ${predictionId} AND user_id = ${user.id}`
+
+    // Log for security auditing
+    console.log(`User ${user.id} deleted prediction ${predictionId}`)
 
     return NextResponse.json({ success: true })
   } catch (error) {
