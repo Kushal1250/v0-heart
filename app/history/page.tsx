@@ -15,6 +15,9 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
 
+  const [isEditingEmail, setIsEditingEmail] = useState(false)
+  const [newEmail, setNewEmail] = useState("")
+
   useEffect(() => {
     // Get current user email
     const email = getCurrentEmail()
@@ -54,12 +57,21 @@ export default function HistoryPage() {
   }
 
   const handleChangeEmail = () => {
-    const newEmail = prompt("Enter your email address:", userEmail)
+    setNewEmail(userEmail)
+    setIsEditingEmail(true)
+  }
+
+  const handleSaveEmail = () => {
     if (newEmail && newEmail !== userEmail) {
       setUserEmail(newEmail)
       localStorage.setItem("currentUserEmail", newEmail)
       loadAssessmentHistory(newEmail)
     }
+    setIsEditingEmail(false)
+  }
+
+  const handleCancelEmailEdit = () => {
+    setIsEditingEmail(false)
   }
 
   // Filter assessments based on active tab
@@ -81,6 +93,18 @@ export default function HistoryPage() {
     }
   }
 
+  const handleDeleteAssessment = (index) => {
+    if (confirm("Are you sure you want to delete this assessment?")) {
+      const updatedAssessments = [...assessments]
+      updatedAssessments.splice(index, 1)
+      setAssessments(updatedAssessments)
+
+      // Update localStorage
+      const historyKey = `assessmentHistory_${userEmail}`
+      localStorage.setItem(historyKey, JSON.stringify(updatedAssessments))
+    }
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
@@ -95,12 +119,35 @@ export default function HistoryPage() {
           <div className="flex justify-between items-start">
             <div>
               <CardTitle className="text-2xl">Assessment History</CardTitle>
-              <CardDescription>
-                Viewing history for: {userEmail}{" "}
-                <Button variant="link" className="p-0 h-auto text-blue-400" onClick={handleChangeEmail}>
-                  Change Email
-                </Button>
-              </CardDescription>
+              {isEditingEmail ? (
+                <div className="flex items-center mt-2">
+                  <input
+                    type="email"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 mr-2 text-sm"
+                    placeholder="Enter email address"
+                  />
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleSaveEmail}
+                    className="bg-blue-600 hover:bg-blue-700 mr-2"
+                  >
+                    Save
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleCancelEmailEdit}>
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <CardDescription>
+                  Viewing history for: {userEmail}{" "}
+                  <Button variant="link" className="p-0 h-auto text-blue-400" onClick={handleChangeEmail}>
+                    Change
+                  </Button>
+                </CardDescription>
+              )}
             </div>
             {assessments.length > 0 && (
               <Button variant="destructive" size="sm" onClick={handleClearHistory}>
@@ -167,7 +214,7 @@ export default function HistoryPage() {
                                 {formatDate(assessment.timestamp)}
                               </div>
                             </div>
-                            <div className="flex items-center">
+                            <div className="flex flex-col items-center">
                               <div
                                 className={`flex items-center justify-center rounded-full w-10 h-10 ${
                                   assessment.result?.risk === "high"
@@ -187,6 +234,17 @@ export default function HistoryPage() {
                                   }`}
                                 />
                               </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-0 h-6 w-6 mt-1 text-gray-400 hover:text-red-500"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteAssessment(index)
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
