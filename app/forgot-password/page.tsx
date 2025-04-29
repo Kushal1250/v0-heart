@@ -40,8 +40,9 @@ export default function ForgotPasswordPage() {
         return
       }
 
-      console.log(`Attempting to send verification code via email`, { email })
+      console.log(`Attempting to send password reset email`, { email })
 
+      // Change this to use the forgot-password endpoint instead of send-verification-code
       const response = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: {
@@ -56,10 +57,11 @@ export default function ForgotPasswordPage() {
         const data = await response.json()
         setLoading(false)
         setSuccess(true)
-        setError("")
+        setError(data.message)
 
         // If there's a preview URL (development environment), show it
         if (data.previewUrl) {
+          setError(`${data.message} Preview available at: ${data.previewUrl}`)
           setPreviewUrl(data.previewUrl)
         }
 
@@ -74,12 +76,13 @@ export default function ForgotPasswordPage() {
 
         // If there's still a preview URL despite the error, show it for debugging
         if (errorData.previewUrl) {
+          setError(`${errorData.message} Preview: ${errorData.previewUrl}`)
           setPreviewUrl(errorData.previewUrl)
         }
       }
     } catch (err: any) {
-      console.error("Error sending verification code:", err)
-      setError(err.message || "An error occurred while sending the verification code. Please try again.")
+      console.error("Error sending password reset request:", err)
+      setError(err.message || "An error occurred while sending the password reset request. Please try again.")
     } finally {
       setLoading(false)
     }

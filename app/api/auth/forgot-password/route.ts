@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
-import { getUserByEmail } from "@/lib/db"
-import { isValidEmail } from "@/lib/auth-utils"
-import { sendVerificationCode } from "@/lib/auth-utils"
+import { getUserByEmail, createPasswordResetToken } from "@/lib/db"
+import { generateToken, isValidEmail } from "@/lib/auth-utils"
 
 export async function POST(request: Request) {
   try {
@@ -20,14 +19,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "If an account exists, a reset link has been sent" })
     }
 
-    // Send verification code via email
-    const result = await sendVerificationCode(email, "email")
+    // Generate token and expiration
+    const token = generateToken()
+    const expiresAt = new Date(Date.now() + 1 * 60 * 60 * 1000) // 1 hour
 
-    // Return the result, including any preview URL for development
-    return NextResponse.json({
-      message: "If an account exists, a verification code has been sent",
-      previewUrl: result.previewUrl,
-    })
+    // Save token to database
+    await createPasswordResetToken(user.id, token, expiresAt)
+
+    // In a real application, send email with reset link
+    // For this example, we'll just log it
+    console.log(`Reset link: ${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`)
+
+    return NextResponse.json({ message: "If an account exists, a reset link has been sent" })
   } catch (error) {
     console.error("Password reset request error:", error)
     return NextResponse.json({ message: "An error occurred" }, { status: 500 })
