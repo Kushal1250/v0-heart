@@ -4,35 +4,30 @@
  */
 
 /**
- * Validates if a phone number is in a valid format
- * @param phone Phone number to validate
- * @returns Boolean indicating if the phone is valid
- */
-export function isValidPhone(phone: string): boolean {
-  if (!phone) return false
-
-  // Basic validation - should have at least 10 digits
-  const digits = phone.replace(/\D/g, "")
-  return digits.length >= 10
-}
-
-/**
- * Validates if an email is in a valid format
- * @param email Email to validate
- * @returns Boolean indicating if the email is valid
+ * Validates if an email address is in a valid format
  */
 export function isValidEmail(email: string): boolean {
   if (!email) return false
-
   // Basic email validation regex
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
 }
 
 /**
+ * Validates if a phone number is in a valid format
+ * This is a basic validation that just checks for minimum length
+ */
+export function isValidPhone(phone: string): boolean {
+  if (!phone) return false
+  // Remove all non-digit characters
+  const digits = phone.replace(/\D/g, "")
+  // Most phone numbers are at least 10 digits
+  return digits.length >= 10
+}
+
+/**
  * Formats a phone number for display
- * @param phone Phone number to format
- * @returns Formatted phone number
+ * This is a simple formatter that adds parentheses and hyphens
  */
 export function formatPhoneForDisplay(phone: string): string {
   if (!phone) return ""
@@ -40,11 +35,15 @@ export function formatPhoneForDisplay(phone: string): string {
   // Remove all non-digit characters
   const digits = phone.replace(/\D/g, "")
 
-  // Format as (XXX) XXX-XXXX for US numbers
+  // Format based on length
   if (digits.length === 10) {
+    // Format as (XXX) XXX-XXXX
     return `(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6)}`
+  } else if (digits.length === 11 && digits.startsWith("1")) {
+    // Format as +1 (XXX) XXX-XXXX
+    return `+1 (${digits.substring(1, 4)}) ${digits.substring(4, 7)}-${digits.substring(7)}`
   }
 
-  // If it's not a 10-digit number, just return it with spaces
-  return digits.replace(/(\d{3})(?=\d)/g, "$1 ")
+  // Return as is if it doesn't match expected formats
+  return phone
 }
