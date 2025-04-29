@@ -37,10 +37,10 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
     }
 
     // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > 50 * 1024 * 1024) {
       toast({
         title: "File too large",
-        description: "Please upload an image smaller than 5MB.",
+        description: "Please upload an image smaller than 50MB.",
         variant: "destructive",
       })
       return
@@ -197,7 +197,7 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
 
           <div className="text-xs text-gray-500 text-center">
             <p>Supported formats: JPEG, PNG, GIF</p>
-            <p>Maximum file size: 5MB</p>
+            <p>Maximum file size: 50MB</p>
           </div>
 
           <div className="flex justify-end gap-2">

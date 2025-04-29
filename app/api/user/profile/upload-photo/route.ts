@@ -27,9 +27,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate file size (max 5MB)
-    if (profilePicture.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ message: "File too large. Please upload an image smaller than 5MB." }, { status: 400 })
+    // Validate file size (max 50MB)
+    if (profilePicture.size > 50 * 1024 * 1024) {
+      return NextResponse.json(
+        { message: "File too large. Please upload an image smaller than 50MB." },
+        { status: 400 },
+      )
     }
 
     // Generate a unique timestamp for cache busting

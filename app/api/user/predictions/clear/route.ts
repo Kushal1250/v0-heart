@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getUserFromRequest } from "@/lib/auth-utils"
-import { sql } from "@/lib/db"
+import { clearUserPredictions } from "@/lib/db"
 
 export async function DELETE(request: NextRequest) {
   try {
@@ -8,13 +8,14 @@ export async function DELETE(request: NextRequest) {
     const user = await getUserFromRequest(request)
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
 
-    console.log(`Clearing all predictions for user ${user.id}`)
+    // Clear all predictions for this user
+    await clearUserPredictions(user.id)
 
-    // Delete all predictions for this user
-    await sql`DELETE FROM predictions WHERE user_id = ${user.id}`
+    // Log for security auditing
+    console.log(`User ${user.id} cleared all their predictions`)
 
     return NextResponse.json({ success: true })
   } catch (error) {

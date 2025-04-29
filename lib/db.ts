@@ -525,6 +525,44 @@ export async function getPredictionById(id: string) {
 }
 
 /**
+ * Delete a prediction by ID
+ * @param id Prediction ID
+ * @returns Success status
+ */
+export async function deletePredictionById(id: string): Promise<boolean> {
+  try {
+    if (!id) {
+      throw new Error("Prediction ID is required to delete prediction")
+    }
+
+    await sql`DELETE FROM predictions WHERE id = ${id}`
+    return true
+  } catch (error) {
+    console.error("Database error in deletePredictionById:", error)
+    throw new Error(`Failed to delete prediction: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
+ * Clear all predictions for a user
+ * @param userId User ID
+ * @returns Success status
+ */
+export async function clearUserPredictions(userId: string): Promise<boolean> {
+  try {
+    if (!userId) {
+      throw new Error("User ID is required to clear predictions")
+    }
+
+    await sql`DELETE FROM predictions WHERE user_id = ${userId}`
+    return true
+  } catch (error) {
+    console.error("Database error in clearUserPredictions:", error)
+    throw new Error(`Failed to clear predictions: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
  * Create a verification code for a user
  * @param identifier User ID, email, or phone
  * @param code Verification code
