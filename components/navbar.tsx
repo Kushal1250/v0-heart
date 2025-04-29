@@ -1,10 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import Link from "next/link"
+import { User, UserPlus, LogOut, Menu, X, Bell, LayoutDashboard, Heart, Settings, Shield } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { Button } from "@/components/ui/button"
+import { useEffect, useState } from "react"
+import { useToast } from "@/components/ui/use-toast"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,195 +15,318 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MobileNav } from "@/components/mobile-nav"
-import { Heart, User, LayoutDashboard, Settings, LogOut, Shield } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function Navbar() {
-  const { user, isAdmin, logout } = useAuth()
   const pathname = usePathname()
-  const [isScrolled, setIsScrolled] = useState(false)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { user, logout, isLoading } = useAuth()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+  const [showLoginSuccess, setShowLoginSuccess] = useState(false)
+  const { toast } = useToast()
+  const isAdmin = user?.email === "admin@example.com" // Example admin check
 
-  // Handle scroll event to change navbar appearance
+  // Add scroll effect
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10)
+      setScrolled(window.scrollY > 10)
     }
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  // Get the first letter of the user's name or email for the avatar
-  const getInitial = () => {
-    if (!user) return "U"
-    if (user.name) return user.name[0].toUpperCase()
-    if (user.email) return user.email[0].toUpperCase()
-    return "U"
-  }
+  // Check for login success
+  useEffect(() => {
+    const justLoggedIn = sessionStorage.getItem("justLoggedIn")
+    if (justLoggedIn === "true" && user) {
+      setShowLoginSuccess(true)
+      toast({
+        title: "Login Successful!",
+        description: `Welcome back, ${user.name || "User"}! Your dashboard is ready.`,
+        duration: 5000,
+      })
+      sessionStorage.removeItem("justLoggedIn")
 
-  // Function to handle logout
+      // After 5 seconds, hide the success message
+      setTimeout(() => {
+        setShowLoginSuccess(false)
+      }, 5000)
+    }
+  }, [user, toast])
+
   const handleLogout = async () => {
     await logout()
     window.location.href = "/"
   }
 
-  // Check if the current path matches the given path
-  const isActive = (path: string) => {
-    if (path === "/") {
-      return pathname === "/"
-    }
-    return pathname?.startsWith(path)
+  // Navigation items based on current page and authentication status
+  let navigationItems = []
+
+  // For homepage (/) - show only Home if not logged in
+  if (pathname === "/" && !user) {
+    navigationItems = [{ name: "Home", href: "/" }]
+  }
+  // Default navigation for other pages when not logged in
+  else if (!user) {
+    navigationItems = [{ name: "Home", href: "/" }]
+  }
+  // For logged-in users - keep the existing items
+  else {
+    navigationItems = [
+      { name: "Home", href: "/home" },
+      { name: "Predict", href: "/predict" },
+      { name: "History", href: "/history" },
+      { name: "About", href: "/about" },
+      { name: "How It Works", href: "/how-it-works" },
+      ...(isAdmin ? [{ name: "Admin", href: "/admin" }] : []),
+    ]
   }
 
   return (
-    <header
-      className={`sticky top-0 z-50 w-full border-b ${
-        isScrolled ? "bg-white/95 backdrop-blur-sm" : "bg-white"
-      } transition-all duration-200`}
-    >
-      <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6">
-        {/* Logo */}
-        <div className="flex items-center">
-          <Link href="/" className="flex items-center space-x-2">
-            <Heart className="h-6 w-6 text-red-500" />
-            <span className="text-xl font-bold">HeartPredict</span>
-          </Link>
+    <>
+      {showLoginSuccess && (
+        <div className="bg-green-50 text-green-800 px-4 py-2 text-center">
+          <p className="font-medium">Login Successful! Welcome to HeartPredict.</p>
         </div>
+      )}
+      <nav
+        className={`bg-white shadow-sm sticky top-0 z-50 transition-all duration-300 ${scrolled ? "shadow-md" : ""}`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16 items-center">
+            <div className="flex items-center">
+              <Link href={user ? "/home" : "/"} className="flex items-center">
+                <Heart className="h-6 w-6 text-red-500 fill-red-500 mr-2" />
+                <span className="font-bold text-xl text-gray-900">HeartPredict</span>
+              </Link>
+              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+                {navigationItems.map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`inline-flex items-center px-3 py-2 text-sm font-medium ${
+                      pathname === item.href ? "text-blue-600" : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    {item.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-8">
-          <Link
-            href="/"
-            className={`text-sm font-medium transition-colors hover:text-primary ${
-              isActive("/") ? "text-primary border-b-2 border-primary" : "text-muted-foreground"
-            }`}
-          >
-            Home
-          </Link>
-          {isAdmin && (
-            <Link
-              href="/admin"
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                isActive("/admin") ? "text-primary border-b-2 border-primary" : "text-muted-foreground"
-              }`}
-            >
-              Admin Login
-            </Link>
-          )}
-        </nav>
+            {!isLoading && (
+              <div className="flex items-center gap-4">
+                {user ? (
+                  // Authenticated user navigation
+                  <>
+                    <div className="hidden md:flex items-center gap-4">
+                      <button className="p-1 rounded-full text-gray-400 hover:text-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors btn-hover-effect">
+                        <span className="sr-only">View notifications</span>
+                        <Bell className="h-6 w-6" />
+                      </button>
 
-        {/* User Menu or Auth Buttons */}
-        <div className="flex items-center space-x-4">
-          {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                  <Avatar>
-                    <AvatarImage src={user.profile_picture || ""} alt={user.name || "User"} />
-                    <AvatarFallback className="bg-blue-500 text-white">{getInitial()}</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 bg-[#1a1d24] text-white border-gray-700">
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">{user.name || "User"}</p>
-                      {isAdmin && <Badge className="bg-red-500 text-white">Admin</Badge>}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                            <Avatar className="h-10 w-10 transition-transform hover:scale-110 bg-blue-100">
+                              {user.profile_picture ? (
+                                <AvatarImage
+                                  src={user.profile_picture || "/placeholder.svg"}
+                                  alt={user.name || "User"}
+                                />
+                              ) : (
+                                <AvatarFallback className="bg-blue-100 text-blue-600 font-medium">
+                                  {user.name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || "A"}
+                                </AvatarFallback>
+                              )}
+                            </Avatar>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          className="w-56 bg-[#1a1f2e] text-white border-[#2a2f3e]"
+                          align="end"
+                          forceMount
+                        >
+                          <DropdownMenuLabel className="font-normal px-4 py-3 border-b border-[#2a2f3e]">
+                            <div className="flex flex-col space-y-1">
+                              <div className="flex items-center">
+                                <p className="text-sm font-medium leading-none">{user.name || "Admin"}</p>
+                                {isAdmin && (
+                                  <span className="ml-2 px-1.5 py-0.5 text-xs bg-red-500 text-white rounded-md">
+                                    Admin
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs leading-none text-gray-400">{user.email || "admin@example.com"}</p>
+                            </div>
+                          </DropdownMenuLabel>
+                          <div className="px-2 py-2">
+                            <DropdownMenuItem
+                              asChild
+                              className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
+                            >
+                              <Link href="/profile" className="flex items-center">
+                                <User className="mr-2 h-4 w-4" />
+                                <span>Profile</span>
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              asChild
+                              className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
+                            >
+                              <Link href="/dashboard" className="flex items-center">
+                                <LayoutDashboard className="mr-2 h-4 w-4" />
+                                <span>Dashboard</span>
+                              </Link>
+                            </DropdownMenuItem>
+                            {isAdmin && (
+                              <DropdownMenuItem
+                                asChild
+                                className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
+                              >
+                                <Link href="/admin" className="flex items-center">
+                                  <Shield className="mr-2 h-4 w-4" />
+                                  <span>Admin</span>
+                                </Link>
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              asChild
+                              className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
+                            >
+                              <Link href="/settings" className="flex items-center">
+                                <Settings className="mr-2 h-4 w-4" />
+                                <span>Settings</span>
+                              </Link>
+                            </DropdownMenuItem>
+                          </div>
+                          <DropdownMenuSeparator className="bg-[#2a2f3e]" />
+                          <div className="px-2 py-2">
+                            <DropdownMenuItem
+                              onClick={handleLogout}
+                              className="px-2 py-2 text-red-500 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
+                            >
+                              <LogOut className="mr-2 h-4 w-4" />
+                              <span>Log out</span>
+                            </DropdownMenuItem>
+                          </div>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                    <p className="text-xs text-gray-400 truncate">{user.email}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-gray-700" />
-                <DropdownMenuItem className="flex items-center cursor-pointer hover:bg-gray-700">
-                  <Link href="/profile" className="flex items-center w-full">
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="flex items-center cursor-pointer hover:bg-gray-700">
-                  <Link href="/dashboard" className="flex items-center w-full">
-                    <LayoutDashboard className="mr-2 h-4 w-4" />
-                    <span>Dashboard</span>
-                  </Link>
-                </DropdownMenuItem>
-                {isAdmin && (
-                  <DropdownMenuItem className="flex items-center cursor-pointer hover:bg-gray-700">
-                    <Link href="/admin" className="flex items-center w-full">
-                      <Shield className="mr-2 h-4 w-4" />
-                      <span>Admin</span>
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem className="flex items-center cursor-pointer hover:bg-gray-700">
-                  {isAdmin ? (
-                    <Link href="/admin/profile" className="flex items-center w-full">
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Settings</span>
-                    </Link>
-                  ) : (
-                    <Link href="/settings" className="flex items-center w-full">
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Settings</span>
-                    </Link>
-                  )}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-gray-700" />
-                <DropdownMenuItem
-                  className="flex items-center cursor-pointer text-red-500 hover:bg-gray-700 hover:text-red-400"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <>
-              <Link href="/login">
-                <Button variant="outline" className="rounded-md bg-gray-100 hover:bg-gray-200">
-                  Login
-                </Button>
-              </Link>
-              <Link href="/signup">
-                <Button className="rounded-md bg-blue-500 text-white hover:bg-blue-600">Sign Up</Button>
-              </Link>
-            </>
-          )}
 
-          {/* Mobile Menu Button */}
-          <div className="md:hidden">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Toggle Menu"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-6 w-6"
-              >
-                <line x1="4" x2="20" y1="12" y2="12" />
-                <line x1="4" x2="20" y1="6" y2="6" />
-                <line x1="4" x2="20" y1="18" y2="18" />
-              </svg>
-            </Button>
+                    {/* Mobile menu button */}
+                    <button
+                      type="button"
+                      className="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary custom-button"
+                      onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    >
+                      <span className="sr-only">Open main menu</span>
+                      {mobileMenuOpen ? (
+                        <X className="block h-6 w-6" aria-hidden="true" />
+                      ) : (
+                        <Menu className="block h-6 w-6" aria-hidden="true" />
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  // Non-authenticated user navigation - updated to match the design
+                  <div className="flex items-center gap-3">
+                    <Link href="/login">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-md bg-gray-50 text-gray-700 hover:bg-gray-100"
+                      >
+                        <User className="h-4 w-4 mr-2" /> Login
+                      </Button>
+                    </Link>
+                    <Link href="/signup">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="rounded-md bg-blue-500 text-white hover:bg-blue-600"
+                      >
+                        <UserPlus className="h-4 w-4 mr-2" /> Sign Up
+                      </Button>
+                    </Link>
+                    <Link href="/admin-login">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-md bg-gray-50 text-gray-700 hover:bg-gray-100"
+                      >
+                        <Shield className="h-4 w-4 mr-2" /> Admin
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
-      </div>
 
-      {/* Mobile Navigation */}
-      {isMobileMenuOpen && <MobileNav isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />}
-    </header>
+        {/* Mobile menu, show/hide based on menu state */}
+        {mobileMenuOpen && (
+          <div className="md:hidden">
+            <div className="pt-2 pb-3 space-y-1">
+              {navigationItems.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`block pl-3 pr-4 py-2 border-l-4 ${
+                    pathname === item.href
+                      ? "border-primary text-primary bg-primary/5"
+                      : "border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
+                  } text-base font-medium custom-link`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {item.name}
+                </Link>
+              ))}
+              {user && (
+                <>
+                  <Link
+                    href="/profile"
+                    className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <User className="inline h-4 w-4 mr-2" /> Profile
+                  </Link>
+                  <Link
+                    href="/dashboard"
+                    className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <LayoutDashboard className="inline h-4 w-4 mr-2" /> Dashboard
+                  </Link>
+                  <Link
+                    href="/settings"
+                    className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Settings className="inline h-4 w-4 mr-2" /> Settings
+                  </Link>
+                  {isAdmin && (
+                    <Link
+                      href="/admin"
+                      className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <Shield className="inline h-4 w-4 mr-2" /> Admin
+                    </Link>
+                  )}
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left block pl-3 pr-4 py-2 border-l-4 border-transparent text-red-600 hover:bg-gray-50 hover:border-red-300 hover:text-red-800 text-base font-medium custom-button"
+                  >
+                    <LogOut className="inline h-4 w-4 mr-2" /> Log out
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </nav>
+    </>
   )
 }
