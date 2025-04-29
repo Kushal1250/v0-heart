@@ -26,7 +26,6 @@ interface AuthContextType {
   ) => Promise<{ success: boolean; message: string }>
   logout: () => Promise<void>
   updateUserProfile: (data: Partial<User>) => void
-  updateUserDetails: (details: { name?: string; email?: string }) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -41,42 +40,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check if user is logged in
     const checkAuth = async () => {
       try {
-        // Check for admin cookie first
-        const cookies = document.cookie.split(";")
-        const isAdminCookie = cookies.find((cookie) => cookie.trim().startsWith("is_admin="))
-        const isAdmin = isAdminCookie ? isAdminCookie.split("=")[1] === "true" : false
-
-        if (isAdmin) {
-          setUser({
-            id: "admin",
-            name: "Admin",
-            email: "admin@example.com",
-            role: "admin",
-          })
-          setIsAdmin(true)
-          setIsLoading(false)
-          return
-        }
-
         const response = await fetch("/api/auth/user")
         if (response.ok) {
           try {
             const data = await response.json()
-
-            // Load saved user details from localStorage if available
-            if (data.user) {
-              try {
-                const savedDetails = localStorage.getItem("userDetails")
-                if (savedDetails) {
-                  const details = JSON.parse(savedDetails)
-                  if (details.name) data.user.name = details.name
-                  if (details.email) data.user.email = details.email
-                }
-              } catch (error) {
-                console.error("Error loading saved user details:", error)
-              }
-            }
-
             setUser(data.user)
             setIsAdmin(data.user.role === "admin")
           } catch (jsonError) {
@@ -221,9 +188,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await fetch("/api/auth/logout", { method: "POST" })
       setUser(null)
       setIsAdmin(false)
-
-      // Clear admin cookie
-      document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
     } catch (error) {
       console.error("Logout error:", error)
     }
@@ -233,24 +197,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUserProfile = (data: Partial<User>) => {
     if (user) {
       setUser({ ...user, ...data })
-    }
-  }
-
-  const updateUserDetails = (details: { name?: string; email?: string }) => {
-    if (user) {
-      const updatedUser = { ...user }
-      if (details.name) updatedUser.name = details.name
-      if (details.email) updatedUser.email = details.email
-      setUser(updatedUser)
-
-      // Save to localStorage for persistence
-      localStorage.setItem(
-        "userDetails",
-        JSON.stringify({
-          name: updatedUser.name,
-          email: updatedUser.email,
-        }),
-      )
     }
   }
 
@@ -265,7 +211,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signup,
         logout,
         updateUserProfile,
-        updateUserDetails,
       }}
     >
       {children}

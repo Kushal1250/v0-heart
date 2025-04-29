@@ -1,82 +1,67 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
+import { neon } from "@neondatabase/serverless"
 import { getUserFromRequest } from "@/lib/auth-utils"
-import { deletePredictionById, getPredictionById } from "@/lib/db"
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
+    const user = await getUserFromRequest(request)
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const predictionId = params.id
 
     if (!predictionId) {
       return NextResponse.json({ error: "Prediction ID is required" }, { status: 400 })
     }
 
-    // Get the authenticated user
-    const user = await getUserFromRequest(request)
+    const sql = neon(process.env.DATABASE_URL!)
 
-    if (!user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
-    }
+    // Fetch the prediction with the given ID that belongs to the authenticated user
+    const prediction = await sql`
+      SELECT 
+        p.id,
+        p.user_id,
+        p.created_at,
+        p.result,
+        p.prediction_data
+      FROM 
+        predictions p
+      WHERE 
+        p.id = ${predictionId} AND p.user_id = ${user.id}
+      LIMIT 1
+    `
 
-    // Verify the prediction belongs to this user
-    const prediction = await getPredictionById(predictionId)
-
-    if (!prediction) {
+    if (!prediction || prediction.length === 0) {
       return NextResponse.json({ error: "Prediction not found" }, { status: 404 })
     }
 
-    if (prediction.user_id !== user.id) {
-      // Security log for potential unauthorized access attempt
-      console.warn(
-        `User ${user.id} attempted to delete prediction ${predictionId} belonging to user ${prediction.user_id}`,
-      )
-      return NextResponse.json({ error: "Unauthorized access" }, { status: 403 })
+    // Format the prediction data for the client
+    const predictionData = prediction[0]
+
+    // Calculate risk level based on result score
+    const riskScore = predictionData.result * 100
+    let riskLevel = "low"
+    if (riskScore >= 70) {
+      riskLevel = "high"
+    } else if (riskScore >= 30) {
+      riskLevel = "moderate"
     }
 
-    // Delete the prediction
-    await deletePredictionById(predictionId)
-
-    // Log for security auditing
-    console.log(`User ${user.id} deleted prediction ${predictionId}`)
-
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("Error deleting prediction:", error)
-    return NextResponse.json({ error: "Failed to delete prediction" }, { status: 500 })
-  }
-}
-
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    const predictionId = params.id
-
-    if (!predictionId) {
-      return NextResponse.json({ error: "Prediction ID is required" }, { status: 400 })
+    // Format the response
+    const formattedPrediction = {
+      id: predictionData.id,
+      date: predictionData.created_at,
+      result: {
+        risk: riskLevel,
+        score: Math.round(riskScore),
+        hasDisease: predictionData.result >= 0.5,
+      },
+      ...predictionData.prediction_data,
     }
 
-    // Get the authenticated user
-    const user = await getUserFromRequest(request)
-
-    if (!user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
-    }
-
-    // Get the prediction
-    const prediction = await getPredictionById(predictionId)
-
-    if (!prediction) {
-      return NextResponse.json({ error: "Prediction not found" }, { status: 404 })
-    }
-
-    // Verify the prediction belongs to this user
-    if (prediction.user_id !== user.id) {
-      // Security log for potential unauthorized access attempt
-      console.warn(
-        `User ${user.id} attempted to access prediction ${predictionId} belonging to user ${prediction.user_id}`,
-      )
-      return NextResponse.json({ error: "Unauthorized access" }, { status: 403 })
-    }
-
-    return NextResponse.json(prediction)
+    return NextResponse.json(formattedPrediction)
   } catch (error) {
     console.error("Error fetching prediction:", error)
     return NextResponse.json({ error: "Failed to fetch prediction" }, { status: 500 })

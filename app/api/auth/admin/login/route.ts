@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
 import { generateToken } from "@/lib/auth-utils"
 
 export async function POST(request: Request) {
@@ -19,20 +20,8 @@ export async function POST(request: Request) {
 
       console.log("Admin login successful, setting cookies")
 
-      // Create response
-      const response = NextResponse.json({
-        success: true,
-        message: "Admin login successful",
-        user: {
-          id: "admin",
-          email: email,
-          name: "Admin",
-          role: "admin",
-        },
-      })
-
       // Set cookies with proper configuration
-      response.cookies.set({
+      cookies().set({
         name: "token",
         value: token,
         httpOnly: true,
@@ -42,7 +31,7 @@ export async function POST(request: Request) {
         secure: process.env.NODE_ENV === "production",
       })
 
-      response.cookies.set({
+      cookies().set({
         name: "session",
         value: token,
         httpOnly: true,
@@ -52,7 +41,7 @@ export async function POST(request: Request) {
         secure: process.env.NODE_ENV === "production",
       })
 
-      response.cookies.set({
+      cookies().set({
         name: "is_admin",
         value: "true",
         httpOnly: false, // Needs to be accessible from JavaScript
@@ -62,7 +51,16 @@ export async function POST(request: Request) {
         secure: process.env.NODE_ENV === "production",
       })
 
-      return response
+      return NextResponse.json({
+        success: true,
+        message: "Admin login successful",
+        user: {
+          id: "admin",
+          email: email,
+          name: "Admin",
+          role: "admin",
+        },
+      })
     }
 
     console.log("Admin login failed: Invalid credentials")

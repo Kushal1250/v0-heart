@@ -15,7 +15,6 @@ import { jsPDF } from "jspdf"
 import { saveToHistory } from "@/lib/history-storage"
 import { fetchWithAuth } from "@/lib/api-utils"
 import { useAuth } from "@/lib/auth-context"
-import { getCurrentUserEmail } from "@/lib/user-specific-storage"
 
 interface PredictionResult {
   id?: string // Add optional id field to check if it's from history
@@ -162,29 +161,6 @@ export default function ResultsPage() {
       saveToHistory(predictionResult)
     }
   }, [predictionResult])
-
-  // Save assessment to history
-  useEffect(() => {
-    if (predictionResult && predictionResult.result) {
-      try {
-        const email = getCurrentUserEmail()
-        if (email) {
-          console.log("Saving assessment to history for:", email)
-          saveToHistory(email, {
-            ...predictionResult,
-            timestamp: Date.now(),
-          })
-        }
-
-        // Also attempt to save to server if user is logged in
-        if (user?.id) {
-          //saveAssessmentToServer(predictionResult); // Assuming this function exists elsewhere
-        }
-      } catch (error) {
-        console.error("Failed to save assessment to history:", error)
-      }
-    }
-  }, [predictionResult, user])
 
   if (loading) {
     return (

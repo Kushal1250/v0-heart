@@ -1,40 +1,32 @@
 import { NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
-import { getUserFromSession } from "@/lib/auth-utils"
 
 const sql = neon(process.env.DATABASE_URL!)
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
-    // Check if user is admin
-    const user = await getUserFromSession(req)
-
-    if (!user || user.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Create the user_settings table if it doesn't exist
+    // Create user_settings table if it doesn't exist
     await sql`
       CREATE TABLE IF NOT EXISTS user_settings (
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        theme VARCHAR(10) DEFAULT 'dark',
-        save_history BOOLEAN DEFAULT TRUE,
-        notifications BOOLEAN DEFAULT FALSE,
-        email_notifications BOOLEAN DEFAULT FALSE,
-        data_sharing BOOLEAN DEFAULT FALSE,
-        language VARCHAR(20) DEFAULT 'english',
-        units VARCHAR(10) DEFAULT 'metric',
-        privacy_mode BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        theme VARCHAR(10) NOT NULL DEFAULT 'dark',
+        save_history BOOLEAN NOT NULL DEFAULT true,
+        notifications BOOLEAN NOT NULL DEFAULT false,
+        email_notifications BOOLEAN NOT NULL DEFAULT false,
+        data_sharing BOOLEAN NOT NULL DEFAULT false,
+        language VARCHAR(20) NOT NULL DEFAULT 'english',
+        units VARCHAR(10) NOT NULL DEFAULT 'metric',
+        privacy_mode BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(user_id)
       )
     `
 
-    return NextResponse.json({ message: "Settings table created successfully" })
+    return NextResponse.json({ success: true, message: "User settings table created successfully" })
   } catch (error) {
-    console.error("Error creating settings table:", error)
-    return NextResponse.json({ error: "Failed to create settings table" }, { status: 500 })
+    console.error("Error creating user settings table:", error)
+    return NextResponse.json({ error: "Failed to create user settings table" }, { status: 500 })
   }
 }

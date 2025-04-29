@@ -9,7 +9,6 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useState, useEffect, useRef } from "react"
-import { useAuth } from "@/lib/auth-context"
 
 export default function SettingsPage() {
   const [theme, setTheme] = useState<"dark" | "light">("dark")
@@ -24,74 +23,51 @@ export default function SettingsPage() {
   const [animating, setAnimating] = useState(false)
   const themeToggleRef = useRef<HTMLDivElement>(null)
 
-  const { user, updateUserDetails } = useAuth()
-
   // Ensure we're mounted before rendering theme-dependent UI
   useEffect(() => {
     setMounted(true)
 
-    // Fetch user settings from the API
-    const fetchSettings = async () => {
-      try {
-        const response = await fetch("/api/user/settings")
-        if (response.ok) {
-          const data = await response.json()
-          setTheme(data.theme || "dark")
-          setSaveHistory(data.saveHistory !== undefined ? data.saveHistory : true)
-          setNotifications(data.notifications !== undefined ? data.notifications : false)
-          setEmailNotifications(data.emailNotifications !== undefined ? data.emailNotifications : false)
-          setDataSharing(data.dataSharing !== undefined ? data.dataSharing : false)
-          setLanguage(data.language || "english")
-          setUnits(data.units || "metric")
-          setPrivacyMode(data.privacyMode !== undefined ? data.privacyMode : false)
-        } else {
-          // If API fails, fall back to localStorage
-          const savedTheme = localStorage.getItem("theme") as "dark" | "light"
-          if (savedTheme) {
-            setTheme(savedTheme)
-          }
-
-          const savedHistory = localStorage.getItem("saveHistory")
-          if (savedHistory !== null) {
-            setSaveHistory(savedHistory === "true")
-          }
-
-          const savedNotifications = localStorage.getItem("notifications")
-          if (savedNotifications !== null) {
-            setNotifications(savedNotifications === "true")
-          }
-
-          const savedEmailNotifications = localStorage.getItem("emailNotifications")
-          if (savedEmailNotifications !== null) {
-            setEmailNotifications(savedEmailNotifications === "true")
-          }
-
-          const savedDataSharing = localStorage.getItem("dataSharing")
-          if (savedDataSharing !== null) {
-            setDataSharing(savedDataSharing === "true")
-          }
-
-          const savedLanguage = localStorage.getItem("language")
-          if (savedLanguage !== null) {
-            setLanguage(savedLanguage)
-          }
-
-          const savedUnits = localStorage.getItem("units")
-          if (savedUnits !== null) {
-            setUnits(savedUnits)
-          }
-
-          const savedPrivacyMode = localStorage.getItem("privacyMode")
-          if (savedPrivacyMode !== null) {
-            setPrivacyMode(savedPrivacyMode === "true")
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching settings:", error)
-      }
+    // Initialize theme from localStorage
+    const savedTheme = localStorage.getItem("theme") as "dark" | "light"
+    if (savedTheme) {
+      setTheme(savedTheme)
     }
 
-    fetchSettings()
+    // Initialize settings from localStorage
+    const savedHistory = localStorage.getItem("saveHistory")
+    if (savedHistory !== null) {
+      setSaveHistory(savedHistory === "true")
+    }
+
+    const savedNotifications = localStorage.getItem("notifications")
+    if (savedNotifications !== null) {
+      setNotifications(savedNotifications === "true")
+    }
+
+    const savedEmailNotifications = localStorage.getItem("emailNotifications")
+    if (savedEmailNotifications !== null) {
+      setEmailNotifications(savedEmailNotifications === "true")
+    }
+
+    const savedDataSharing = localStorage.getItem("dataSharing")
+    if (savedDataSharing !== null) {
+      setDataSharing(savedDataSharing === "true")
+    }
+
+    const savedLanguage = localStorage.getItem("language")
+    if (savedLanguage !== null) {
+      setLanguage(savedLanguage)
+    }
+
+    const savedUnits = localStorage.getItem("units")
+    if (savedUnits !== null) {
+      setUnits(savedUnits)
+    }
+
+    const savedPrivacyMode = localStorage.getItem("privacyMode")
+    if (savedPrivacyMode !== null) {
+      setPrivacyMode(savedPrivacyMode === "true")
+    }
   }, [])
 
   // Toggle theme function
@@ -137,25 +113,9 @@ export default function SettingsPage() {
   }
 
   // Handle language change
-  const handleLanguageChange = async (value: string) => {
+  const handleLanguageChange = (value: string) => {
     setLanguage(value)
     localStorage.setItem("language", value)
-
-    try {
-      const response = await fetch("/api/user/settings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ language: value }),
-      })
-
-      if (!response.ok) {
-        console.error("Failed to save language setting to server")
-      }
-    } catch (error) {
-      console.error("Error saving language setting:", error)
-    }
   }
 
   // Handle units change
@@ -237,7 +197,7 @@ export default function SettingsPage() {
                     <p className="text-sm text-gray-400">Select your preferred language</p>
                   </div>
                   <Select value={language} onValueChange={handleLanguageChange}>
-                    <SelectTrigger className="w-[180px]" id="language">
+                    <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Select language" />
                     </SelectTrigger>
                     <SelectContent>
