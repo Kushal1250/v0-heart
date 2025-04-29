@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ArrowLeft, Trash2, ArrowUpDown, Filter, Calendar, Heart, Info, Shield, Lock } from "lucide-react"
+import { ArrowLeft, Trash2, ArrowUpDown, Filter, Calendar, Heart, Info, Shield, Lock, LogIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { AssessmentHistoryItem } from "@/lib/history-storage"
+import { getHistory, deleteHistoryItem, clearHistory, type AssessmentHistoryItem } from "@/lib/history-storage"
 import { useRouter } from "next/navigation"
 import {
   AlertDialog,
@@ -50,82 +50,87 @@ export default function HistoryPage() {
   const isMobile = useMediaQuery("(max-width: 640px)")
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
 
-  // Redirect to login if not authenticated
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push("/login?redirect=/history")
-    }
-  }, [isAuthenticated, authLoading, router])
-
-  useEffect(() => {
-    // Only load history if user is authenticated
+    // Load history based on authentication status
     const loadHistory = async () => {
-      if (authLoading) return // Wait for auth to complete
-
-      if (!isAuthenticated || !user) {
-        // Not authenticated, redirect to login
-        router.push("/login?redirect=/history")
-        return
-      }
-
       setIsLoading(true)
       setError(null)
 
-      try {
-        console.log("Fetching predictions for authenticated user")
+      if (isAuthenticated && user) {
+        try {
+          console.log("Fetching predictions for authenticated user")
 
-        // Fetch user's predictions from the server
-        const response = await fetchWithAuth("/api/user/predictions")
+          // Fetch user's predictions from the server
+          const response = await fetchWithAuth("/api/user/predictions")
 
-        if (response.ok) {
-          const userPredictions = await response.json()
-          console.log(`Received ${userPredictions.length} predictions from API`)
+          if (response.ok) {
+            const userPredictions = await response.json()
+            console.log(`Received ${userPredictions.length} predictions from API`)
 
-          // Transform server predictions to match AssessmentHistoryItem format
-          const formattedHistory = userPredictions.map((pred: any) => ({
-            id: pred.id,
-            date: pred.created_at,
-            result: {
-              risk: getRiskLevel(pred.result),
-              score: Math.round(pred.result * 100),
-              hasDisease: pred.result >= 0.5,
-            },
-            age: pred.prediction_data?.age || "",
-            sex: pred.prediction_data?.sex || "",
-            trestbps: pred.prediction_data?.trestbps || "",
-            chol: pred.prediction_data?.chol || "",
-            cp: pred.prediction_data?.cp || "",
-            fbs: pred.prediction_data?.fbs || "",
-            restecg: pred.prediction_data?.restecg || "",
-            thalach: pred.prediction_data?.thalach || "",
-            exang: pred.prediction_data?.exang || "",
-            oldpeak: pred.prediction_data?.oldpeak || "",
-            slope: pred.prediction_data?.slope || "",
-            ca: pred.prediction_data?.ca || "",
-            thal: pred.prediction_data?.thal || "",
-            foodHabits: pred.prediction_data?.foodHabits || "",
-            junkFoodConsumption: pred.prediction_data?.junkFoodConsumption || "",
-            sleepingHours: pred.prediction_data?.sleepingHours || "",
-          }))
+            // Transform server predictions to match AssessmentHistoryItem format
+            const formattedHistory = userPredictions.map((pred: any) => ({
+              id: pred.id,
+              date: pred.created_at,
+              result: {
+                risk: getRiskLevel(pred.result),
+                score: Math.round(pred.result * 100),
+                hasDisease: pred.result >= 0.5,
+              },
+              age: pred.prediction_data?.age || "",
+              sex: pred.prediction_data?.sex || "",
+              trestbps: pred.prediction_data?.trestbps || "",
+              chol: pred.prediction_data?.chol || "",
+              cp: pred.prediction_data?.cp || "",
+              fbs: pred.prediction_data?.fbs || "",
+              restecg: pred.prediction_data?.restecg || "",
+              thalach: pred.prediction_data?.thalach || "",
+              exang: pred.prediction_data?.exang || "",
+              oldpeak: pred.prediction_data?.oldpeak || "",
+              slope: pred.prediction_data?.slope || "",
+              ca: pred.prediction_data?.ca || "",
+              thal: pred.prediction_data?.thal || "",
+              foodHabits: pred.prediction_data?.foodHabits || "",
+              junkFoodConsumption: pred.prediction_data?.junkFoodConsumption || "",
+              sleepingHours: pred.prediction_data?.sleepingHours || "",
+            }))
 
-          setHistory(formattedHistory)
-          setFilteredHistory(formattedHistory)
-        } else {
-          // Handle API error
-          const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
-          console.error("API error:", errorData)
-          setError(`Failed to load history: ${errorData.error || response.statusText}`)
+            setHistory(formattedHistory)
+            setFilteredHistory(formattedHistory)
+          } else {
+            // Handle API error
+            const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
+            console.error("API error:", errorData)
+            setError(`Failed to load history: ${errorData.error || response.statusText}`)
+
+            // Fall back to local storage
+            console.log("Falling back to local storage due to API error")
+            const localHistory = getHistory()
+            setHistory(localHistory)
+            setFilteredHistory(localHistory)
+          }
+        } catch (error) {
+          console.error("Error fetching user predictions:", error)
+          setError(`Failed to load history: ${error instanceof Error ? error.message : "Unknown error"}`)
+
+          // Fall back to local storage on error
+          console.log("Falling back to local storage due to exception")
+          const localHistory = getHistory()
+          setHistory(localHistory)
+          setFilteredHistory(localHistory)
         }
-      } catch (error) {
-        console.error("Error fetching user predictions:", error)
-        setError(`Failed to load history: ${error instanceof Error ? error.message : "Unknown error"}`)
+      } else {
+        // Not authenticated, use local storage
+        console.log("User not authenticated, using local storage")
+        const localHistory = getHistory()
+        setHistory(localHistory)
+        setFilteredHistory(localHistory)
       }
 
       setIsLoading(false)
     }
 
     loadHistory()
-  }, [isAuthenticated, user, authLoading, router])
+  }, [isAuthenticated, user])
 
   useEffect(() => {
     // Apply filtering and sorting whenever history, filterBy, or sortBy changes
@@ -153,7 +158,7 @@ export default function HistoryPage() {
       case "risk-lowest":
         result.sort((a, b) => {
           const riskOrder = { high: 3, moderate: 2, low: 1 }
-          return riskOrder[a.result.risk as keyof typeof riskOrder] - riskOrder[b.result.risk as keyof typeof riskOrder]
+          return riskOrder[a.result.risk as keyof typeof riskOrder] - riskOrder[a.result.risk as keyof typeof riskOrder]
         })
         break
       case "age-highest":
@@ -176,40 +181,52 @@ export default function HistoryPage() {
   }
 
   const handleDeleteItem = async (id: string) => {
-    try {
-      // Delete from server
-      const response = await fetchWithAuth(`/api/user/predictions/${id}`, {
-        method: "DELETE",
-      })
+    if (isAuthenticated && user) {
+      try {
+        // Delete from server if authenticated
+        const response = await fetchWithAuth(`/api/user/predictions/${id}`, {
+          method: "DELETE",
+        })
 
-      if (response.ok) {
-        setHistory((prev) => prev.filter((item) => item.id !== id))
-      } else {
-        console.error("Failed to delete prediction from server")
-        setError("Failed to delete assessment. Please try again.")
+        if (response.ok) {
+          setHistory((prev) => prev.filter((item) => item.id !== id))
+        } else {
+          console.error("Failed to delete prediction from server")
+          setError("Failed to delete assessment. Please try again.")
+        }
+      } catch (error) {
+        console.error("Error deleting prediction:", error)
+        setError(`Failed to delete assessment: ${error instanceof Error ? error.message : "Unknown error"}`)
       }
-    } catch (error) {
-      console.error("Error deleting prediction:", error)
-      setError(`Failed to delete assessment: ${error instanceof Error ? error.message : "Unknown error"}`)
+    } else {
+      // Delete from local storage if not authenticated
+      deleteHistoryItem(id)
+      setHistory((prev) => prev.filter((item) => item.id !== id))
     }
   }
 
   const handleClearHistory = async () => {
-    try {
-      // Clear all user predictions from server
-      const response = await fetchWithAuth("/api/user/predictions/clear", {
-        method: "DELETE",
-      })
+    if (isAuthenticated && user) {
+      try {
+        // Clear all user predictions from server
+        const response = await fetchWithAuth("/api/user/predictions/clear", {
+          method: "DELETE",
+        })
 
-      if (response.ok) {
-        setHistory([])
-      } else {
-        console.error("Failed to clear predictions from server")
-        setError("Failed to clear history. Please try again.")
+        if (response.ok) {
+          setHistory([])
+        } else {
+          console.error("Failed to clear predictions from server")
+          setError("Failed to clear history. Please try again.")
+        }
+      } catch (error) {
+        console.error("Error clearing predictions:", error)
+        setError(`Failed to clear history: ${error instanceof Error ? error.message : "Unknown error"}`)
       }
-    } catch (error) {
-      console.error("Error clearing predictions:", error)
-      setError(`Failed to clear history: ${error instanceof Error ? error.message : "Unknown error"}`)
+    } else {
+      // Clear local storage if not authenticated
+      clearHistory()
+      setHistory([])
     }
   }
 
@@ -287,19 +304,14 @@ export default function HistoryPage() {
   }
 
   // Show loading state while checking authentication
-  if (authLoading) {
+  if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8 md:py-12">
         <div className="flex justify-center py-12">
-          <div className="animate-pulse">Verifying your account...</div>
+          <div className="animate-pulse">Loading assessment history...</div>
         </div>
       </div>
     )
-  }
-
-  // If not authenticated, don't render anything (redirect will happen)
-  if (!isAuthenticated || !user) {
-    return null
   }
 
   return (
@@ -312,10 +324,10 @@ export default function HistoryPage() {
       </div>
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <Link href="/dashboard" className="flex items-center gap-2 text-xl font-bold">
+          <Link href="/" className="flex items-center gap-2 text-xl font-bold">
             <Button variant="ghost" className="flex items-center gap-2">
               <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
+              Back to Home
             </Button>
           </Link>
 
@@ -343,22 +355,44 @@ export default function HistoryPage() {
           )}
         </div>
 
-        {/* User information banner with privacy indicator */}
-        <Card className="mb-6 bg-gray-800 border-gray-700">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Shield className="h-5 w-5 text-green-400" />
-              <div className="flex-1">
-                <p className="text-sm text-gray-300">Private Assessment History</p>
-                <p className="font-medium text-white">{user.name ? `${user.name} (${user.email})` : user.email}</p>
+        {/* User information banner - show different versions based on auth status */}
+        {isAuthenticated && user ? (
+          <Card className="mb-6 bg-gray-800 border-gray-700">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Shield className="h-5 w-5 text-green-400" />
+                <div className="flex-1">
+                  <p className="text-sm text-gray-300">Account Assessment History</p>
+                  <p className="font-medium text-white">{user.name ? `${user.name} (${user.email})` : user.email}</p>
+                </div>
+                <div className="flex items-center gap-1 bg-green-900/30 text-green-400 border border-green-800 rounded-full px-2 py-1">
+                  <Lock className="h-3 w-3" />
+                  <span className="text-xs">Private</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1 bg-green-900/30 text-green-400 border border-green-800 rounded-full px-2 py-1">
-                <Lock className="h-3 w-3" />
-                <span className="text-xs">Private</span>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="mb-6 bg-gray-800 border-gray-700">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Info className="h-5 w-5 text-blue-400" />
+                  <div>
+                    <p className="text-sm text-gray-300">Local Assessment History</p>
+                    <p className="font-medium text-white">Stored in your browser</p>
+                  </div>
+                </div>
+                <Button asChild variant="outline" size="sm" className="text-xs">
+                  <Link href="/login" className="flex items-center gap-1">
+                    <LogIn className="h-3 w-3" />
+                    Log in to save history
+                  </Link>
+                </Button>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Error message if any */}
         {error && (
@@ -374,11 +408,7 @@ export default function HistoryPage() {
           </TabsList>
 
           <TabsContent value="history">
-            {isLoading ? (
-              <div className="flex justify-center py-12">
-                <div className="animate-pulse">Loading your personal history...</div>
-              </div>
-            ) : history.length === 0 ? (
+            {history.length === 0 ? (
               <Card className="bg-gray-900 border-gray-800 mb-6">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -689,31 +719,28 @@ export default function HistoryPage() {
                 </div>
 
                 <div>
-                  <h3 className="text-xl font-semibold mb-2 text-white">Your Data Privacy</h3>
+                  <h3 className="text-xl font-semibold mb-2 text-white">Your Data Storage</h3>
                   <p className="text-gray-300 mb-4">
-                    At HeartPredict, we take your privacy seriously. Your health data is:
+                    How your assessment data is stored depends on whether you're logged in:
                   </p>
                   <div className="bg-gray-800 p-4 rounded-lg space-y-3">
                     <div className="flex items-start gap-3">
                       <Shield className="h-5 w-5 text-green-400 mt-0.5" />
-                      <p className="text-sm text-gray-300">
-                        <span className="font-medium text-white">Securely stored</span> - All your data is encrypted and
-                        stored securely in our database
-                      </p>
+                      <div>
+                        <p className="font-medium text-white">When logged in</p>
+                        <p className="text-sm text-gray-300">
+                          Your assessments are securely stored in your account and accessible from any device
+                        </p>
+                      </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <Lock className="h-5 w-5 text-green-400 mt-0.5" />
-                      <p className="text-sm text-gray-300">
-                        <span className="font-medium text-white">Private</span> - Only you can access your personal
-                        assessment history
-                      </p>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <Heart className="h-5 w-5 text-green-400 mt-0.5" />
-                      <p className="text-sm text-gray-300">
-                        <span className="font-medium text-white">Protected</span> - We never share your personal health
-                        data with third parties
-                      </p>
+                      <Info className="h-5 w-5 text-blue-400 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-white">When not logged in</p>
+                        <p className="text-sm text-gray-300">
+                          Your assessments are stored locally in your browser and only available on this device
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -742,12 +769,24 @@ export default function HistoryPage() {
         </Tabs>
 
         <div className="text-center text-sm text-gray-500 mt-8">
-          <div className="space-y-1">
-            <p>Your assessment history is securely stored in your account.</p>
-            <p className="text-green-500 flex items-center justify-center gap-1">
-              <Shield className="h-3 w-3" /> Your data is private and only visible to you
-            </p>
-          </div>
+          {isAuthenticated ? (
+            <div className="space-y-1">
+              <p>Your assessment history is securely stored in your account.</p>
+              <p className="text-green-500 flex items-center justify-center gap-1">
+                <Shield className="h-3 w-3" /> Your data is private and only visible to you
+              </p>
+            </div>
+          ) : (
+            <>
+              <p>Assessment history is stored locally in your browser.</p>
+              <p>
+                <Link href="/login" className="text-blue-400 hover:underline">
+                  Create an account
+                </Link>{" "}
+                to save your history across devices.
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -8,7 +8,9 @@ export async function GET(request: NextRequest) {
     const user = await getUserFromRequest(request)
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized - Please log in to view your history" }, { status: 401 })
+      // Return empty array for non-authenticated users
+      // They will use local storage instead
+      return NextResponse.json([])
     }
 
     // Fetch predictions for this user only

@@ -9,7 +9,7 @@ const authRequiredPaths = [
   "/settings",
   "/admin",
   "/predict/results",
-  "/history", // Add history to protected routes
+  // "/history" - Removed from protected routes
 ]
 
 // Define which paths require admin role
@@ -77,6 +77,6 @@ export const config = {
     "/settings/:path*",
     "/admin/:path*",
     "/predict/results/:path*",
-    "/history/:path*", // Add history to the matcher
+    // "/history/:path*" - Removed from matcher
   ],
 }
