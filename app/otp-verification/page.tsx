@@ -42,7 +42,7 @@ export default function OTPVerificationPage() {
 
   useEffect(() => {
     if (!identifier) {
-      router.push("/forgot-password-profile")
+      router.push("/forgot-password")
     }
   }, [identifier, router])
 
@@ -65,6 +65,13 @@ export default function OTPVerificationPage() {
     try {
       console.log("Verifying OTP:", otp, "for identifier:", identifier)
 
+      // Make sure the OTP is exactly 6 digits
+      if (!/^\d{6}$/.test(otp)) {
+        setError("Please enter a valid 6-digit verification code")
+        setLoading(false)
+        return
+      }
+
       const response = await fetch("/api/auth/verify-code", {
         method: "POST",
         headers: {
@@ -79,10 +86,10 @@ export default function OTPVerificationPage() {
       const result = await response.json()
       console.log("Verification result:", result)
 
-      if (result.success) {
+      if (response.ok && result.success) {
         setSuccess(true)
         setIsVerified(true)
-        // No need to redirect, we'll show the password form
+        setError("") // Clear any previous errors
       } else {
         setError(result.message || "Invalid verification code. Please try again.")
       }
@@ -113,10 +120,11 @@ export default function OTPVerificationPage() {
 
       const result = await response.json()
 
-      if (result.success) {
+      if (response.ok && result.success) {
         setResendSuccess(true)
         setCountdown(60)
         setCanResend(false)
+        setError("") // Clear any previous errors
       } else {
         setError(result.message || "Failed to resend verification code. Please try again.")
       }
@@ -180,8 +188,8 @@ export default function OTPVerificationPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-12 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md bg-white dark:bg-gray-800">
         <CardHeader>
           <CardTitle className="text-center text-2xl font-bold">
             {isVerified ? "Set New Password" : "Verification Code"}
@@ -195,19 +203,19 @@ export default function OTPVerificationPage() {
           {!isVerified ? (
             <form onSubmit={handleVerify} className="space-y-4">
               <div className="space-y-2">
-                <label htmlFor="otp" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="otp" className="block text-sm font-medium">
                   Enter Verification Code
                 </label>
                 <Input
                   id="otp"
                   type="text"
+                  inputMode="numeric"
                   placeholder="Enter 6-digit code"
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
+                  className="block w-full"
                   required
                   maxLength={6}
-                  pattern="\d{6}"
                 />
               </div>
 
@@ -239,7 +247,7 @@ export default function OTPVerificationPage() {
           ) : (
             <form onSubmit={handlePasswordChange} className="space-y-6">
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="password" className="block text-sm font-medium">
                   New password
                 </label>
                 <Input
@@ -248,15 +256,15 @@ export default function OTPVerificationPage() {
                   type="password"
                   autoComplete="new-password"
                   required
-                  className="mt-1 block w-full rounded-md border-gray-300"
+                  className="mt-1 block w-full"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
 
                 <div className="mt-4 space-y-2">
-                  <p className="text-sm font-medium text-gray-700">Password requirements:</p>
-                  <ul className="space-y-1 text-sm text-gray-500">
+                  <p className="text-sm font-medium">Password requirements:</p>
+                  <ul className="space-y-1 text-sm text-gray-500 dark:text-gray-400">
                     <li className="flex items-center">
                       {hasMinLength ? (
                         <Check className="h-4 w-4 text-green-500 mr-2" />
@@ -294,7 +302,7 @@ export default function OTPVerificationPage() {
               </div>
 
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium">
                   Confirm new password
                 </label>
                 <Input
@@ -303,7 +311,7 @@ export default function OTPVerificationPage() {
                   type="password"
                   autoComplete="new-password"
                   required
-                  className="mt-1 block w-full rounded-md border-gray-300"
+                  className="mt-1 block w-full"
                   placeholder="••••••••"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -354,13 +362,13 @@ export default function OTPVerificationPage() {
         <CardFooter className="flex justify-center">
           {!isVerified && (
             <div className="text-center text-sm">
-              <p className="text-gray-600">Didn't receive the code?</p>
+              <p className="text-gray-600 dark:text-gray-400">Didn't receive the code?</p>
               {canResend ? (
                 <Button variant="link" onClick={handleResend} disabled={resendLoading}>
                   {resendLoading ? "Sending..." : "Resend Code"}
                 </Button>
               ) : (
-                <p className="text-gray-500">Resend code in {countdown} seconds</p>
+                <p className="text-gray-500 dark:text-gray-400">Resend code in {countdown} seconds</p>
               )}
             </div>
           )}

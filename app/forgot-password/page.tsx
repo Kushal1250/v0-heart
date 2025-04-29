@@ -1,104 +1,74 @@
 "use client"
 
 import type React from "react"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, Info, CheckCircle } from "lucide-react"
-import { isValidEmail } from "@/lib/client-validation"
+import Link from "next/link"
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
-    setSuccess(false)
-    setPreviewUrl(null)
+
+    // Basic validation
+    if (!email || email.trim() === "") {
+      setError("Email is required")
+      return
+    }
+
     setLoading(true)
 
     try {
-      // Basic client-side validation
-      if (!email || !email.trim()) {
-        setError("Please enter your email address")
-        setLoading(false)
-        return
-      }
-
-      if (!isValidEmail(email)) {
-        setError("Please enter a valid email address")
-        setLoading(false)
-        return
-      }
-
-      console.log(`Attempting to send verification code via email to ${email}`)
-
       const response = await fetch("/api/auth/send-verification-code", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: email,
-          isLoggedIn: false,
+          identifier: email,
+          method: "email",
         }),
       })
 
       const data = await response.json()
 
-      if (response.ok) {
-        setLoading(false)
-        setSuccess(true)
-        setError("")
-
-        // If there's a preview URL (development environment), show it
-        if (data.previewUrl) {
-          setPreviewUrl(data.previewUrl)
-        }
-
-        // Redirect after a short delay to show success message
-        setTimeout(() => {
-          router.push(`/otp-verification?identifier=${encodeURIComponent(email)}&method=email`)
-        }, 2000)
+      if (response.ok && data.success) {
+        // Redirect to OTP verification page
+        router.push(`/otp-verification?identifier=${encodeURIComponent(email)}&method=email`)
       } else {
-        setLoading(false)
-        setError(data.message || "An error occurred. Please try again.")
-
-        // If there's still a preview URL despite the error, show it for debugging
-        if (data.previewUrl) {
-          setPreviewUrl(data.previewUrl)
-        }
+        setError(data.message || "Failed to send verification code. Please try again.")
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error sending verification code:", err)
-      setError(err.message || "An error occurred while sending the verification code. Please try again.")
+      setError("An error occurred. Please try again.")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-900 px-4 py-12 sm:px-6 lg:px-8 text-white">
-      <Card className="w-full max-w-md bg-gray-800 border-gray-700">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-12 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md bg-white dark:bg-gray-800">
         <CardHeader>
-          <CardTitle className="text-center text-2xl font-bold text-white">Reset Your Password</CardTitle>
-          <CardDescription className="text-center text-gray-300">
+          <CardTitle className="text-center text-2xl font-bold">Reset Your Password</CardTitle>
+          <CardDescription className="text-center">
             We'll send you a verification code to reset your password
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="email" className="block text-sm font-medium">
                 Email Address
               </label>
               <Input
@@ -107,54 +77,27 @@ export default function ForgotPasswordPage() {
                 placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="block w-full bg-gray-700 border-gray-600 text-white"
+                className="block w-full"
                 required
               />
             </div>
 
             {error && (
-              <Alert variant="destructive" className="bg-red-900 border-red-800 text-red-200">
-                <AlertCircle className="h-4 w-4" />
+              <Alert variant="destructive">
                 <AlertTitle>Error</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
 
-            {success && (
-              <Alert className="bg-green-900 border-green-800 text-green-200">
-                <CheckCircle className="h-4 w-4" />
-                <AlertTitle>Success</AlertTitle>
-                <AlertDescription>Verification code sent! Redirecting...</AlertDescription>
-              </Alert>
-            )}
-
-            {previewUrl && (
-              <Alert className="bg-blue-900 border-blue-800 text-blue-200">
-                <Info className="h-4 w-4" />
-                <AlertTitle>Development Mode</AlertTitle>
-                <AlertDescription>
-                  <p>Email preview available:</p>
-                  <a
-                    href={previewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline text-blue-300 hover:text-blue-200"
-                  >
-                    View Email
-                  </a>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading || !email}>
+            <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Sending..." : "Send Verification Code"}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <Button variant="link" className="text-blue-400 hover:text-blue-300" asChild>
-            <Link href="/login">Back to Login</Link>
-          </Button>
+          <Link href="/login" className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">
+            Back to Login
+          </Link>
         </CardFooter>
       </Card>
     </div>
