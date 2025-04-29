@@ -66,13 +66,18 @@ export default function ForgotPasswordPage() {
         }),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        console.error("Error response from server:", data)
-        throw new Error(data.message || "Failed to send verification code")
+        let errorMessage = "Failed to send verification code"
+        try {
+          const data = await response.json()
+          errorMessage = data.message || errorMessage
+        } catch (e) {
+          console.error("Error parsing error response:", e)
+        }
+        throw new Error(errorMessage)
       }
 
+      const data = await response.json()
       console.log("Verification code sent successfully:", data)
 
       // Redirect to OTP verification page

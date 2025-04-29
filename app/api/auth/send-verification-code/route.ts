@@ -25,7 +25,17 @@ export async function POST(request: Request) {
       console.log(`Generated verification code for logged-in user: ${code}`)
 
       // Store the code in the database
-      await createVerificationCode(currentUser.id, code)
+      try {
+        await createVerificationCode(currentUser.id, code)
+      } catch (error) {
+        console.error("Error storing verification code:", error)
+        return NextResponse.json(
+          {
+            message: "Failed to store verification code. Please try again later.",
+          },
+          { status: 500 },
+        )
+      }
 
       // Determine whether to send via email or SMS based on what was provided
       const contactMethod = phone ? "sms" : "email"
@@ -156,7 +166,17 @@ export async function POST(request: Request) {
 
     // Store the code in the database (even if user doesn't exist, for security)
     const identifier = user ? user.id : email || phone
-    await createVerificationCode(identifier, code)
+    try {
+      await createVerificationCode(identifier, code)
+    } catch (error) {
+      console.error("Error storing verification code:", error)
+      return NextResponse.json(
+        {
+          message: "Failed to store verification code. Please try again later.",
+        },
+        { status: 500 },
+      )
+    }
 
     // Send the code via SMS or email
     if (phone) {

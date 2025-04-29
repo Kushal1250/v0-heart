@@ -197,6 +197,34 @@ export default function AdminPage() {
     }
   }
 
+  // Function to fix verification codes table
+  const fixVerificationCodes = async () => {
+    try {
+      setMigrating(true)
+      setMigrationMessage("")
+
+      const response = await fetch("/api/admin/migrate/fix-verification-codes", {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setMigrationMessage(data.message || "Verification codes table fixed successfully")
+      } else {
+        setMigrationMessage(`Verification codes fix failed: ${data.message || "Unknown error"}`)
+      }
+
+      setMigrating(false)
+    } catch (err) {
+      console.error("Error fixing verification codes:", err)
+      setMigrationMessage(err instanceof Error ? err.message : "Verification codes fix failed")
+      setMigrating(false)
+    }
+  }
+
   useEffect(() => {
     // If admin, fetch data
     if (isAdmin) {
@@ -311,6 +339,16 @@ export default function AdminPage() {
           >
             <Database className={`h-4 w-4 ${migrating ? "animate-pulse" : ""}`} />
             {migrating ? "Migrating..." : "Run Migration"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fixVerificationCodes}
+            disabled={migrating}
+            className="flex items-center gap-2"
+          >
+            <Database className={`h-4 w-4 ${migrating ? "animate-pulse" : ""}`} />
+            Fix Verification Codes
           </Button>
           <Button
             variant="outline"
