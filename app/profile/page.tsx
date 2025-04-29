@@ -55,12 +55,6 @@ export default function ProfilePage() {
   // Add a state to track the avatar key for cache busting
   const [avatarKey, setAvatarKey] = useState(Date.now())
 
-  // Add state for phone number update
-  const [phone, setPhone] = useState("")
-  const [isUpdatingPhone, setIsUpdatingPhone] = useState(false)
-  const [updateMessage, setUpdateMessage] = useState("")
-  const [updateSuccess, setUpdateSuccess] = useState(false)
-
   useEffect(() => {
     if (!isLoading && !user) {
       router.push("/login")
@@ -101,7 +95,6 @@ export default function ProfilePage() {
         name: data.name || "",
         phone: data.phone || "",
       })
-      setPhone(data.phone || "") // Initialize phone state
 
       // Clear any existing error
       setAlert({ type: null, message: "" })
@@ -267,47 +260,6 @@ export default function ProfilePage() {
       if (fileInputRef.current) {
         fileInputRef.current.value = ""
       }
-    }
-  }
-
-  const handleUpdatePhone = async () => {
-    if (!phone) return
-
-    setIsUpdatingPhone(true)
-
-    try {
-      const response = await fetch("/api/user/profile/update-phone", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ phone }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to update phone number")
-      }
-
-      // Show success message
-      setUpdateMessage("Phone number updated successfully")
-      setUpdateSuccess(true)
-      fetchUserProfile() // Refresh profile data after successful update
-      toast({
-        title: "Success",
-        description: "Phone number updated successfully!",
-      })
-    } catch (error) {
-      setUpdateMessage(error instanceof Error ? error.message : "Failed to update phone number")
-      setUpdateSuccess(false)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update phone number",
-        variant: "destructive",
-      })
-    } finally {
-      setIsUpdatingPhone(false)
     }
   }
 
@@ -519,29 +471,6 @@ export default function ProfilePage() {
                     {profileData.createdAt ? `${formatDistanceToNow(new Date(profileData.createdAt))} ago` : "Unknown"}
                   </div>
                 </div>
-              </div>
-
-              {/* Add this section to your existing profile page component */}
-              <div className="mb-4">
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone Number
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+1 (555) 123-4567"
-                    className="flex-1"
-                  />
-                  <Button onClick={handleUpdatePhone} disabled={isUpdatingPhone}>
-                    {isUpdatingPhone ? "Updating..." : "Update"}
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Adding a phone number enables SMS verification for password resets and account security.
-                </p>
               </div>
 
               <div className="flex justify-end pt-2">
