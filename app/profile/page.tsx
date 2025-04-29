@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
@@ -10,28 +10,16 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import {
-  AlertCircle,
-  CheckCircle2,
-  User,
-  Mail,
-  Phone,
-  Calendar,
-  Camera,
-  Loader2,
-  Upload,
-  RefreshCw,
-  KeyRound,
-} from "lucide-react"
+import { AlertCircle, CheckCircle2, User, Mail, Phone, Calendar, RefreshCw, KeyRound, Loader2 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
+import { ProfileImageUpload } from "@/components/profile-image-upload"
 
 export default function ProfilePage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [profileData, setProfileData] = useState({
     name: "",
@@ -46,15 +34,11 @@ export default function ProfilePage() {
     phone: "",
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
   const [isFetchingProfile, setIsFetchingProfile] = useState(false)
   const [alert, setAlert] = useState<{
     type: "success" | "error" | null
     message: string
   }>({ type: null, message: "" })
-
-  // Add a state to track the avatar key for cache busting
-  const [avatarKey, setAvatarKey] = useState(Date.now())
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -178,89 +162,11 @@ export default function ProfilePage() {
     }
   }
 
-  const handleProfilePictureClick = () => {
-    fileInputRef.current?.click()
-  }
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // Validate file type
-    const validTypes = ["image/jpeg", "image/png", "image/gif"]
-    if (!validTypes.includes(file.type)) {
-      toast({
-        title: "Invalid file type",
-        description: "Please upload a JPEG, PNG, or GIF image.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Please upload an image smaller than 5MB.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsUploading(true)
-
-    try {
-      const formData = new FormData()
-      formData.append("profile_picture", file)
-
-      console.log("Uploading profile picture...")
-      const response = await fetch("/api/user/profile/upload-photo", {
-        method: "POST",
-        body: formData,
-      })
-
-      console.log("Upload response status:", response.status)
-
-      if (!response.ok) {
-        const error = await response.json()
-        console.error("Upload error:", error)
-        throw new Error(error.message || "Failed to upload profile picture")
-      }
-
-      const data = await response.json()
-      console.log("Upload response data:", data)
-
-      if (!data.profile_picture) {
-        throw new Error("No profile picture URL returned from server")
-      }
-
-      // Update profile data with new image URL
-      setProfileData((prev) => ({
-        ...prev,
-        profile_picture: data.profile_picture,
-      }))
-
-      // Update avatar key to force re-render
-      setAvatarKey(Date.now())
-
-      toast({
-        title: "Success",
-        description: "Profile picture updated successfully!",
-      })
-    } catch (error: any) {
-      console.error("Error uploading profile picture:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to upload profile picture",
-        variant: "destructive",
-      })
-    } finally {
-      setIsUploading(false)
-      // Clear the file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
-      }
-    }
+  const handleProfileImageUpdate = (imageUrl: string) => {
+    setProfileData((prev) => ({
+      ...prev,
+      profile_picture: imageUrl,
+    }))
   }
 
   if (isLoading) {
@@ -324,57 +230,10 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex justify-center mb-6">
-            <div className="relative">
-              <div
-                className="h-24 w-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden cursor-pointer group relative"
-                onClick={handleProfilePictureClick}
-              >
-                {profileData.profile_picture ? (
-                  <>
-                    <div className="h-full w-full">
-                      <img
-                        src={profileData.profile_picture || "/placeholder.svg"}
-                        alt="Profile"
-                        className="h-full w-full object-cover"
-                        key={`profile-img-${avatarKey}`}
-                      />
-                    </div>
-                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Camera className="h-8 w-8 text-white" />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <User className="h-12 w-12 text-gray-400" />
-                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Camera className="h-8 w-8 text-white" />
-                    </div>
-                  </>
-                )}
-                {isUploading && (
-                  <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center">
-                    <Loader2 className="h-8 w-8 text-white animate-spin" />
-                  </div>
-                )}
-              </div>
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept="image/jpeg,image/png,image/gif"
-                onChange={handleFileChange}
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 flex items-center gap-1 text-xs"
-                onClick={handleProfilePictureClick}
-                disabled={isUploading}
-              >
-                {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                {isUploading ? "Uploading..." : "Change"}
-              </Button>
-            </div>
+            <ProfileImageUpload
+              currentImage={profileData.profile_picture || null}
+              onImageUpdate={handleProfileImageUpdate}
+            />
           </div>
 
           {isFetchingProfile && !alert.type ? (
@@ -461,7 +320,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Password Reset Section */}
+          {/* Password Management Section */}
           <div className="mt-8 border-t pt-6">
             <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
               <KeyRound className="h-5 w-5" /> Password Management
@@ -469,11 +328,11 @@ export default function ProfilePage() {
             <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium">Reset your password</p>
-                  <p className="text-sm text-gray-500">Change your password to keep your account secure</p>
+                  <p className="font-medium">Change your password</p>
+                  <p className="text-sm text-gray-500">Update your password to keep your account secure</p>
                 </div>
-                <Link href="/reset-password">
-                  <Button variant="outline">Reset Password</Button>
+                <Link href="/change-password">
+                  <Button variant="outline">Change Password</Button>
                 </Link>
               </div>
             </div>

@@ -2,283 +2,225 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle, CheckCircle2, Eye, EyeOff, ArrowLeft } from "lucide-react"
 import Link from "next/link"
-import { Eye, EyeOff, ArrowLeft } from "lucide-react"
-import { verifyPasswordResetToken } from "@/lib/token"
-import { getUserById } from "@/lib/data"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function ChangePasswordPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const token = searchParams.get("token")
+  const { toast } = useToast()
 
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [tokenVerified, setTokenVerified] = useState(false)
+  const [formData, setFormData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  })
+
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  let hasToken = false
 
-  // Verify token and pre-fill current password if token is valid
-  useEffect(() => {
-    const verifyToken = async () => {
-      if (!token) return
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState(false)
 
-      try {
-        setLoading(true)
-        // If token is provided, verify it
-        if (token) {
-          const userId = await verifyPasswordResetToken(token)
-          if (!userId) {
-            return (
-              <div className="flex flex-col items-center justify-center min-h-screen p-4">
-                <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
-                  <h1 className="text-2xl font-bold text-center mb-6">Invalid or Expired Token</h1>
-                  <p className="text-center mb-4">The password reset token is invalid or has expired.</p>
-                  <div className="flex justify-center">
-                    <Link href="/forgot-password" className="text-blue-600 hover:underline">
-                      Request a new password reset
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            )
-          }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
 
-          // Get user from database
-          const user = await getUserById(userId)
-          if (!user) {
-            return (
-              <div className="flex flex-col items-center justify-center min-h-screen p-4">
-                <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
-                  <h1 className="text-2xl font-bold text-center mb-6">User Not Found</h1>
-                  <p className="text-center mb-4">We couldn't find your account.</p>
-                  <div className="flex justify-center">
-                    <Link href="/login" className="text-blue-600 hover:underline">
-                      Return to login
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            )
-          }
-
-          // Set hasToken to true
-          hasToken = true
-        }
-
-        // Token is valid, pre-fill current password with a placeholder
-        // The actual password will be used on the server side
-        setCurrentPassword("••••••••••••")
-        setTokenVerified(true)
-      } catch (err) {
-        setError("An error occurred while verifying your token.")
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
+  const validateForm = () => {
+    if (!formData.currentPassword) {
+      setError("Current password is required")
+      return false
     }
 
-    if (token) {
-      verifyToken()
+    if (!formData.newPassword) {
+      setError("New password is required")
+      return false
     }
-  }, [token])
+
+    if (formData.newPassword.length < 8) {
+      setError("New password must be at least 8 characters long")
+      return false
+    }
+
+    if (formData.newPassword !== formData.confirmPassword) {
+      setError("New passwords do not match")
+      return false
+    }
+
+    return true
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if ((!currentPassword && !tokenVerified) || !newPassword || !confirmPassword) {
-      setError("All fields are required")
-      return
-    }
-
-    if (newPassword.length < 8) {
-      setError("New password must be at least 8 characters long")
-      return
-    }
-
-    if (newPassword !== confirmPassword) {
-      setError("New passwords do not match")
-      return
-    }
-
-    setLoading(true)
     setError("")
 
+    if (!validateForm()) return
+
+    setIsSubmitting(true)
+
     try {
-      // If we have a token, use the token-based password reset endpoint
-      const endpoint = token ? "/api/auth/reset-password" : "/api/user/change-password"
-
-      const payload = token ? { token, newPassword } : { currentPassword, newPassword }
-
-      const response = await fetch(endpoint, {
+      const response = await fetch("/api/user/change-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          currentPassword: formData.currentPassword,
+          newPassword: formData.newPassword,
+        }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.message || "Failed to change password")
-        setLoading(false)
-        return
+        throw new Error(data.message || "Failed to change password")
       }
 
       setSuccess(true)
+      toast({
+        title: "Success",
+        description: "Your password has been changed successfully",
+      })
 
-      // Redirect after a short delay
+      // Reset form
+      setFormData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      })
+
+      // Redirect to profile after 2 seconds
       setTimeout(() => {
-        router.push(token ? "/login" : "/profile")
+        router.push("/profile")
       }, 2000)
-    } catch (err) {
-      setError("An error occurred. Please try again.")
-      setLoading(false)
+    } catch (error: any) {
+      setError(error.message || "An error occurred while changing your password")
+      toast({
+        title: "Error",
+        description: error.message || "An error occurred while changing your password",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Change Password</CardTitle>
+    <div className="container mx-auto py-10">
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader>
+          <CardTitle className="text-2xl">Change Password</CardTitle>
           <CardDescription>Update your password to keep your account secure</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {success && (
+            <Alert className="mb-6 bg-green-50 text-green-800 border-green-200">
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertTitle>Success</AlertTitle>
+              <AlertDescription>Your password has been changed successfully!</AlertDescription>
+            </Alert>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label htmlFor="currentPassword" className="text-sm font-medium">
-                Current Password
-              </label>
+              <Label htmlFor="currentPassword">Current Password</Label>
               <div className="relative">
                 <Input
                   id="currentPassword"
+                  name="currentPassword"
                   type={showCurrentPassword ? "text" : "password"}
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  value={formData.currentPassword}
+                  onChange={handleChange}
                   className="pr-10"
-                  disabled={loading || tokenVerified}
-                  required={!tokenVerified}
                 />
-                {!tokenVerified && (
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 flex items-center pr-3"
-                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  >
-                    {showCurrentPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                >
+                  {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
-              {!token && (
-                <div className="text-right text-sm">
-                  <Link href="/forgot-password-profile" className="text-blue-600 hover:underline">
-                    Forgot password?
-                  </Link>
-                </div>
-              )}
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="newPassword" className="text-sm font-medium">
-                New Password
-              </label>
+              <Label htmlFor="newPassword">New Password</Label>
               <div className="relative">
                 <Input
                   id="newPassword"
+                  name="newPassword"
                   type={showNewPassword ? "text" : "password"}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  value={formData.newPassword}
+                  onChange={handleChange}
                   className="pr-10"
-                  disabled={loading}
-                  required
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 flex items-center pr-3"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                   onClick={() => setShowNewPassword(!showNewPassword)}
                 >
-                  {showNewPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-400" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-gray-400" />
-                  )}
+                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <p className="text-xs text-gray-500">Password must be at least 8 characters long</p>
+              <p className="text-xs text-muted-foreground">Password must be at least 8 characters long</p>
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="confirmPassword" className="text-sm font-medium">
-                Confirm New Password
-              </label>
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
               <div className="relative">
                 <Input
                   id="confirmPassword"
+                  name="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
                   className="pr-10"
-                  disabled={loading}
-                  required
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 flex items-center pr-3"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-400" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-gray-400" />
-                  )}
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
 
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            {success && (
-              <Alert className="bg-green-50 text-green-800 border-green-200">
-                <AlertDescription>Password changed successfully!</AlertDescription>
-              </Alert>
-            )}
-
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
-              {loading ? "Changing Password..." : "Change Password"}
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? "Changing Password..." : "Change Password"}
             </Button>
+
+            <div className="text-center">
+              <Link
+                href="/profile"
+                className="text-sm text-gray-500 hover:text-gray-700 flex items-center justify-center gap-1"
+              >
+                <ArrowLeft className="h-4 w-4" /> Back to Profile
+              </Link>
+            </div>
           </form>
         </CardContent>
-        <CardFooter className="flex justify-center">
-          <Link
-            href={token ? "/login" : "/profile"}
-            className="flex items-center text-sm text-blue-600 hover:underline"
-          >
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            {token ? "Back to Login" : "Back to Profile"}
-          </Link>
-        </CardFooter>
       </Card>
     </div>
   )
