@@ -98,6 +98,9 @@ export default function SMSDiagnosticsPage() {
                     {!loading && <Send className="ml-2 h-4 w-4" />}
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Enter your full phone number including country code (e.g., +91 for India, +1 for US)
+                </p>
               </div>
 
               {testResult && (
@@ -140,30 +143,37 @@ export default function SMSDiagnosticsPage() {
               </Button>
 
               {configResult && (
-                <Alert variant={configResult.success ? "success" : "destructive"}>
-                  {configResult.success ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-                  <AlertTitle>{configResult.success ? "Configuration Valid" : "Configuration Error"}</AlertTitle>
+                <Alert variant={configResult.configured ? "success" : "destructive"}>
+                  {configResult.configured ? (
+                    <CheckCircle className="h-4 w-4" />
+                  ) : (
+                    <AlertTriangle className="h-4 w-4" />
+                  )}
+                  <AlertTitle>{configResult.configured ? "Configuration Valid" : "Configuration Error"}</AlertTitle>
                   <AlertDescription>
-                    {configResult.message}
+                    {configResult.configured
+                      ? "Your SMS configuration is valid and ready to use."
+                      : "Your SMS configuration is incomplete or invalid."}
+
+                    {configResult.missing && configResult.missing.length > 0 && (
+                      <div className="mt-2">
+                        <h4 className="font-semibold">Missing Environment Variables:</h4>
+                        <ul className="list-disc pl-5">
+                          {configResult.missing.map((variable: string) => (
+                            <li key={variable}>{variable}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
                     {configResult.details && (
                       <div className="mt-2 space-y-2">
                         <h4 className="font-semibold">Configuration Details:</h4>
                         <ul className="list-disc pl-5 space-y-1">
                           {Object.entries(configResult.details).map(([key, value]: [string, any]) => (
                             <li key={key}>
-                              <span className="font-medium">{key}:</span>{" "}
-                              {typeof value === "boolean" ? (value ? "✅" : "❌") : value}
+                              <span className="font-medium">{key}:</span> {value === "Configured" ? "✅" : "❌"}
                             </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {configResult.missingEnvVars && configResult.missingEnvVars.length > 0 && (
-                      <div className="mt-2">
-                        <h4 className="font-semibold">Missing Environment Variables:</h4>
-                        <ul className="list-disc pl-5">
-                          {configResult.missingEnvVars.map((variable: string) => (
-                            <li key={variable}>{variable}</li>
                           ))}
                         </ul>
                       </div>
@@ -195,7 +205,7 @@ export default function SMSDiagnosticsPage() {
               </li>
               <li>
                 <span className="font-medium">Invalid Phone Number Format</span> - Phone numbers should be in E.164
-                format (+1XXXXXXXXXX)
+                format (+1XXXXXXXXXX for US, +91XXXXXXXXXX for India)
               </li>
               <li>
                 <span className="font-medium">Twilio Account Restrictions</span> - Trial accounts can only send to
@@ -204,7 +214,23 @@ export default function SMSDiagnosticsPage() {
               <li>
                 <span className="font-medium">Insufficient Twilio Credits</span> - Check your Twilio account balance
               </li>
+              <li>
+                <span className="font-medium">International SMS Restrictions</span> - Some countries have restrictions
+                on SMS delivery
+              </li>
             </ul>
+          </div>
+
+          <div>
+            <h3 className="font-semibold mb-2">Indian Phone Numbers:</h3>
+            <p className="text-sm">
+              For Indian phone numbers, ensure you're using the correct format: +91 followed by a 10-digit number.
+              Example: +919016261380
+            </p>
+            <p className="text-sm mt-2">
+              Note: If using a Twilio trial account, you must verify the recipient's phone number in the Twilio console
+              before sending SMS.
+            </p>
           </div>
 
           <div>
@@ -214,6 +240,7 @@ export default function SMSDiagnosticsPage() {
               <li>Ensure your Twilio account has sufficient credits</li>
               <li>For trial accounts, verify recipient phone numbers in the Twilio console</li>
               <li>Check that your Twilio phone number is capable of sending SMS</li>
+              <li>Consider implementing email fallback for verification codes</li>
             </ol>
           </div>
         </CardContent>

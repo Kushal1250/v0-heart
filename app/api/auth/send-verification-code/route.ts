@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server"
 import { getUserByEmail, getUserByPhone, createVerificationCode } from "@/lib/db"
 import { isValidEmail, getUserFromRequest } from "@/lib/auth-utils"
-import { isValidPhone } from "@/lib/enhanced-sms-utils"
-import { sendSMS } from "@/lib/enhanced-sms-utils"
+import { isValidPhone, sendVerificationWithFallback } from "@/lib/enhanced-sms-utils"
 import { sendEmail } from "@/lib/email-utils"
-import { logError, ErrorSeverity } from "@/lib/error-logger"
+import { logError, ErrorSeverity, createErrorResponse } from "@/lib/error-logger"
 
 export async function POST(request: Request) {
   try {
-    const { email, phone, isLoggedIn } = await request.json()
+    const { email, phone, isLoggedIn, method = "auto" } = await request.json()
     console.log(
-      `Verification request received: ${isLoggedIn ? "logged in" : "not logged in"}, email: ${email || "none"}, phone: ${phone || "none"}`,
+      `Verification request received: ${isLoggedIn ? "logged in" : "not logged in"}, email: ${email || "none"}, phone: ${
+        phone || "none"
+      }, method: ${method}`,
     )
 
     // If user is logged in, get their info from the session
@@ -31,21 +32,30 @@ export async function POST(request: Request) {
         await createVerificationCode(currentUser.id, code)
       } catch (error) {
         console.error("Error storing verification code:", error)
-        const errorId = await logError("createVerificationCode", error, { userId: currentUser.id }, ErrorSeverity.HIGH)
+        const errorResponse = await createErrorResponse(
+          "createVerificationCode",
+          error,
+          currentUser.id,
+          { userId: currentUser.id },
+          ErrorSeverity.HIGH,
+        )
 
         return NextResponse.json(
           {
             success: false,
             message: "Failed to store verification code. Please try again later.",
             errorDetails: error instanceof Error ? error.message : "Unknown database error",
-            errorId,
+            errorId: errorResponse.errorId,
           },
           { status: 500 },
         )
       }
 
       // Determine whether to send via email or SMS based on what was provided
-      const contactMethod = phone ? "sms" : "email"
+      let contactMethod = method
+      if (contactMethod === "auto") {
+        contactMethod = phone ? "sms" : "email"
+      }
 
       if (contactMethod === "sms") {
         // Use the provided phone or the user's phone
@@ -62,50 +72,40 @@ export async function POST(request: Request) {
           )
         }
 
-        // Validate phone number
-        const isValid = await isValidPhone(phoneToUse)
-        if (!isValid) {
-          console.log(`Invalid phone number format: ${phoneToUse}`)
-          return NextResponse.json(
-            {
-              success: false,
-              message: "Invalid phone number format. Please enter a valid phone number.",
-            },
-            { status: 400 },
-          )
-        }
+        // Try SMS with email fallback if the user has an email
+        const verificationResult = await sendVerificationWithFallback(phoneToUse, currentUser.email, code)
 
-        console.log(`Sending SMS verification to ${phoneToUse}`)
-        const smsResult = await sendSMS(
-          phoneToUse,
-          `Your HeartPredict verification code is: ${code}. Valid for 15 minutes.`,
-        )
-
-        if (!smsResult.success) {
-          console.error("SMS sending failed:", smsResult.message, smsResult.errorDetails)
+        if (!verificationResult.success) {
+          console.error("Verification sending failed:", verificationResult.message)
           const errorId = await logError(
-            "sendSMS",
-            new Error(smsResult.errorDetails || smsResult.message),
-            { phone: phoneToUse, ...smsResult.debugInfo },
+            "sendVerification",
+            new Error(verificationResult.message),
+            { phone: phoneToUse, email: currentUser.email, fallbackAttempted: !!currentUser.email },
             ErrorSeverity.HIGH,
           )
 
           return NextResponse.json(
             {
               success: false,
-              message: smsResult.message || "Failed to send verification code via SMS",
-              errorDetails: smsResult.errorDetails,
-              debugInfo: smsResult.debugInfo,
+              message: verificationResult.message,
               errorId,
             },
             { status: 500 },
           )
         }
+
+        // Return success with method information
+        return NextResponse.json({
+          success: true,
+          message: verificationResult.message,
+          method: verificationResult.method,
+          fallbackUsed: verificationResult.fallbackUsed,
+        })
       } else {
         // Send email verification
         const emailResult = await sendEmail({
           to: currentUser.email,
-          subject: "Your Password Reset Code",
+          subject: "Your Verification Code",
           text: `Your HeartPredict verification code is: ${code}. Valid for 15 minutes.`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -140,13 +140,14 @@ export async function POST(request: Request) {
             { status: 500 },
           )
         }
-      }
 
-      return NextResponse.json({
-        success: true,
-        message: "Verification code sent",
-        method: contactMethod,
-      })
+        return NextResponse.json({
+          success: true,
+          message: "Verification code sent via email",
+          method: "email",
+          previewUrl: emailResult.previewUrl,
+        })
+      }
     }
 
     // For non-logged in users, validate input
@@ -218,37 +219,52 @@ export async function POST(request: Request) {
       )
     }
 
-    // Send the code via SMS or email
-    if (phone) {
-      console.log(`Sending SMS verification to ${phone}`)
-      const smsResult = await sendSMS(phone, `Your HeartPredict verification code is: ${code}. Valid for 15 minutes.`)
+    // Determine contact method
+    let contactMethod = method
+    if (contactMethod === "auto") {
+      contactMethod = phone ? "sms" : "email"
+    }
 
-      if (!smsResult.success) {
-        console.error("SMS sending failed:", smsResult.message, smsResult.errorDetails)
+    // Send the code via SMS or email
+    if (contactMethod === "sms" && phone) {
+      // If user exists and has an email, we can use it as fallback
+      const userEmail = user ? user.email : null
+
+      // Try SMS with email fallback if available
+      const verificationResult = await sendVerificationWithFallback(phone, userEmail, code)
+
+      if (!verificationResult.success) {
+        console.error("Verification sending failed:", verificationResult.message)
         const errorId = await logError(
-          "sendSMS",
-          new Error(smsResult.errorDetails || smsResult.message),
-          { phone, ...smsResult.debugInfo },
+          "sendVerification",
+          new Error(verificationResult.message),
+          { phone, email: userEmail, fallbackAttempted: !!userEmail },
           ErrorSeverity.HIGH,
         )
 
         return NextResponse.json(
           {
             success: false,
-            message: smsResult.message || "Failed to send verification code via SMS",
-            errorDetails: smsResult.errorDetails,
-            debugInfo: smsResult.debugInfo,
+            message: verificationResult.message,
             errorId,
           },
           { status: 500 },
         )
       }
-    } else if (email) {
+
+      // Return success with method information
+      return NextResponse.json({
+        success: true,
+        message: verificationResult.message,
+        method: verificationResult.method,
+        fallbackUsed: verificationResult.fallbackUsed,
+      })
+    } else if (contactMethod === "email" && email) {
       // Send email verification
       console.log(`Sending email verification to ${email}`)
       const emailResult = await sendEmail({
         to: email,
-        subject: "Your Password Reset Code",
+        subject: "Your Verification Code",
         text: `Your HeartPredict verification code is: ${code}. Valid for 15 minutes.`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -278,6 +294,13 @@ export async function POST(request: Request) {
           { status: 500 },
         )
       }
+
+      return NextResponse.json({
+        success: true,
+        message: "Verification code sent via email",
+        method: "email",
+        previewUrl: emailResult.previewUrl,
+      })
     }
 
     return NextResponse.json({

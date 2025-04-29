@@ -22,23 +22,29 @@ export async function formatPhoneToE164(phone: string): Promise<string> {
   const hasPlus = phone.startsWith("+")
   const digits = phone.replace(/\D/g, "")
 
+  // If the number already has a + sign, assume it's in international format
+  if (hasPlus) {
+    return `+${digits}`
+  }
+
   // Handle US numbers (default if no country code)
   if (digits.length === 10) {
     return `+1${digits}`
   }
 
-  // If it already has a country code (11+ digits)
-  if (digits.length > 10) {
-    // Check if it's a US number with country code
-    if (digits.startsWith("1") && digits.length === 11) {
+  // Handle Indian numbers (91 is India's country code)
+  if (digits.length === 10 || digits.length === 12) {
+    // Check if it already has the country code
+    if (digits.startsWith("91") && digits.length === 12) {
       return `+${digits}`
+    } else if (digits.length === 10) {
+      // Add India's country code
+      return `+91${digits}`
     }
-    // Otherwise assume it's an international number
-    return hasPlus ? `+${digits}` : `+${digits}`
   }
 
-  // Return original with + if it's too short (will fail validation)
-  return hasPlus ? `+${digits}` : `+${digits}`
+  // For other international numbers, just add the + if missing
+  return `+${digits}`
 }
 
 /**
@@ -48,10 +54,11 @@ export async function isValidPhone(phone: string): Promise<boolean> {
   if (!phone) return false
 
   // Basic validation for international phone numbers
-  const digits = phone.replace(/\D/g, "")
+  const formattedPhone = phone.replace(/\D/g, "")
 
-  // Most phone numbers are between 10 and 15 digits
-  return digits.length >= 10 && digits.length <= 15
+  // Most international phone numbers are between 8 and 15 digits
+  // This includes country code
+  return formattedPhone.length >= 8 && formattedPhone.length <= 15
 }
 
 /**
@@ -60,20 +67,27 @@ export async function isValidPhone(phone: string): Promise<boolean> {
 export async function isTwilioConfigured(): Promise<{
   configured: boolean
   missing: string[]
+  details: Record<string, string>
 }> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID
   const authToken = process.env.TWILIO_AUTH_TOKEN
   const fromNumber = process.env.TWILIO_PHONE_NUMBER
 
   const missing = []
+  const details: Record<string, string> = {}
 
   if (!accountSid) missing.push("TWILIO_ACCOUNT_SID")
   if (!authToken) missing.push("TWILIO_AUTH_TOKEN")
   if (!fromNumber) missing.push("TWILIO_PHONE_NUMBER")
 
+  details.accountSid = accountSid ? "Configured" : "Missing"
+  details.authToken = authToken ? "Configured" : "Missing"
+  details.fromNumber = fromNumber ? "Configured" : "Missing"
+
   return {
     configured: missing.length === 0,
     missing,
+    details,
   }
 }
 
@@ -123,7 +137,7 @@ export async function sendSMS(to: string, message: string): Promise<SMSResponse>
         success: false,
         message: "SMS service is not properly configured. Please contact support.",
         errorDetails: `Missing Twilio credentials: ${twilioConfig.missing.join(", ")}`,
-        debugInfo: { missingEnvVars: twilioConfig.missing },
+        debugInfo: { missingEnvVars: twilioConfig.missing, configDetails: twilioConfig.details },
       }
     }
 
@@ -202,6 +216,12 @@ export async function sendSMS(to: string, message: string): Promise<SMSResponse>
         userMessage = errorCodeMap[twilioError.code]
       }
 
+      // Special handling for trial accounts
+      if (twilioError.code === "21614") {
+        userMessage =
+          "This number is not verified with our SMS provider. For security reasons, we can only send SMS to verified numbers during the trial period. Please contact support for assistance."
+      }
+
       return {
         success: false,
         message: userMessage,
@@ -236,4 +256,69 @@ export async function sendTestSMS(to: string): Promise<SMSResponse> {
   const testMessage =
     "This is a test message from your HeartPredict application. If you received this, SMS sending is working correctly!"
   return await sendSMS(to, testMessage)
+}
+
+/**
+ * Fallback to email if SMS fails
+ */
+export async function sendVerificationWithFallback(
+  phone: string,
+  email: string | null,
+  code: string,
+): Promise<{
+  success: boolean
+  message: string
+  method: string
+  fallbackUsed?: boolean
+}> {
+  // Try SMS first
+  const smsResult = await sendSMS(phone, `Your HeartPredict verification code is: ${code}. Valid for 15 minutes.`)
+
+  // If SMS succeeds, return success
+  if (smsResult.success) {
+    return {
+      success: true,
+      message: "Verification code sent via SMS",
+      method: "sms",
+    }
+  }
+
+  // If SMS fails and we have an email, try email as fallback
+  if (!smsResult.success && email) {
+    const { sendEmail } = await import("./email-utils")
+
+    const emailResult = await sendEmail({
+      to: email,
+      subject: "Your Verification Code",
+      text: `Your HeartPredict verification code is: ${code}. Valid for 15 minutes.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Your Verification Code</h2>
+          <p>Use the following code to verify your account:</p>
+          <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold;">
+            ${code}
+          </div>
+          <p>This code will expire in 15 minutes.</p>
+          <p>If you didn't request this code, please ignore this email.</p>
+          <p><small>Note: We sent this code via email because SMS delivery failed.</small></p>
+        </div>
+      `,
+    })
+
+    if (emailResult.success) {
+      return {
+        success: true,
+        message: "SMS delivery failed, but we sent your code via email instead",
+        method: "email",
+        fallbackUsed: true,
+      }
+    }
+  }
+
+  // If both methods fail or no fallback available
+  return {
+    success: false,
+    message: smsResult.message || "Failed to send verification code",
+    method: "none",
+  }
 }
