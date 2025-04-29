@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
     try {
       // Basic client-side validation
       if (activeTab === "email") {
-        if (!email.trim()) {
+        if (!email || !email.trim()) {
           setError("Please enter your email address")
           setLoading(false)
           return
@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
       }
 
       if (activeTab === "sms") {
-        if (!phone.trim()) {
+        if (!phone || !phone.trim()) {
           setError("Please enter your phone number")
           setLoading(false)
           return
@@ -80,11 +80,10 @@ export default function ForgotPasswordPage() {
         const data = await response.json()
         setLoading(false)
         setSuccess(true)
-        setError(data.message)
+        setError("")
 
         // If there's a preview URL (development environment), show it
         if (data.previewUrl) {
-          setError(`${data.message} Preview available at: ${data.previewUrl}`)
           setPreviewUrl(data.previewUrl)
         }
 

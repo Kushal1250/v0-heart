@@ -7,7 +7,19 @@ import { v4 as uuidv4 } from "uuid"
 
 export async function POST(request: Request) {
   try {
-    const { identifier, method } = await request.json()
+    const body = await request.json()
+    console.log("Received verification code request:", body)
+
+    const { email, phone, isLoggedIn = false } = body
+
+    // Validate input - ensure at least one contact method is provided
+    if ((!email || email.trim() === "") && (!phone || phone.trim() === "")) {
+      console.error("Missing required parameters: email or phone")
+      return NextResponse.json({ message: "Email or phone number is required" }, { status: 400 })
+    }
+
+    const identifier = email || phone
+    const method = email ? "email" : "sms"
 
     if (!identifier) {
       return NextResponse.json({ success: false, message: "Email or phone number is required" }, { status: 400 })
