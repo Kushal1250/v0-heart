@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { debugStorage } from "@/lib/user-specific-storage"
 import { fixHistoryData } from "@/lib/fix-history-data"
+import { repairHistoryStorage } from "@/lib/debug-utils"
 
 export default function DebugHistoryTools({ email }: { email: string }) {
   const [message, setMessage] = useState<string | null>(null)
@@ -28,6 +29,31 @@ export default function DebugHistoryTools({ email }: { email: string }) {
       }
     } catch (error) {
       setMessage(`Error fixing history data: ${error instanceof Error ? error.message : "Unknown error"}`)
+      setIsSuccess(false)
+    }
+  }
+
+  const handleRepairHistory = () => {
+    try {
+      console.log("Attempting to repair history for:", email)
+      const repaired = repairHistoryStorage(email)
+
+      if (repaired) {
+        setMessage("History storage has been repaired. Please click 'Debug Storage' to verify the fix.")
+        setIsSuccess(true)
+      } else {
+        // Still try the old fix method as fallback
+        const fixed = fixHistoryData(email)
+        if (fixed) {
+          setMessage("History data has been fixed using legacy method. Please refresh the page.")
+          setIsSuccess(true)
+        } else {
+          setMessage("No issues found with history data that could be automatically fixed.")
+          setIsSuccess(true)
+        }
+      }
+    } catch (error) {
+      setMessage(`Error repairing history: ${error instanceof Error ? error.message : "Unknown error"}`)
       setIsSuccess(false)
     }
   }
@@ -61,6 +87,9 @@ export default function DebugHistoryTools({ email }: { email: string }) {
             </Button>
             <Button variant="outline" size="sm" onClick={handleFixHistory}>
               Fix History Data
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleRepairHistory}>
+              Repair Storage
             </Button>
             <Button variant="destructive" size="sm" onClick={handleClearLocalStorage}>
               Clear All Data

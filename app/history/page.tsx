@@ -29,6 +29,36 @@ export default function HistoryPage() {
       setEmail(storedEmail)
       loadHistory(storedEmail)
     }
+
+    // Try to fetch from server if logged in
+    const fetchFromServer = async () => {
+      try {
+        const response = await fetch("/api/user/predictions")
+        if (response.ok) {
+          const data = await response.json()
+          if (Array.isArray(data) && data.length > 0) {
+            console.log("Retrieved history from server:", data)
+            // Transform server data to match local format if needed
+            const formattedData = data.map((item) => ({
+              id: item.id,
+              timestamp: new Date(item.created_at).getTime(),
+              result: {
+                risk: calculateRiskLevel(item.result),
+                score: item.result * 100,
+                hasDisease: item.result >= 0.5,
+              },
+              ...item.prediction_data,
+            }))
+            setHistory(formattedData)
+            setIsSubmitted(true)
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch from server:", error)
+      }
+    }
+
+    fetchFromServer()
     setIsLoading(false)
   }, [])
 
@@ -38,6 +68,10 @@ export default function HistoryPage() {
 
     try {
       console.log(`Loading history for email: ${emailToLoad}`)
+      // Check localStorage directly to debug
+      console.log("All localStorage keys:", Object.keys(localStorage))
+      console.log(`Looking for key with: heart_assessment_history_${emailToLoad.toLowerCase()}`)
+
       const userHistory = getHistoryByEmail(emailToLoad)
       console.log("Retrieved history:", userHistory)
       setHistory(userHistory)
@@ -247,4 +281,10 @@ export default function HistoryPage() {
       )}
     </div>
   )
+}
+
+function calculateRiskLevel(score) {
+  if (score >= 0.7) return "high"
+  if (score >= 0.3) return "moderate"
+  return "low"
 }
