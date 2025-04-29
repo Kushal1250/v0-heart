@@ -57,6 +57,17 @@ export async function initDatabase() {
       )
     `
 
+    // Create verification codes table if it doesn't exist
+    await sql`
+      CREATE TABLE IF NOT EXISTS verification_codes (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        code TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '15 minutes')
+      )
+    `
+
     console.log("Database initialized successfully")
     return true
   } catch (error) {
@@ -503,5 +514,50 @@ export async function getPredictionById(id: string) {
   } catch (error) {
     console.error("Database error in getPredictionById:", error)
     throw new Error(`Failed to get prediction: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+// Create a verification code for a user
+export async function createVerificationCode(userId: string, code: string) {
+  try {
+    // Delete any existing codes for this user
+    await sql`DELETE FROM verification_codes WHERE user_id = ${userId}`
+
+    // Create a new code
+    await sql`
+      INSERT INTO verification_codes (user_id, code)
+      VALUES (${userId}, ${code})
+    `
+    return true
+  } catch (error) {
+    console.error("Error creating verification code:", error)
+    throw new Error(`Failed to create verification code: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+// Get a verification code by user ID and code
+export async function getVerificationCodeByUserIdAndCode(userId: string, code: string) {
+  try {
+    const codes = await sql`
+      SELECT * FROM verification_codes
+      WHERE user_id = ${userId}
+      AND code = ${code}
+      AND expires_at > NOW()
+    `
+    return codes[0] || null
+  } catch (error) {
+    console.error("Error getting verification code:", error)
+    throw new Error(`Failed to get verification code: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+// Delete a verification code
+export async function deleteVerificationCode(id: string) {
+  try {
+    await sql`DELETE FROM verification_codes WHERE id = ${id}`
+    return true
+  } catch (error) {
+    console.error("Error deleting verification code:", error)
+    throw new Error(`Failed to delete verification code: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }

@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +12,10 @@ import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react"
 
 export default function OTPVerificationPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const source = searchParams.get("source")
+  const isFromProfile = source === "profile"
+
   const [otp, setOtp] = useState(["", "", "", "", "", ""])
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -90,9 +94,30 @@ export default function OTPVerificationPage() {
     }
   }
 
-  const handleResendOTP = () => {
+  const handleResendOTP = async () => {
     setResendDisabled(true)
     setCountdown(30)
+    setError("")
+
+    try {
+      // Call API to resend OTP
+      const response = await fetch("/api/auth/resend-verification-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          isLoggedIn: isFromProfile,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.message || "Failed to resend verification code")
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to resend verification code")
+    }
 
     // Start countdown again
     const timer = setInterval(() => {
@@ -121,12 +146,30 @@ export default function OTPVerificationPage() {
 
     try {
       // In a real app, this would verify the OTP with your API
-      await new Promise((resolve) => setTimeout(resolve, 1500)) // Simulate API call
+      const response = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          otp: otp.join(""),
+          isLoggedIn: isFromProfile,
+        }),
+      })
 
-      // Redirect to reset password page on success
-      router.push("/reset-password")
-    } catch (err) {
-      setError("Invalid verification code. Please try again.")
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.message || "Invalid verification code")
+      }
+
+      // Redirect based on source
+      if (isFromProfile) {
+        router.push("/reset-password-profile")
+      } else {
+        router.push("/reset-password")
+      }
+    } catch (err: any) {
+      setError(err.message || "Invalid verification code. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -152,7 +195,7 @@ export default function OTPVerificationPage() {
             </svg>
           </Link>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Verification code</h2>
-          <p className="mt-2 text-sm text-gray-600">Enter the 6-digit code sent to your email</p>
+          <p className="mt-2 text-sm text-gray-600">Enter the 6-digit code sent to your email or phone</p>
         </div>
 
         {error && (
@@ -210,10 +253,10 @@ export default function OTPVerificationPage() {
 
         <div className="text-center">
           <Link
-            href="/forgot-password"
+            href={isFromProfile ? "/forgot-password-profile" : "/forgot-password"}
             className="font-medium text-sm text-gray-600 hover:text-gray-900 flex items-center justify-center"
           >
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to forgot password
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to {isFromProfile ? "verification" : "forgot password"}
           </Link>
         </div>
       </div>

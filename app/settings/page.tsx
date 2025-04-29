@@ -27,47 +27,68 @@ export default function SettingsPage() {
   useEffect(() => {
     setMounted(true)
 
-    // Initialize theme from localStorage
-    const savedTheme = localStorage.getItem("theme") as "dark" | "light"
-    if (savedTheme) {
-      setTheme(savedTheme)
+    // Fetch user settings from the API
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch("/api/user/settings")
+        if (response.ok) {
+          const data = await response.json()
+          setTheme(data.theme || "dark")
+          setSaveHistory(data.saveHistory !== undefined ? data.saveHistory : true)
+          setNotifications(data.notifications !== undefined ? data.notifications : false)
+          setEmailNotifications(data.emailNotifications !== undefined ? data.emailNotifications : false)
+          setDataSharing(data.dataSharing !== undefined ? data.dataSharing : false)
+          setLanguage(data.language || "english")
+          setUnits(data.units || "metric")
+          setPrivacyMode(data.privacyMode !== undefined ? data.privacyMode : false)
+        } else {
+          // If API fails, fall back to localStorage
+          const savedTheme = localStorage.getItem("theme") as "dark" | "light"
+          if (savedTheme) {
+            setTheme(savedTheme)
+          }
+
+          const savedHistory = localStorage.getItem("saveHistory")
+          if (savedHistory !== null) {
+            setSaveHistory(savedHistory === "true")
+          }
+
+          const savedNotifications = localStorage.getItem("notifications")
+          if (savedNotifications !== null) {
+            setNotifications(savedNotifications === "true")
+          }
+
+          const savedEmailNotifications = localStorage.getItem("emailNotifications")
+          if (savedEmailNotifications !== null) {
+            setEmailNotifications(savedEmailNotifications === "true")
+          }
+
+          const savedDataSharing = localStorage.getItem("dataSharing")
+          if (savedDataSharing !== null) {
+            setDataSharing(savedDataSharing === "true")
+          }
+
+          const savedLanguage = localStorage.getItem("language")
+          if (savedLanguage !== null) {
+            setLanguage(savedLanguage)
+          }
+
+          const savedUnits = localStorage.getItem("units")
+          if (savedUnits !== null) {
+            setUnits(savedUnits)
+          }
+
+          const savedPrivacyMode = localStorage.getItem("privacyMode")
+          if (savedPrivacyMode !== null) {
+            setPrivacyMode(savedPrivacyMode === "true")
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching settings:", error)
+      }
     }
 
-    // Initialize settings from localStorage
-    const savedHistory = localStorage.getItem("saveHistory")
-    if (savedHistory !== null) {
-      setSaveHistory(savedHistory === "true")
-    }
-
-    const savedNotifications = localStorage.getItem("notifications")
-    if (savedNotifications !== null) {
-      setNotifications(savedNotifications === "true")
-    }
-
-    const savedEmailNotifications = localStorage.getItem("emailNotifications")
-    if (savedEmailNotifications !== null) {
-      setEmailNotifications(savedEmailNotifications === "true")
-    }
-
-    const savedDataSharing = localStorage.getItem("dataSharing")
-    if (savedDataSharing !== null) {
-      setDataSharing(savedDataSharing === "true")
-    }
-
-    const savedLanguage = localStorage.getItem("language")
-    if (savedLanguage !== null) {
-      setLanguage(savedLanguage)
-    }
-
-    const savedUnits = localStorage.getItem("units")
-    if (savedUnits !== null) {
-      setUnits(savedUnits)
-    }
-
-    const savedPrivacyMode = localStorage.getItem("privacyMode")
-    if (savedPrivacyMode !== null) {
-      setPrivacyMode(savedPrivacyMode === "true")
-    }
+    fetchSettings()
   }, [])
 
   // Toggle theme function
@@ -113,9 +134,25 @@ export default function SettingsPage() {
   }
 
   // Handle language change
-  const handleLanguageChange = (value: string) => {
+  const handleLanguageChange = async (value: string) => {
     setLanguage(value)
     localStorage.setItem("language", value)
+
+    try {
+      const response = await fetch("/api/user/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ language: value }),
+      })
+
+      if (!response.ok) {
+        console.error("Failed to save language setting to server")
+      }
+    } catch (error) {
+      console.error("Error saving language setting:", error)
+    }
   }
 
   // Handle units change
@@ -197,7 +234,7 @@ export default function SettingsPage() {
                     <p className="text-sm text-gray-400">Select your preferred language</p>
                   </div>
                   <Select value={language} onValueChange={handleLanguageChange}>
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-[180px]" id="language">
                       <SelectValue placeholder="Select language" />
                     </SelectTrigger>
                     <SelectContent>
