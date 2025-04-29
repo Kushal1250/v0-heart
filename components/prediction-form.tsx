@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { InfoIcon as InfoCircle, ArrowRight, ArrowLeft } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useMediaQuery } from "@/hooks/use-media-query"
+import { getCurrentUserEmail } from "@/lib/user-specific-storage"
 
 // Helper component for form fields with tooltips
 const FormField = ({
@@ -88,7 +89,7 @@ export function PredictionForm() {
   }
 
   // Update the handleSubmit function to validate all required fields before submission
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     // Validate required fields
@@ -98,15 +99,26 @@ export function PredictionForm() {
       return
     }
 
+    // Get the current user email
+    const userEmail = getCurrentUserEmail()
+
     setLoading(true)
 
     try {
+      // Prepare form data
+      const formDataToSend = {
+        ...formData,
+
+        // Add user email if available
+        userEmail: userEmail || null,
+      }
+
       const response = await fetch("/api/predict", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(formDataToSend),
       })
 
       if (!response.ok) {
