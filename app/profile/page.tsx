@@ -25,6 +25,7 @@ import {
 import { formatDistanceToNow } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import Link from "next/link"
 
 export default function ProfilePage() {
   const { user, isLoading } = useAuth()
@@ -210,6 +211,11 @@ export default function ProfilePage() {
       const response = await fetch("/api/user/profile/upload-photo", {
         method: "POST",
         body: formData,
+        cache: "no-store",
+        headers: {
+          // Don't set Content-Type here, it will be set automatically with the correct boundary
+          "Cache-Control": "no-cache",
+        },
       })
 
       if (!response.ok) {
@@ -229,6 +235,11 @@ export default function ProfilePage() {
         title: "Success",
         description: "Profile picture updated successfully!",
       })
+
+      // Force a refresh to ensure the image is updated
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
     } catch (error: any) {
       console.error("Error uploading profile picture:", error)
       toast({
@@ -444,6 +455,22 @@ export default function ProfilePage() {
 
               <div className="flex justify-end pt-2">
                 <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
+              </div>
+            </div>
+          )}
+          {!isEditing && (
+            <div className="mt-8 border-t pt-6">
+              <h3 className="text-lg font-medium mb-4">Password Management</h3>
+              <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Reset your password</p>
+                    <p className="text-sm text-gray-500">Change your password to keep your account secure</p>
+                  </div>
+                  <Link href="/reset-password">
+                    <Button variant="outline">Reset Password</Button>
+                  </Link>
+                </div>
               </div>
             </div>
           )}

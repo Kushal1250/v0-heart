@@ -32,10 +32,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "File too large. Please upload an image smaller than 5MB." }, { status: 400 })
     }
 
-    // In a real application, you would upload the file to a storage service like AWS S3
-    // For this example, we'll simulate storing the image URL
-    // This is a placeholder - in production, replace with actual file upload logic
-    const imageUrl = `/placeholder.svg?height=200&width=200&query=user-${currentUser.id}`
+    // Generate a unique image URL based on timestamp and user ID
+    // In a real application, you would upload to a storage service like AWS S3
+    const timestamp = Date.now()
+    const imageUrl = `/placeholder.svg?height=200&width=200&query=user-${currentUser.id}-${timestamp}`
 
     // Update user profile with the new image URL
     const updatedUser = await updateUserProfile(currentUser.id, {
@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
     // Return the updated profile picture URL
     return NextResponse.json({
       profile_picture: updatedUser.profile_picture,
+      success: true,
     })
   } catch (error) {
     console.error("Error uploading profile picture:", error)
