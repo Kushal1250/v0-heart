@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { verifyOTPAction, resendVerificationAction } from "@/app/auth/actions"
+import { resendVerificationAction } from "@/app/auth/actions"
+import { Check, X } from "lucide-react"
 
 export default function OTPVerificationPage() {
   const router = useRouter()
@@ -25,6 +26,21 @@ export default function OTPVerificationPage() {
   const [resendSuccess, setResendSuccess] = useState(false)
   const [countdown, setCountdown] = useState(60)
   const [canResend, setCanResend] = useState(false)
+
+  // Password change states
+  const [isVerified, setIsVerified] = useState(false)
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [passwordError, setPasswordError] = useState("")
+  const [passwordSuccess, setPasswordSuccess] = useState(false)
+  const [passwordLoading, setPasswordLoading] = useState(false)
+
+  // Password validation states
+  const hasMinLength = password.length >= 8
+  const hasUpperCase = /[A-Z]/.test(password)
+  const hasLowerCase = /[a-z]/.test(password)
+  const hasNumber = /[0-9]/.test(password)
+  const passwordsMatch = password === confirmPassword && password !== ""
 
   useEffect(() => {
     if (!identifier) {
@@ -49,13 +65,22 @@ export default function OTPVerificationPage() {
     setLoading(true)
 
     try {
-      const result = await verifyOTPAction(identifier, otp)
+      // Call the API endpoint that uses verifyOTP
+      const response = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ otp, identifier }),
+      })
+
+      const result = await response.json()
 
       if (result.success) {
         setSuccess(true)
-        setTimeout(() => {
-          router.push(`/change-password?token=${result.token}`)
-        }, 1500)
+        setIsVerified(true)
+        // Store the token for password reset
+        localStorage.setItem("resetToken", result.token)
       } else {
         setError(result.message || "Invalid verification code. Please try again.")
       }
@@ -90,6 +115,58 @@ export default function OTPVerificationPage() {
     }
   }
 
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPasswordError("")
+    setPasswordSuccess(false)
+
+    // Validate password
+    if (!hasMinLength || !hasUpperCase || !hasLowerCase || !hasNumber) {
+      setPasswordError("Please ensure your password meets all requirements")
+      return
+    }
+
+    // Check if passwords match
+    if (!passwordsMatch) {
+      setPasswordError("Passwords do not match")
+      return
+    }
+
+    setPasswordLoading(true)
+
+    try {
+      // Call API to change password
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          identifier,
+          verificationCode: otp,
+          newPassword: password,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setPasswordSuccess(true)
+        // Redirect to login after 3 seconds
+        setTimeout(() => {
+          router.push("/login")
+        }, 3000)
+      } else {
+        setPasswordError(data.message || "Failed to change password. Please try again.")
+      }
+    } catch (err) {
+      setPasswordError("An error occurred. Please try again.")
+      console.error(err)
+    } finally {
+      setPasswordLoading(false)
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
@@ -102,65 +179,182 @@ export default function OTPVerificationPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleVerify} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="otp" className="block text-sm font-medium text-gray-700">
-                Enter Verification Code
-              </label>
-              <Input
-                id="otp"
-                type="text"
-                placeholder="Enter 6-digit code"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                required
-                maxLength={6}
-                pattern="\d{6}"
-              />
-            </div>
+          {!isVerified ? (
+            <form onSubmit={handleVerify} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="otp" className="block text-sm font-medium text-gray-700">
+                  Enter Verification Code
+                </label>
+                <Input
+                  id="otp"
+                  type="text"
+                  placeholder="Enter 6-digit code"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  required
+                  maxLength={6}
+                  pattern="\d{6}"
+                />
+              </div>
 
-            {error && (
-              <Alert variant="destructive">
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
 
-            {success && (
-              <Alert>
-                <AlertTitle>Success</AlertTitle>
-                <AlertDescription>Verification successful! Redirecting...</AlertDescription>
-              </Alert>
-            )}
+              {success && (
+                <Alert>
+                  <AlertTitle>Success</AlertTitle>
+                  <AlertDescription>Verification successful! Please set your new password.</AlertDescription>
+                </Alert>
+              )}
 
-            {resendSuccess && (
-              <Alert>
-                <AlertTitle>Success</AlertTitle>
-                <AlertDescription>
-                  {method === "email"
-                    ? "A new verification code has been sent to your email."
-                    : "A new verification code has been sent to your phone."}
-                </AlertDescription>
-              </Alert>
-            )}
+              {resendSuccess && (
+                <Alert>
+                  <AlertTitle>Success</AlertTitle>
+                  <AlertDescription>
+                    {method === "email"
+                      ? "A new verification code has been sent to your email."
+                      : "A new verification code has been sent to your phone."}
+                  </AlertDescription>
+                </Alert>
+              )}
 
-            <Button type="submit" className="w-full" disabled={loading || otp.length !== 6}>
-              {loading ? "Verifying..." : "Verify"}
-            </Button>
-          </form>
+              <Button type="submit" className="w-full" disabled={loading || otp.length !== 6}>
+                {loading ? "Verifying..." : "Verify"}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handlePasswordChange} className="space-y-6">
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  New password
+                </label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  className="mt-1 block w-full rounded-md border-gray-300"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+
+                <div className="mt-4 space-y-2">
+                  <p className="text-sm font-medium text-gray-700">Password requirements:</p>
+                  <ul className="space-y-1 text-sm text-gray-500">
+                    <li className="flex items-center">
+                      {hasMinLength ? (
+                        <Check className="h-4 w-4 text-green-500 mr-2" />
+                      ) : (
+                        <X className="h-4 w-4 text-gray-300 mr-2" />
+                      )}
+                      At least 8 characters
+                    </li>
+                    <li className="flex items-center">
+                      {hasUpperCase ? (
+                        <Check className="h-4 w-4 text-green-500 mr-2" />
+                      ) : (
+                        <X className="h-4 w-4 text-gray-300 mr-2" />
+                      )}
+                      At least one uppercase letter
+                    </li>
+                    <li className="flex items-center">
+                      {hasLowerCase ? (
+                        <Check className="h-4 w-4 text-green-500 mr-2" />
+                      ) : (
+                        <X className="h-4 w-4 text-gray-300 mr-2" />
+                      )}
+                      At least one lowercase letter
+                    </li>
+                    <li className="flex items-center">
+                      {hasNumber ? (
+                        <Check className="h-4 w-4 text-green-500 mr-2" />
+                      ) : (
+                        <X className="h-4 w-4 text-gray-300 mr-2" />
+                      )}
+                      At least one number
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                  Confirm new password
+                </label>
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  className="mt-1 block w-full rounded-md border-gray-300"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+                <div className="mt-1 flex items-center">
+                  {confirmPassword && (
+                    <>
+                      {passwordsMatch ? (
+                        <span className="text-sm text-green-500 flex items-center">
+                          <Check className="h-4 w-4 mr-1" /> Passwords match
+                        </span>
+                      ) : (
+                        <span className="text-sm text-red-500 flex items-center">
+                          <X className="h-4 w-4 mr-1" /> Passwords do not match
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {passwordError && (
+                <Alert variant="destructive">
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{passwordError}</AlertDescription>
+                </Alert>
+              )}
+
+              {passwordSuccess && (
+                <Alert>
+                  <AlertTitle>Success</AlertTitle>
+                  <AlertDescription>Password changed successfully! Redirecting to login...</AlertDescription>
+                </Alert>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={
+                  passwordLoading || !passwordsMatch || !hasMinLength || !hasUpperCase || !hasLowerCase || !hasNumber
+                }
+              >
+                {passwordLoading ? "Changing password..." : "Change password"}
+              </Button>
+            </form>
+          )}
         </CardContent>
         <CardFooter className="flex justify-center">
-          <div className="text-center text-sm">
-            <p className="text-gray-600">Didn't receive the code?</p>
-            {canResend ? (
-              <Button variant="link" onClick={handleResend} disabled={resendLoading}>
-                {resendLoading ? "Sending..." : "Resend Code"}
-              </Button>
-            ) : (
-              <p className="text-gray-500">Resend code in {countdown} seconds</p>
-            )}
-          </div>
+          {!isVerified && (
+            <div className="text-center text-sm">
+              <p className="text-gray-600">Didn't receive the code?</p>
+              {canResend ? (
+                <Button variant="link" onClick={handleResend} disabled={resendLoading}>
+                  {resendLoading ? "Sending..." : "Resend Code"}
+                </Button>
+              ) : (
+                <p className="text-gray-500">Resend code in {countdown} seconds</p>
+              )}
+            </div>
+          )}
         </CardFooter>
       </Card>
     </div>

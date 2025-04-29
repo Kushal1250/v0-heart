@@ -37,9 +37,10 @@ export function isValidEmail(email: string): boolean {
   return emailRegex.test(email)
 }
 
+// Add this function if it doesn't exist already
 export function isStrongPassword(password: string): boolean {
-  // Password strength validation
-  return password.length >= 8
+  // Password must be at least 8 characters with uppercase, lowercase, and numbers
+  return password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password)
 }
 
 export function createResponseWithCookie(data: any, token: string): any {

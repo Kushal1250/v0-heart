@@ -39,13 +39,18 @@ export async function initDatabase() {
 
     // Create password_resets table if it doesn't exist
     await sql`
-      CREATE TABLE IF NOT EXISTS password_resets (
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        token TEXT UNIQUE NOT NULL,
+        user_id TEXT NOT NULL,
+        token TEXT NOT NULL,
         expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      )
+        is_valid BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
+      CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
     `
 
     // Create predictions table if it doesn't exist
@@ -63,7 +68,7 @@ export async function initDatabase() {
     await sql`
       CREATE TABLE IF NOT EXISTS verification_codes (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL,
         code TEXT NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '15 minutes')
@@ -259,7 +264,7 @@ export async function createPasswordResetToken(userId: string, token: string, ex
     const resetId = uuidv4()
 
     await sql`
-      INSERT INTO password_resets (id, user_id, token, expires_at)
+      INSERT INTO password_reset_tokens (id, user_id, token, expires_at)
       VALUES (${resetId}, ${userId}, ${token}, ${expiresAt})
     `
     return true
@@ -278,8 +283,8 @@ export async function getPasswordResetByToken(token: string) {
     }
 
     const resets = await sql`
-      SELECT * FROM password_resets
-      WHERE token = ${token} AND expires_at > NOW()
+      SELECT * FROM password_reset_tokens
+      WHERE token = ${token} AND expires_at > NOW() AND is_valid = true
     `
     return resets[0] || null
   } catch (error) {
@@ -687,6 +692,48 @@ export async function verifyCode(userId: string, code: string) {
   } catch (error) {
     console.error("Database error in verifyCode:", error)
     throw new Error(`Failed to verify code: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+// Add this function after the verifyCode function
+
+/**
+ * Verify an OTP code for a user
+ * @param userId User ID or email
+ * @param otp Verification code
+ * @returns Object with success status and message
+ */
+export async function verifyOTP(userId: string, otp: string) {
+  try {
+    if (!userId || !otp) {
+      return { success: false, message: "User ID and OTP are required" }
+    }
+
+    // First try to find by direct user ID
+    let verificationRecord = await getVerificationCodeByUserIdAndCode(userId, otp)
+
+    // If not found and userId looks like an email, try to get the user first
+    if (!verificationRecord && userId.includes("@")) {
+      const user = await getUserByEmail(userId)
+      if (user) {
+        verificationRecord = await getVerificationCodeByUserIdAndCode(user.id, otp)
+      }
+    }
+
+    if (!verificationRecord) {
+      return { success: false, message: "Verification code not found or expired" }
+    }
+
+    // Delete the used code
+    await deleteVerificationCode(verificationRecord.id)
+
+    return { success: true, message: "Verification successful" }
+  } catch (error) {
+    console.error("Error verifying OTP:", error)
+    return {
+      success: false,
+      message: `Failed to verify OTP: ${error instanceof Error ? error.message : "Unknown error"}`,
+    }
   }
 }
 

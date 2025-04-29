@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
-import { getVerificationCodeByUserIdAndCode, deleteVerificationCode } from "@/lib/db"
-import { getUserFromRequest } from "@/lib/auth-utils"
+import { verifyOTP, getUserByEmail } from "@/lib/db"
+import { getUserFromRequest, isValidEmail } from "@/lib/auth-utils"
 
 export async function POST(request: Request) {
   try {
-    const { otp, isLoggedIn } = await request.json()
+    const { otp, identifier, isLoggedIn } = await request.json()
 
     if (!otp) {
       return NextResponse.json({ message: "Verification code is required" }, { status: 400 })
@@ -18,26 +18,46 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: "Authentication required" }, { status: 401 })
       }
 
-      const verificationRecord = await getVerificationCodeByUserIdAndCode(currentUser.id, otp)
+      const result = await verifyOTP(currentUser.id, otp)
 
-      if (!verificationRecord) {
-        return NextResponse.json({ message: "Invalid or expired verification code" }, { status: 400 })
+      if (!result.success) {
+        return NextResponse.json({ message: result.message }, { status: 400 })
       }
 
-      // Delete the used code
-      await deleteVerificationCode(verificationRecord.id)
-
-      // Set a session flag to indicate the user has verified their identity
-      // This would typically be done with a cookie or session variable
-
-      return NextResponse.json({ message: "Verification successful" })
+      return NextResponse.json({
+        message: "Verification successful",
+        success: true,
+        token: currentUser.id, // Use user ID as token for simplicity
+      })
     }
 
-    // For non-logged in users, we need to get the user ID from the session
-    // This would typically be stored when they enter their email/phone
+    // For non-logged in users with identifier (email/phone)
+    if (identifier) {
+      let userId = identifier
 
-    // For demo purposes, we'll just return success
-    return NextResponse.json({ message: "Verification successful" })
+      // Check if identifier is an email
+      if (isValidEmail(identifier)) {
+        const user = await getUserByEmail(identifier)
+        if (!user) {
+          return NextResponse.json({ message: "User not found" }, { status: 404 })
+        }
+        userId = user.id
+      }
+
+      const result = await verifyOTP(userId, otp)
+
+      if (!result.success) {
+        return NextResponse.json({ message: result.message }, { status: 400 })
+      }
+
+      return NextResponse.json({
+        message: "Verification successful",
+        success: true,
+        token: userId, // Use user ID as token for simplicity
+      })
+    }
+
+    return NextResponse.json({ message: "User identifier required" }, { status: 400 })
   } catch (error) {
     console.error("OTP verification error:", error)
     return NextResponse.json({ message: "An error occurred" }, { status: 500 })

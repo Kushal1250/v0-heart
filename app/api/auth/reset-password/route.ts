@@ -1,54 +1,56 @@
 import { NextResponse } from "next/server"
-import { getPasswordResetByToken, updateUserPassword, deletePasswordReset } from "@/lib/db"
-import { isStrongPassword } from "@/lib/auth-utils"
-import { getUserById } from "@/lib/db" // Assuming you have a getUserById function
-import { verifyPasswordResetToken, invalidatePasswordResetToken } from "@/lib/token"
+import { getUserByEmail, updateUserPassword, verifyOTP } from "@/lib/db"
+import { isValidEmail, isStrongPassword } from "@/lib/auth-utils"
 
 export async function POST(request: Request) {
   try {
-    const { token, password: newPassword } = await request.json()
+    const { identifier, verificationCode, newPassword } = await request.json()
 
-    // Validate input
-    if (!token || !newPassword) {
-      return NextResponse.json({ message: "Token and password are required" }, { status: 400 })
+    // Validate inputs
+    if (!identifier) {
+      return NextResponse.json({ message: "Email or phone number is required" }, { status: 400 })
     }
 
+    if (!verificationCode) {
+      return NextResponse.json({ message: "Verification code is required" }, { status: 400 })
+    }
+
+    if (!newPassword) {
+      return NextResponse.json({ message: "New password is required" }, { status: 400 })
+    }
+
+    // Validate password strength
     if (!isStrongPassword(newPassword)) {
-      return NextResponse.json({ message: "Password must be at least 8 characters" }, { status: 400 })
+      return NextResponse.json(
+        { message: "Password must be at least 8 characters with uppercase, lowercase, and numbers" },
+        { status: 400 },
+      )
     }
 
-    // If token is provided, verify it
-    if (token) {
-      const userId = await verifyPasswordResetToken(token)
-      if (!userId) {
-        return NextResponse.json({ error: "Invalid or expired token" }, { status: 400 })
-      }
-
-      // After successful password change, invalidate the token
-      await invalidatePasswordResetToken(token)
-
-      // Rest of the token-based password reset logic...
-    }
-
-    // Verify token
-    const resetRecord = await getPasswordResetByToken(token)
-    if (!resetRecord) {
-      return NextResponse.json({ message: "Invalid or expired token" }, { status: 400 })
+    // Verify the OTP
+    const verificationResult = await verifyOTP(identifier, verificationCode)
+    if (!verificationResult.success) {
+      return NextResponse.json({ message: verificationResult.message }, { status: 400 })
     }
 
     // Get the user
-    const user = await getUserById(resetRecord.user_id)
+    let user
+    if (isValidEmail(identifier)) {
+      user = await getUserByEmail(identifier)
+    } else {
+      // Handle phone number case if needed
+      // user = await getUserByPhone(identifier)
+      return NextResponse.json({ message: "Phone verification not supported yet" }, { status: 400 })
+    }
+
     if (!user) {
       return NextResponse.json({ message: "User not found" }, { status: 404 })
     }
 
-    // Update password
+    // Update the password
     await updateUserPassword(user.id, newPassword)
 
-    // Delete used token
-    await deletePasswordReset(token)
-
-    return NextResponse.json({ message: "Password reset successful" })
+    return NextResponse.json({ message: "Password updated successfully" })
   } catch (error) {
     console.error("Password reset error:", error)
     return NextResponse.json({ message: "An error occurred" }, { status: 500 })
