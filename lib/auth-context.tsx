@@ -47,12 +47,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const isAdmin = isAdminCookie ? isAdminCookie.split("=")[1] === "true" : false
 
         if (isAdmin) {
-          setUser({
-            id: "admin",
-            name: "Admin",
-            email: "admin@example.com",
-            role: "admin",
-          })
+          // Load saved admin details from localStorage if available
+          try {
+            const savedDetails = localStorage.getItem("adminDetails")
+            if (savedDetails) {
+              const details = JSON.parse(savedDetails)
+              setUser({
+                id: "admin",
+                name: details.name || "Admin",
+                email: details.email || "admin@example.com",
+                phone: details.phone || "",
+                role: "admin",
+              })
+            } else {
+              setUser({
+                id: "admin",
+                name: "Admin",
+                email: "admin@example.com",
+                role: "admin",
+              })
+            }
+          } catch (error) {
+            console.error("Error loading saved admin details:", error)
+            setUser({
+              id: "admin",
+              name: "Admin",
+              email: "admin@example.com",
+              role: "admin",
+            })
+          }
+
           setIsAdmin(true)
           setIsLoading(false)
           return
@@ -162,6 +186,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, message: "Invalid response from server" }
       }
 
+      // Save admin details to localStorage
+      localStorage.setItem(
+        "adminDetails",
+        JSON.stringify({
+          name: "Admin",
+          email: email,
+        }),
+      )
+
       // Set admin user
       setUser({
         id: "admin",
@@ -224,6 +257,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Clear admin cookie
       document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+      document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
     } catch (error) {
       console.error("Logout error:", error)
     }
@@ -244,13 +279,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(updatedUser)
 
       // Save to localStorage for persistence
-      localStorage.setItem(
-        "userDetails",
-        JSON.stringify({
-          name: updatedUser.name,
-          email: updatedUser.email,
-        }),
-      )
+      if (isAdmin) {
+        localStorage.setItem(
+          "adminDetails",
+          JSON.stringify({
+            name: updatedUser.name,
+            email: updatedUser.email,
+            phone: updatedUser.phone,
+          }),
+        )
+      } else {
+        localStorage.setItem(
+          "userDetails",
+          JSON.stringify({
+            name: updatedUser.name,
+            email: updatedUser.email,
+          }),
+        )
+      }
     }
   }
 
