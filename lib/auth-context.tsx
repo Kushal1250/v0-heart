@@ -40,18 +40,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check if user is logged in
     const checkAuth = async () => {
       try {
-        const response = await fetch("/api/auth/user")
+        const response = await fetch("/api/auth/user", {
+          // Add cache: 'no-store' to prevent caching issues
+          cache: "no-store",
+        })
+
         if (response.ok) {
           try {
             const data = await response.json()
-            setUser(data.user)
-            setIsAdmin(data.user.role === "admin")
+            if (data && data.user) {
+              setUser(data.user)
+              setIsAdmin(data.user.role === "admin")
+            }
           } catch (jsonError) {
             console.error("Error parsing user data:", jsonError)
+            // Don't throw error, just log it
           }
+        } else {
+          // If response is not OK, just set user to null instead of throwing
+          setUser(null)
+          setIsAdmin(false)
         }
       } catch (error) {
         console.error("Auth check error:", error)
+        // Don't throw error, just log it
       } finally {
         setIsLoading(false)
       }
