@@ -4,15 +4,6 @@ import { getUserById, updateUserPassword, comparePasswords } from "@/lib/db"
 
 export async function POST(request: Request) {
   try {
-    // Check if DATABASE_URL is set
-    if (!process.env.DATABASE_URL) {
-      console.error("DATABASE_URL environment variable is not set")
-      return NextResponse.json(
-        { message: "Database connection error: No database connection string was provided" },
-        { status: 500 },
-      )
-    }
-
     // Get the current user
     const currentUser = await getCurrentUser()
 
@@ -50,13 +41,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Password changed successfully" })
   } catch (error) {
     console.error("Error changing password:", error)
-
-    // Check if the error is related to database connection
-    const errorMessage = error instanceof Error ? error.message : "Unknown error"
-    if (errorMessage.includes("database connection") || errorMessage.includes("neon")) {
-      return NextResponse.json({ message: "Database connection error: Please try again later" }, { status: 503 })
-    }
-
     return NextResponse.json({ message: "An error occurred while changing your password" }, { status: 500 })
   }
 }

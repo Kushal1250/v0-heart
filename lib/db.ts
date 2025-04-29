@@ -2,36 +2,14 @@ import { neon } from "@neondatabase/serverless"
 import { hash, compare } from "bcrypt-ts"
 import { v4 as uuidv4 } from "uuid"
 
-// Create a SQL query executor using the Neon serverless driver with proper error handling
-const createSqlClient = () => {
-  const connectionString = process.env.DATABASE_URL
-
-  if (!connectionString) {
-    console.error("DATABASE_URL environment variable is not set")
-    throw new Error("Database connection string is missing. Please check your environment variables.")
-  }
-
-  try {
-    return neon(connectionString)
-  } catch (error) {
-    console.error("Failed to initialize database connection:", error)
-    throw new Error("Failed to connect to database. Please check your connection string.")
-  }
-}
-
-// Export the SQL client with proper error handling
-export const sql = createSqlClient()
+// Create a SQL query executor using the Neon serverless driver
+export const sql = neon(process.env.DATABASE_URL!)
 // Export db as an alias for sql for backward compatibility
 export const db = sql
 
 // Initialize database tables
 export async function initDatabase() {
   try {
-    console.log(
-      "Initializing database with connection:",
-      process.env.DATABASE_URL ? "Connection string exists" : "No connection string",
-    )
-
     // Create users table if it doesn't exist
     await sql`
       CREATE TABLE IF NOT EXISTS users (
@@ -543,6 +521,44 @@ export async function getPredictionById(id: string) {
   } catch (error) {
     console.error("Database error in getPredictionById:", error)
     throw new Error(`Failed to get prediction: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
+ * Delete a prediction by ID
+ * @param id Prediction ID
+ * @returns Success status
+ */
+export async function deletePredictionById(id: string): Promise<boolean> {
+  try {
+    if (!id) {
+      throw new Error("Prediction ID is required to delete prediction")
+    }
+
+    await sql`DELETE FROM predictions WHERE id = ${id}`
+    return true
+  } catch (error) {
+    console.error("Database error in deletePredictionById:", error)
+    throw new Error(`Failed to delete prediction: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
+ * Clear all predictions for a user
+ * @param userId User ID
+ * @returns Success status
+ */
+export async function clearUserPredictions(userId: string): Promise<boolean> {
+  try {
+    if (!userId) {
+      throw new Error("User ID is required to clear predictions")
+    }
+
+    await sql`DELETE FROM predictions WHERE user_id = ${userId}`
+    return true
+  } catch (error) {
+    console.error("Database error in clearUserPredictions:", error)
+    throw new Error(`Failed to clear predictions: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
 

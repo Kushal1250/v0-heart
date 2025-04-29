@@ -35,8 +35,7 @@ export async function POST(request: NextRequest) {
     // Generate a unique timestamp for cache busting
     const timestamp = Date.now()
 
-    // For this implementation, we'll use a more reliable approach with a data URL
-    // In a production environment, you would use a proper storage service like AWS S3 or Vercel Blob
+    // Convert the file to a data URL
     const arrayBuffer = await profilePicture.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     const base64Image = buffer.toString("base64")
