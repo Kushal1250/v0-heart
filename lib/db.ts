@@ -532,20 +532,63 @@ export async function createVerificationCode(identifier: string, code: string) {
     console.log(`Creating verification code for identifier: ${identifier}`)
 
     // Delete any existing codes for this identifier
-    await sql`DELETE FROM verification_codes WHERE user_id = ${identifier}`
+    try {
+      await sql`DELETE FROM verification_codes WHERE user_id = ${identifier}`
+      console.log(`Deleted existing verification codes for ${identifier}`)
+    } catch (deleteError) {
+      console.error("Error deleting existing verification codes:", deleteError)
+      // Continue with insertion even if deletion fails
+    }
 
     // Create a new code
     const verificationId = uuidv4()
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
 
-    const result = await sql`
-      INSERT INTO verification_codes (id, user_id, code, expires_at)
-      VALUES (${verificationId}, ${identifier}, ${code}, ${expiresAt})
-      RETURNING id, user_id, code, created_at, expires_at
-    `
+    try {
+      const result = await sql`
+        INSERT INTO verification_codes (id, user_id, code, expires_at)
+        VALUES (${verificationId}, ${identifier}, ${code}, ${expiresAt})
+        RETURNING id, user_id, code, created_at, expires_at
+      `
 
-    console.log(`Verification code created successfully for ${identifier}`)
-    return result[0]
+      console.log(`Verification code created successfully for ${identifier}`)
+      return result[0]
+    } catch (insertError) {
+      console.error("Error inserting verification code:", insertError)
+
+      // Check if the table exists, if not create it
+      const tableExists = await sql`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'verification_codes'
+        );
+      `
+
+      if (!tableExists[0].exists) {
+        console.log("verification_codes table doesn't exist, creating it...")
+        await sql`
+          CREATE TABLE verification_codes (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id TEXT NOT NULL,
+            code TEXT NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '15 minutes')
+          )
+        `
+
+        // Try insertion again
+        const result = await sql`
+          INSERT INTO verification_codes (id, user_id, code, expires_at)
+          VALUES (${verificationId}, ${identifier}, ${code}, ${expiresAt})
+          RETURNING id, user_id, code, created_at, expires_at
+        `
+
+        console.log(`Verification code created successfully after table creation for ${identifier}`)
+        return result[0]
+      }
+
+      throw insertError
+    }
   } catch (error) {
     console.error("Database error in createVerificationCode:", error)
     throw new Error(`Failed to create verification code: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -587,6 +630,19 @@ export async function getVerificationCode(identifier: string) {
     }
 
     console.log(`Getting verification code for identifier: ${identifier}`)
+
+    // Check if the table exists
+    const tableExists = await sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'verification_codes'
+      );
+    `
+
+    if (!tableExists[0].exists) {
+      console.log("verification_codes table doesn't exist")
+      return null
+    }
 
     const codes = await sql`
       SELECT * FROM verification_codes
@@ -634,16 +690,28 @@ export async function verifyCode(userId: string, code: string) {
 
 /**
  * Delete a verification code
- * @param userId User ID
- * @param code Verification code
+ * @param identifier User ID, email, or phone
  */
-export async function deleteVerificationCode(id: string) {
+export async function deleteVerificationCode(identifier: string) {
   try {
-    if (!id) {
-      throw new Error("Verification code ID is required to delete verification code")
+    if (!identifier) {
+      throw new Error("Identifier is required to delete verification code")
     }
 
-    await sql`DELETE FROM verification_codes WHERE id = ${id}`
+    // Check if the table exists
+    const tableExists = await sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'verification_codes'
+      );
+    `
+
+    if (!tableExists[0].exists) {
+      console.log("verification_codes table doesn't exist, nothing to delete")
+      return true
+    }
+
+    await sql`DELETE FROM verification_codes WHERE user_id = ${identifier}`
     return true
   } catch (error) {
     console.error("Database error in deleteVerificationCode:", error)
