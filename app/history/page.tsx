@@ -359,21 +359,15 @@ export default function HistoryPage() {
         {isAuthenticated && user ? (
           <Card className="mb-6 bg-gray-800 border-gray-700">
             <CardContent className="p-4">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Shield className="h-5 w-5 text-green-400" />
-                    <h2 className="text-lg font-semibold text-white">Assessment History</h2>
-                  </div>
-                  <div className="flex items-center gap-1 bg-green-900/30 text-green-400 border border-green-800 rounded-full px-2 py-1">
-                    <Lock className="h-3 w-3" />
-                    <span className="text-xs">Private</span>
-                  </div>
+              <div className="flex items-center gap-3">
+                <Shield className="h-5 w-5 text-green-400" />
+                <div className="flex-1">
+                  <p className="text-sm text-gray-300">Account Assessment History</p>
+                  <p className="font-medium text-white">{user.name ? `${user.name} (${user.email})` : user.email}</p>
                 </div>
-                <div className="mt-1 pl-8">
-                  <p className="text-sm text-gray-300">Viewing history for:</p>
-                  <p className="font-medium text-white">{user.email}</p>
-                  {user.name && <p className="text-xs text-gray-400">{user.name}</p>}
+                <div className="flex items-center gap-1 bg-green-900/30 text-green-400 border border-green-800 rounded-full px-2 py-1">
+                  <Lock className="h-3 w-3" />
+                  <span className="text-xs">Private</span>
                 </div>
               </div>
             </CardContent>
