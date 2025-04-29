@@ -42,13 +42,43 @@ export default function ForgotPasswordPage() {
 
       console.log(`Attempting to send verification code via email`, { email })
 
+      // First try the direct password reset API
+      const resetResponse = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      })
+
+      if (resetResponse.ok) {
+        const resetData = await resetResponse.json()
+        setLoading(false)
+        setSuccess(true)
+        setError("")
+
+        // If there's a preview URL (development environment), show it
+        if (resetData.previewUrl) {
+          setPreviewUrl(resetData.previewUrl)
+        }
+
+        // Redirect after a short delay to show success message
+        setTimeout(() => {
+          router.push(`/otp-verification?identifier=${encodeURIComponent(email)}&method=email`)
+        }, 2000)
+
+        return
+      }
+
+      // If direct reset fails, try the verification code approach
       const response = await fetch("/api/auth/send-verification-code", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email,
+          identifier: email,
+          method: "email",
           isLoggedIn: false,
         }),
       })
@@ -57,11 +87,10 @@ export default function ForgotPasswordPage() {
         const data = await response.json()
         setLoading(false)
         setSuccess(true)
-        setError(data.message)
+        setError("")
 
         // If there's a preview URL (development environment), show it
         if (data.previewUrl) {
-          setError(`${data.message} Preview available at: ${data.previewUrl}`)
           setPreviewUrl(data.previewUrl)
         }
 
@@ -76,14 +105,12 @@ export default function ForgotPasswordPage() {
 
         // If there's still a preview URL despite the error, show it for debugging
         if (errorData.previewUrl) {
-          setError(`${errorData.message} Preview: ${errorData.previewUrl}`)
           setPreviewUrl(errorData.previewUrl)
         }
       }
     } catch (err: any) {
       console.error("Error sending verification code:", err)
       setError(err.message || "An error occurred while sending the verification code. Please try again.")
-    } finally {
       setLoading(false)
     }
   }
