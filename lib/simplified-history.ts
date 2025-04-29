@@ -34,6 +34,126 @@ export interface AssessmentHistoryItem {
 const HISTORY_KEY_PREFIX = "heart_history_"
 const CURRENT_EMAIL_KEY = "heart_current_email"
 
+// Check if we're in a browser environment
+const isBrowser = () => typeof window !== "undefined"
+
+// Define the assessment type
+export interface Assessment {
+  id: string
+  date: string
+  risk: number
+  inputs: Record<string, any>
+}
+
+// Get the current user email from localStorage or use a default
+export const getCurrentUserEmail = (): string => {
+  if (!isBrowser()) return "Default User"
+
+  try {
+    return localStorage.getItem("currentUserEmail") || "Default User"
+  } catch (e) {
+    console.error("Error getting current user email:", e)
+    return "Default User"
+  }
+}
+
+// Add a prediction to history
+export const addPrediction = (prediction: Assessment): void => {
+  if (!isBrowser()) return
+
+  try {
+    const email = getCurrentUserEmail()
+    const key = `assessmentHistory_${email}`
+
+    // Get existing history
+    const existingHistory = getHistory()
+
+    // Add new prediction
+    const updatedHistory = [prediction, ...existingHistory]
+
+    // Save back to localStorage
+    localStorage.setItem(key, JSON.stringify(updatedHistory))
+  } catch (e) {
+    console.error("Error adding prediction to history:", e)
+  }
+}
+
+// Get history from localStorage
+export const getHistory = (): Assessment[] => {
+  if (!isBrowser()) return []
+
+  try {
+    const email = getCurrentUserEmail()
+    const key = `assessmentHistory_${email}`
+    const stored = localStorage.getItem(key)
+    return stored ? JSON.parse(stored) : []
+  } catch (e) {
+    console.error("Error getting history:", e)
+    return []
+  }
+}
+
+// Delete an assessment by index
+export const deleteAssessment = (index: number): boolean => {
+  if (!isBrowser()) return false
+
+  try {
+    const email = getCurrentUserEmail()
+    const key = `assessmentHistory_${email}`
+
+    // Get existing history
+    const history = getHistory()
+
+    // Remove the assessment at the specified index
+    if (index >= 0 && index < history.length) {
+      history.splice(index, 1)
+
+      // Save back to localStorage
+      localStorage.setItem(key, JSON.stringify(history))
+      return true
+    }
+
+    return false
+  } catch (e) {
+    console.error("Error deleting assessment:", e)
+    return false
+  }
+}
+
+// Clear all history
+export const clearHistory = (): void => {
+  if (!isBrowser()) return
+
+  try {
+    const email = getCurrentUserEmail()
+    const key = `assessmentHistory_${email}`
+    localStorage.removeItem(key)
+  } catch (e) {
+    console.error("Error clearing history:", e)
+  }
+}
+
+// Change the current user email
+export const changeUserEmail = (newEmail: string): boolean => {
+  if (!isBrowser() || !newEmail || newEmail.trim() === "") return false
+
+  try {
+    // Save the new email
+    localStorage.setItem("currentUserEmail", newEmail)
+
+    // If there's no history for this email yet, initialize it
+    const key = `assessmentHistory_${newEmail}`
+    if (!localStorage.getItem(key)) {
+      localStorage.setItem(key, JSON.stringify([]))
+    }
+
+    return true
+  } catch (e) {
+    console.error("Error changing user email:", e)
+    return false
+  }
+}
+
 // Save the current user's email
 export function saveCurrentEmail(email: string): void {
   try {
@@ -165,9 +285,9 @@ export function deleteAssessmentByIndex(email: string, index: number): void {
 /**
  * Clear all history for a specific email
  */
-export function clearHistory(email: string): void {
-  clearAssessmentHistory(email)
-}
+// export function clearHistory(email: string): void {
+//   clearAssessmentHistory(email)
+// }
 
 /**
  * Generate a unique ID
