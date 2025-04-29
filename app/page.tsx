@@ -1,16 +1,8 @@
-"use client"
-
-import { useEffect } from "react"
-import { setupGlobalErrorHandlers } from "@/lib/error-handler"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Heart, Activity, BarChart2, Shield, Users, ArrowRight } from "lucide-react"
 
 export default function HomePage() {
-  useEffect(() => {
-    setupGlobalErrorHandlers()
-  }, [])
-
   return (
     <div className="min-h-screen bg-background relative">
       <div className="home-bg-animation">

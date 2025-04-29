@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from "uuid"
 
 // Create a SQL query executor using the Neon serverless driver
 export const sql = neon(process.env.DATABASE_URL!)
+// Export db as an alias for sql for backward compatibility
+export const db = sql
 
 // Initialize database tables
 export async function initDatabase() {
@@ -37,13 +39,18 @@ export async function initDatabase() {
 
     // Create password_resets table if it doesn't exist
     await sql`
-      CREATE TABLE IF NOT EXISTS password_resets (
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        token TEXT UNIQUE NOT NULL,
+        user_id TEXT NOT NULL,
+        token TEXT NOT NULL,
         expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      )
+        is_valid BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
+      CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
     `
 
     // Create predictions table if it doesn't exist
@@ -54,6 +61,17 @@ export async function initDatabase() {
         result NUMERIC NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         prediction_data JSONB
+      )
+    `
+
+    // Create verification codes table if it doesn't exist
+    await sql`
+      CREATE TABLE IF NOT EXISTS verification_codes (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id TEXT NOT NULL,
+        code TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '15 minutes')
       )
     `
 
@@ -82,14 +100,18 @@ export async function getUserByEmail(email: string) {
 
 // Add this function after the getUserByEmail function
 
+/**
+ * Get user by phone number
+ * @param phone Phone number
+ * @returns User object or null
+ */
 export async function getUserByPhone(phone: string) {
-  try {
-    const users = await sql`SELECT * FROM users WHERE phone = ${phone}`
-    return users[0] || null
-  } catch (error) {
-    console.error("Error getting user by phone:", error)
-    return null
-  }
+  const result = await sql`
+    SELECT * FROM users
+    WHERE phone = ${phone}
+  `
+
+  return result.length > 0 ? result[0] : null
 }
 
 export async function getUserByEmailAndPhone(email: string, phone: string) {
@@ -242,7 +264,7 @@ export async function createPasswordResetToken(userId: string, token: string, ex
     const resetId = uuidv4()
 
     await sql`
-      INSERT INTO password_resets (id, user_id, token, expires_at)
+      INSERT INTO password_reset_tokens (id, user_id, token, expires_at)
       VALUES (${resetId}, ${userId}, ${token}, ${expiresAt})
     `
     return true
@@ -261,8 +283,8 @@ export async function getPasswordResetByToken(token: string) {
     }
 
     const resets = await sql`
-      SELECT * FROM password_resets
-      WHERE token = ${token} AND expires_at > NOW()
+      SELECT * FROM password_reset_tokens
+      WHERE token = ${token} AND expires_at > NOW() AND is_valid = true
     `
     return resets[0] || null
   } catch (error) {
@@ -420,11 +442,7 @@ export async function updateUserProfile(
   }
 }
 
-export async function createPrediction(
-  userId: string,
-  result: number,
-  predictionData: Record<string, any>,
-): Promise<any> {
+export async function createPrediction(userId: string, result: any, predictionData: Record<string, any>): Promise<any> {
   try {
     if (!userId) {
       throw new Error("User ID is required to create a prediction")
@@ -434,7 +452,7 @@ export async function createPrediction(
 
     const predictions = await sql`
       INSERT INTO predictions (id, user_id, result, prediction_data)
-      VALUES (${predictionId}, ${userId}, ${result}, ${JSON.stringify(predictionData)})
+      VALUES (${predictionId}, ${userId}, ${result.score / 100}, ${JSON.stringify(predictionData)})
       RETURNING *
     `
 
@@ -503,5 +521,306 @@ export async function getPredictionById(id: string) {
   } catch (error) {
     console.error("Database error in getPredictionById:", error)
     throw new Error(`Failed to get prediction: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
+ * Delete a prediction by ID
+ * @param id Prediction ID
+ * @returns Success status
+ */
+export async function deletePredictionById(id: string): Promise<boolean> {
+  try {
+    if (!id) {
+      throw new Error("Prediction ID is required to delete prediction")
+    }
+
+    await sql`DELETE FROM predictions WHERE id = ${id}`
+    return true
+  } catch (error) {
+    console.error("Database error in deletePredictionById:", error)
+    throw new Error(`Failed to delete prediction: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
+ * Clear all predictions for a user
+ * @param userId User ID
+ * @returns Success status
+ */
+export async function clearUserPredictions(userId: string): Promise<boolean> {
+  try {
+    if (!userId) {
+      throw new Error("User ID is required to clear predictions")
+    }
+
+    await sql`DELETE FROM predictions WHERE user_id = ${userId}`
+    return true
+  } catch (error) {
+    console.error("Database error in clearUserPredictions:", error)
+    throw new Error(`Failed to clear predictions: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
+ * Create a verification code for a user
+ * @param identifier User ID, email, or phone
+ * @param code Verification code
+ * @returns The created verification code record
+ */
+export async function createVerificationCode(identifier: string, code: string) {
+  try {
+    if (!identifier || !code) {
+      throw new Error("Identifier and code are required to create a verification code")
+    }
+
+    console.log(`Creating verification code for identifier: ${identifier}`)
+
+    // Delete any existing codes for this identifier
+    try {
+      await sql`DELETE FROM verification_codes WHERE user_id = ${identifier}`
+      console.log(`Deleted existing verification codes for ${identifier}`)
+    } catch (deleteError) {
+      console.error("Error deleting existing verification codes:", deleteError)
+      // Continue with insertion even if deletion fails
+    }
+
+    // Create a new code
+    const verificationId = uuidv4()
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
+
+    try {
+      const result = await sql`
+        INSERT INTO verification_codes (id, user_id, code, expires_at)
+        VALUES (${verificationId}, ${identifier}, ${code}, ${expiresAt})
+        RETURNING id, user_id, code, created_at, expires_at
+      `
+
+      console.log(`Verification code created successfully for ${identifier}`)
+      return result[0]
+    } catch (insertError) {
+      console.error("Error inserting verification code:", insertError)
+
+      // Check if the table exists, if not create it
+      const tableExists = await sql`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'verification_codes'
+        );
+      `
+
+      if (!tableExists[0].exists) {
+        console.log("verification_codes table doesn't exist, creating it...")
+        await sql`
+          CREATE TABLE verification_codes (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id TEXT NOT NULL,
+            code TEXT NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '15 minutes')
+          )
+        `
+
+        // Try insertion again
+        const result = await sql`
+          INSERT INTO verification_codes (id, user_id, code, expires_at)
+          VALUES (${verificationId}, ${identifier}, ${code}, ${expiresAt})
+          RETURNING id, user_id, code, created_at, expires_at
+        `
+
+        console.log(`Verification code created successfully after table creation for ${identifier}`)
+        return result[0]
+      }
+
+      throw insertError
+    }
+  } catch (error) {
+    console.error("Database error in createVerificationCode:", error)
+    throw new Error(`Failed to create verification code: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
+ * Get a verification code by user ID and code
+ * @param userId User ID
+ * @param code Verification code
+ * @returns The verification code record or null
+ */
+export async function getVerificationCodeByUserIdAndCode(userId: string, code: string) {
+  try {
+    if (!userId || !code) {
+      throw new Error("User ID and code are required to get verification code")
+    }
+
+    const codes = await sql`
+      SELECT * FROM verification_codes
+      WHERE user_id = ${userId} AND code = ${code} AND expires_at > NOW()
+    `
+    return codes[0] || null
+  } catch (error) {
+    console.error("Database error in getVerificationCodeByUserIdAndCode:", error)
+    throw new Error(`Failed to get verification code: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
+ * Get a verification code by identifier (email or phone)
+ * @param identifier User ID, email, or phone
+ * @returns The verification code record or null
+ */
+export async function getVerificationCode(identifier: string) {
+  try {
+    if (!identifier) {
+      throw new Error("Identifier is required to get verification code")
+    }
+
+    console.log(`Getting verification code for identifier: ${identifier}`)
+
+    // Check if the table exists
+    const tableExists = await sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'verification_codes'
+      );
+    `
+
+    if (!tableExists[0].exists) {
+      console.log("verification_codes table doesn't exist")
+      return null
+    }
+
+    const codes = await sql`
+      SELECT * FROM verification_codes
+      WHERE user_id = ${identifier} AND expires_at > NOW()
+    `
+
+    if (codes.length === 0) {
+      console.log(`No valid verification code found for ${identifier}`)
+      return null
+    }
+
+    console.log(`Found verification code for ${identifier}`)
+    return codes[0]
+  } catch (error) {
+    console.error("Database error in getVerificationCode:", error)
+    throw new Error(`Failed to get verification code: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
+ * Verify a code for a user
+ * @param userId User ID
+ * @param code Verification code
+ * @returns Boolean indicating if the code is valid
+ */
+export async function verifyCode(userId: string, code: string) {
+  try {
+    if (!userId || !code) {
+      throw new Error("User ID and code are required to verify code")
+    }
+
+    const result = await sql`
+      SELECT * FROM verification_codes
+      WHERE user_id = ${userId}
+      AND code = ${code}
+      AND expires_at > NOW()
+    `
+
+    return result.length > 0
+  } catch (error) {
+    console.error("Database error in verifyCode:", error)
+    throw new Error(`Failed to verify code: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+// Add this function after the verifyCode function
+
+/**
+ * Verify an OTP code for a user
+ * @param userId User ID or email
+ * @param otp Verification code
+ * @returns Object with success status and message
+ */
+export async function verifyOTP(userId: string, otp: string) {
+  try {
+    if (!userId || !otp) {
+      return { success: false, message: "User ID and OTP are required" }
+    }
+
+    // First try to find by direct user ID
+    let verificationRecord = await getVerificationCodeByUserIdAndCode(userId, otp)
+
+    // If not found and userId looks like an email, try to get the user first
+    if (!verificationRecord && userId.includes("@")) {
+      const user = await getUserByEmail(userId)
+      if (user) {
+        verificationRecord = await getVerificationCodeByUserIdAndCode(user.id, otp)
+      }
+    }
+
+    if (!verificationRecord) {
+      return { success: false, message: "Verification code not found or expired" }
+    }
+
+    // Delete the used code
+    await deleteVerificationCode(verificationRecord.id)
+
+    return { success: true, message: "Verification successful" }
+  } catch (error) {
+    console.error("Error verifying OTP:", error)
+    return {
+      success: false,
+      message: `Failed to verify OTP: ${error instanceof Error ? error.message : "Unknown error"}`,
+    }
+  }
+}
+
+/**
+ * Delete a verification code
+ * @param identifier User ID, email, or phone
+ */
+export async function deleteVerificationCode(identifier: string) {
+  try {
+    if (!identifier) {
+      throw new Error("Identifier is required to delete verification code")
+    }
+
+    // Check if the table exists
+    const tableExists = await sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'verification_codes'
+      );
+    `
+
+    if (!tableExists[0].exists) {
+      console.log("verification_codes table doesn't exist, nothing to delete")
+      return true
+    }
+
+    await sql`DELETE FROM verification_codes WHERE user_id = ${identifier}`
+    return true
+  } catch (error) {
+    console.error("Database error in deleteVerificationCode:", error)
+    throw new Error(`Failed to delete verification code: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
+ * Updates a user's phone number
+ * @param userId User ID
+ * @param phone New phone number
+ */
+export async function updateUserPhone(userId: string, phone: string) {
+  try {
+    if (!userId || !phone) {
+      throw new Error("User ID and phone number are required to update phone number")
+    }
+
+    await sql`UPDATE users SET phone = ${phone} WHERE id = ${userId}`
+    return true
+  } catch (error) {
+    console.error("Database error in updateUserPhone:", error)
+    throw new Error(`Failed to update phone number: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }

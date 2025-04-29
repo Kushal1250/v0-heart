@@ -30,7 +30,17 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    return NextResponse.json(settings[0])
+    // Format the response to use camelCase for frontend consistency
+    return NextResponse.json({
+      theme: settings[0].theme,
+      saveHistory: settings[0].save_history,
+      notifications: settings[0].notifications,
+      emailNotifications: settings[0].email_notifications,
+      dataSharing: settings[0].data_sharing,
+      language: settings[0].language,
+      units: settings[0].units,
+      privacyMode: settings[0].privacy_mode,
+    })
   } catch (error) {
     console.error("Error fetching user settings:", error)
     return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 })

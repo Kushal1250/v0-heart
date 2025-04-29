@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { getSessionByToken } from "@/lib/db"
+import { getSessionByToken, getUserById } from "@/lib/db"
 
 // Define which paths require authentication
 const authRequiredPaths = [
   "/dashboard",
   "/profile",
   "/settings",
+  "/admin",
   "/predict/results",
   // "/history" - Removed from protected routes
 ]
@@ -17,28 +18,24 @@ const adminRequiredPaths = ["/admin"]
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Special case for admin paths
-  if (adminRequiredPaths.some((path) => pathname.startsWith(path))) {
-    // Check for admin cookie first (client-side auth)
-    const isAdminCookie = request.cookies.get("is_admin")?.value
+  // Check if the path requires authentication
+  const isAuthRequired = authRequiredPaths.some((path) => pathname.startsWith(path))
+  const isAdminRequired = adminRequiredPaths.some((path) => pathname.startsWith(path))
 
-    if (isAdminCookie === "true") {
-      // Admin cookie is present, allow access
+  if (isAuthRequired || isAdminRequired) {
+    // Get the session token from the cookie
+    const sessionToken = request.cookies.get("session")?.value
+    const isAdminCookie = request.cookies.get("is_admin")?.value === "true"
+
+    // Special case for admin paths
+    if (isAdminRequired && isAdminCookie) {
+      // If is_admin cookie is set, allow access to admin paths
       return NextResponse.next()
     }
 
-    // No admin cookie, redirect to admin login
-    return NextResponse.redirect(new URL("/admin-login", request.url))
-  }
-
-  // Handle regular auth paths
-  if (authRequiredPaths.some((path) => pathname.startsWith(path))) {
-    // Get the session token from the cookie
-    const sessionToken = request.cookies.get("session")?.value
-
     if (!sessionToken) {
       // No session token, redirect to login
-      const url = new URL("/login", request.url)
+      const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
       url.searchParams.set("redirect", pathname)
       return NextResponse.redirect(url)
     }
@@ -49,9 +46,19 @@ export async function middleware(request: NextRequest) {
 
       if (!session || new Date(session.expires_at) < new Date()) {
         // Invalid or expired session, redirect to login
-        const url = new URL("/login", request.url)
+        const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
         url.searchParams.set("redirect", pathname)
         return NextResponse.redirect(url)
+      }
+
+      // If admin role is required, check the user's role
+      if (isAdminRequired) {
+        const user = await getUserById(session.user_id)
+
+        if (!user || user.role !== "admin") {
+          // User is not an admin, redirect to unauthorized page
+          return NextResponse.redirect(new URL("/unauthorized", request.url))
+        }
       }
 
       // Session is valid, continue
@@ -59,7 +66,7 @@ export async function middleware(request: NextRequest) {
     } catch (error) {
       console.error("Error in middleware:", error)
       // Error occurred, redirect to login
-      const url = new URL("/login", request.url)
+      const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
       url.searchParams.set("redirect", pathname)
       return NextResponse.redirect(url)
     }

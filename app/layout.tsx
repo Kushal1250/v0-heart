@@ -8,7 +8,6 @@ import Navbar from "@/components/navbar"
 import { NavigationTracker } from "@/components/navigation-tracker"
 import { Toaster } from "@/components/ui/toaster"
 import GlobalFooter from "@/components/global-footer"
-import ErrorBoundary from "@/components/error-boundary"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -24,15 +23,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <ThemeProvider>
           <AuthProvider>
-            <ErrorBoundary>
-              <div className="flex flex-col min-h-screen">
-                <Navbar />
-                <main className="flex-grow">{children}</main>
-                <GlobalFooter />
-              </div>
-              <NavigationTracker />
-              <Toaster />
-            </ErrorBoundary>
+            <div className="flex flex-col min-h-screen">
+              <Navbar />
+              <main className="flex-grow">{children}</main>
+              <GlobalFooter />
+            </div>
+            <NavigationTracker />
+            <Toaster />
           </AuthProvider>
         </ThemeProvider>
       </body>

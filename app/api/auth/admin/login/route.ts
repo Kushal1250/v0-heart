@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
 import { generateToken } from "@/lib/auth-utils"
 
 export async function POST(request: Request) {
@@ -20,38 +19,8 @@ export async function POST(request: Request) {
 
       console.log("Admin login successful, setting cookies")
 
-      // Set cookies with proper configuration
-      cookies().set({
-        name: "token",
-        value: token,
-        httpOnly: true,
-        path: "/",
-        expires: expiresAt,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-      })
-
-      cookies().set({
-        name: "session",
-        value: token,
-        httpOnly: true,
-        path: "/",
-        expires: expiresAt,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-      })
-
-      cookies().set({
-        name: "is_admin",
-        value: "true",
-        httpOnly: false, // Needs to be accessible from JavaScript
-        path: "/",
-        expires: expiresAt,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-      })
-
-      return NextResponse.json({
+      // Create response
+      const response = NextResponse.json({
         success: true,
         message: "Admin login successful",
         user: {
@@ -61,6 +30,39 @@ export async function POST(request: Request) {
           role: "admin",
         },
       })
+
+      // Set cookies with proper configuration
+      response.cookies.set({
+        name: "token",
+        value: token,
+        httpOnly: true,
+        path: "/",
+        expires: expiresAt,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      })
+
+      response.cookies.set({
+        name: "session",
+        value: token,
+        httpOnly: true,
+        path: "/",
+        expires: expiresAt,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      })
+
+      response.cookies.set({
+        name: "is_admin",
+        value: "true",
+        httpOnly: false, // Needs to be accessible from JavaScript
+        path: "/",
+        expires: expiresAt,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      })
+
+      return response
     }
 
     console.log("Admin login failed: Invalid credentials")

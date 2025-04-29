@@ -68,10 +68,11 @@
     "uuid": "latest",
     "jspdf-autotable": "latest",
     "html2canvas": "latest",
-    "util": "latest",
     "pdfkit": "latest",
     "@neondatabase/serverless": "latest",
-    "bcrypt-ts": "latest"
+    "twilio": "latest",
+    "bcrypt-ts": "latest",
+    "util": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

@@ -4,13 +4,13 @@ import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle2, ArrowLeft, Eye, EyeOff } from "lucide-react"
+import { AlertCircle, CheckCircle2, Eye, EyeOff, ArrowLeft } from "lucide-react"
+import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
 
 export default function ChangePasswordPage() {
@@ -31,7 +31,7 @@ export default function ChangePasswordPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({
       ...prev,
@@ -39,25 +39,39 @@ export default function ChangePasswordPage() {
     }))
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+  const validateForm = () => {
+    if (!formData.currentPassword) {
+      setError("Current password is required")
+      return false
+    }
 
-    // Validate passwords
+    if (!formData.newPassword) {
+      setError("New password is required")
+      return false
+    }
+
     if (formData.newPassword.length < 8) {
       setError("New password must be at least 8 characters long")
-      return
+      return false
     }
 
     if (formData.newPassword !== formData.confirmPassword) {
       setError("New passwords do not match")
-      return
+      return false
     }
+
+    return true
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+
+    if (!validateForm()) return
 
     setIsSubmitting(true)
 
     try {
-      console.log("Changing password...")
       const response = await fetch("/api/user/change-password", {
         method: "POST",
         headers: {
@@ -69,19 +83,23 @@ export default function ChangePasswordPage() {
         }),
       })
 
-      console.log("Change password response status:", response.status)
+      const data = await response.json()
 
       if (!response.ok) {
-        const errorData = await response.json()
-        console.error("Change password error:", errorData)
-        throw new Error(errorData.message || "Failed to change password")
+        throw new Error(data.message || "Failed to change password")
       }
 
-      // Show success message
       setSuccess(true)
       toast({
         title: "Success",
         description: "Your password has been changed successfully",
+      })
+
+      // Reset form
+      setFormData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
       })
 
       // Redirect to profile after 2 seconds
@@ -89,42 +107,15 @@ export default function ChangePasswordPage() {
         router.push("/profile")
       }, 2000)
     } catch (error: any) {
-      console.error("Error changing password:", error)
       setError(error.message || "An error occurred while changing your password")
       toast({
         title: "Error",
-        description: error.message || "Failed to change password",
+        description: error.message || "An error occurred while changing your password",
         variant: "destructive",
       })
     } finally {
       setIsSubmitting(false)
     }
-  }
-
-  if (success) {
-    return (
-      <div className="container mx-auto py-10">
-        <Card className="w-full max-w-md mx-auto">
-          <CardHeader>
-            <CardTitle className="text-center text-2xl">Password Changed</CardTitle>
-            <CardDescription className="text-center">Your password has been updated successfully</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-center">
-              <div className="rounded-full bg-green-100 p-3">
-                <CheckCircle2 className="h-8 w-8 text-green-600" />
-              </div>
-            </div>
-            <p className="text-center">You will be redirected to your profile page shortly.</p>
-          </CardContent>
-          <CardFooter>
-            <Button className="w-full" onClick={() => router.push("/profile")}>
-              Return to Profile
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    )
   }
 
   return (
@@ -143,7 +134,15 @@ export default function ChangePasswordPage() {
             </Alert>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {success && (
+            <Alert className="mb-6 bg-green-50 text-green-800 border-green-200">
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertTitle>Success</AlertTitle>
+              <AlertDescription>Your password has been changed successfully!</AlertDescription>
+            </Alert>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="currentPassword">Current Password</Label>
               <div className="relative">
@@ -152,8 +151,7 @@ export default function ChangePasswordPage() {
                   name="currentPassword"
                   type={showCurrentPassword ? "text" : "password"}
                   value={formData.currentPassword}
-                  onChange={handleInputChange}
-                  required
+                  onChange={handleChange}
                   className="pr-10"
                 />
                 <button
@@ -163,11 +161,6 @@ export default function ChangePasswordPage() {
                 >
                   {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
-              </div>
-              <div className="text-right">
-                <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-800">
-                  Forgot current password?
-                </Link>
               </div>
             </div>
 
@@ -179,8 +172,7 @@ export default function ChangePasswordPage() {
                   name="newPassword"
                   type={showNewPassword ? "text" : "password"}
                   value={formData.newPassword}
-                  onChange={handleInputChange}
-                  required
+                  onChange={handleChange}
                   className="pr-10"
                 />
                 <button
@@ -202,8 +194,7 @@ export default function ChangePasswordPage() {
                   name="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
                   value={formData.confirmPassword}
-                  onChange={handleInputChange}
-                  required
+                  onChange={handleChange}
                   className="pr-10"
                 />
                 <button
@@ -219,13 +210,17 @@ export default function ChangePasswordPage() {
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? "Changing Password..." : "Change Password"}
             </Button>
+
+            <div className="text-center">
+              <Link
+                href="/profile"
+                className="text-sm text-gray-500 hover:text-gray-700 flex items-center justify-center gap-1"
+              >
+                <ArrowLeft className="h-4 w-4" /> Back to Profile
+              </Link>
+            </div>
           </form>
         </CardContent>
-        <CardFooter className="flex justify-center">
-          <Link href="/profile" className="text-sm text-gray-500 hover:text-gray-700 flex items-center">
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Profile
-          </Link>
-        </CardFooter>
       </Card>
     </div>
   )

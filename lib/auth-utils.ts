@@ -1,7 +1,16 @@
 import { cookies } from "next/headers"
 import { v4 as uuidv4 } from "uuid"
-import { getSessionByToken, getUserById } from "@/lib/db"
+import {
+  getSessionByToken,
+  getUserById,
+  createVerificationCode,
+  getVerificationCode,
+  deleteVerificationCode,
+} from "@/lib/db"
 import type { NextRequest } from "next/server"
+import { sendSMS } from "@/lib/sms-utils"
+import { logError } from "@/lib/error-logger"
+import { sendEmail } from "@/lib/email-utils"
 
 export function getSessionToken(): string | undefined {
   return cookies().get("session")?.value
@@ -28,9 +37,10 @@ export function isValidEmail(email: string): boolean {
   return emailRegex.test(email)
 }
 
+// Add this function if it doesn't exist already
 export function isStrongPassword(password: string): boolean {
-  // Password strength validation
-  return password.length >= 8
+  // Password must be at least 8 characters with uppercase, lowercase, and numbers
+  return password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password)
 }
 
 export function createResponseWithCookie(data: any, token: string): any {
@@ -179,4 +189,256 @@ export async function getUserFromSession(sessionToken: string | undefined): Prom
     console.error("Error getting user from session:", error)
     return null
   }
+}
+
+/**
+ * Generates a random verification code
+ */
+function generateVerificationCode(): string {
+  // Generate a 6-digit code
+  return Math.floor(100000 + Math.random() * 900000).toString()
+}
+
+/**
+ * Sends a verification code via email
+ */
+async function sendEmailVerification(
+  email: string,
+  code: string,
+): Promise<{
+  success: boolean
+  message: string
+  previewUrl?: string
+}> {
+  try {
+    console.log(`Sending email verification to ${email} with code ${code}`)
+
+    // Use the sendEmail function from email-utils.ts
+    const result = await sendEmail({
+      to: email,
+      subject: "Your Verification Code",
+      text: `Your verification code is: ${code}. It will expire in 15 minutes.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Your Verification Code</h2>
+          <p>Use the following code to verify your account:</p>
+          <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold;">
+            ${code}
+          </div>
+          <p>This code will expire in 15 minutes.</p>
+          <p>If you didn't request this code, please ignore this email.</p>
+        </div>
+      `,
+    })
+
+    if (!result.success) {
+      console.error("Failed to send email verification:", result.message)
+      return {
+        success: false,
+        message: result.message || "Failed to send email verification",
+        previewUrl: result.previewUrl,
+      }
+    }
+
+    console.log("Email verification sent successfully")
+    return {
+      success: true,
+      message: "Email verification sent successfully",
+      previewUrl: result.previewUrl,
+    }
+  } catch (error) {
+    await logError("sendEmailVerification", error, { email })
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to send email verification",
+    }
+  }
+}
+
+/**
+ * Sends a verification code to the user
+ * @param identifier Email or phone number
+ * @param method 'email' or 'sms'
+ */
+export async function sendVerificationCode(
+  identifier: string,
+  method: "email" | "sms",
+): Promise<{
+  success: boolean
+  message: string
+  previewUrl?: string
+}> {
+  try {
+    console.log(`Sending verification code to ${identifier} via ${method}`)
+
+    // Generate a verification code
+    const code = generateVerificationCode()
+    console.log(`Generated verification code: ${code}`)
+
+    // Store the code in the database with a 15-minute expiration
+    try {
+      await createVerificationCode(identifier, code)
+      console.log(`Stored verification code in database for ${identifier}`)
+    } catch (dbError) {
+      console.error(`Failed to store verification code in database:`, dbError)
+
+      // Return detailed error for debugging
+      return {
+        success: false,
+        message: `Database error: ${dbError instanceof Error ? dbError.message : "Failed to store verification code"}`,
+      }
+    }
+
+    // Send the code via the specified method
+    if (method === "email") {
+      console.log(`Sending verification code via email to ${identifier}`)
+      const sent = await sendEmailVerification(identifier, code)
+      if (!sent.success) {
+        console.error(`Failed to send verification code via email to ${identifier}: ${sent.message}`)
+        return {
+          success: false,
+          message: `Failed to send verification code via email: ${sent.message}`,
+          previewUrl: sent.previewUrl,
+        }
+      }
+      console.log(`Successfully sent verification code via email to ${identifier}`)
+      return {
+        success: true,
+        message: `Verification code sent via email.`,
+        previewUrl: sent.previewUrl,
+      }
+    } else if (method === "sms") {
+      console.log(`Sending verification code via SMS to ${identifier}`)
+      const message = `Your verification code is: ${code}. It will expire in 15 minutes.`
+      const sent = await sendSMS(identifier, message)
+      if (!sent.success) {
+        console.error(`Failed to send verification code via SMS to ${identifier}: ${sent.message}`)
+        return {
+          success: false,
+          message: `Failed to send verification code via SMS: ${sent.message}`,
+        }
+      }
+      console.log(`Successfully sent verification code via SMS to ${identifier}`)
+      return {
+        success: true,
+        message: `Verification code sent via SMS.`,
+      }
+    }
+
+    return {
+      success: false,
+      message: `Unsupported verification method: ${method}`,
+    }
+  } catch (error) {
+    await logError("sendVerificationCode", error, { identifier, method })
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? `Error sending verification code: ${error.message}`
+          : "An unknown error occurred while sending the verification code.",
+    }
+  }
+}
+
+/**
+ * Verifies a one-time password (OTP)
+ * @param identifier Email or phone number
+ * @param code The verification code
+ */
+export async function verifyOTP(
+  identifier: string,
+  code: string,
+): Promise<{
+  success: boolean
+  message: string
+}> {
+  try {
+    // Get the verification code from the database
+    const verificationCode = await getVerificationCode(identifier)
+
+    // Check if the code exists
+    if (!verificationCode) {
+      return {
+        success: false,
+        message: "Verification code not found or expired. Please request a new code.",
+      }
+    }
+
+    // Check if the code has expired
+    if (new Date() > new Date(verificationCode.expires_at)) {
+      await deleteVerificationCode(identifier)
+      return {
+        success: false,
+        message: "Verification code has expired. Please request a new code.",
+      }
+    }
+
+    // Check if the code matches
+    if (verificationCode.code !== code) {
+      return {
+        success: false,
+        message: "Invalid verification code. Please try again.",
+      }
+    }
+
+    // Delete the code after successful verification
+    await deleteVerificationCode(identifier)
+
+    return {
+      success: true,
+      message: "Verification successful.",
+    }
+  } catch (error) {
+    await logError("verifyOTP", error, { identifier })
+    return {
+      success: false,
+      message: "An error occurred while verifying the code.",
+    }
+  }
+}
+
+/**
+ * Resends a verification code
+ * @param identifier Email or phone number
+ * @param method 'email' or 'sms'
+ */
+export async function resendVerificationCode(
+  identifier: string,
+  method: "email" | "sms",
+): Promise<{
+  success: boolean
+  message: string
+  previewUrl?: string
+}> {
+  try {
+    // Delete any existing verification code
+    await deleteVerificationCode(identifier)
+
+    // Send a new verification code
+    return await sendVerificationCode(identifier, method)
+  } catch (error) {
+    await logError("resendVerificationCode", error, { identifier, method })
+    return {
+      success: false,
+      message: "An error occurred while resending the verification code.",
+    }
+  }
+}
+
+/**
+ * Checks if a user has admin privileges
+ * @param user User object or user role string
+ * @returns Boolean indicating if the user is an admin
+ */
+export function isAdmin(user: { role?: string } | string | null | undefined): boolean {
+  if (!user) return false
+
+  // If user is a string, assume it's the role
+  if (typeof user === "string") {
+    return user === "admin"
+  }
+
+  // Otherwise, check the role property
+  return user.role === "admin"
 }

@@ -2,221 +2,377 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Check, X } from "lucide-react"
 
 export default function OTPVerificationPage() {
   const router = useRouter()
-  const [otp, setOtp] = useState(["", "", "", "", "", ""])
+  const searchParams = useSearchParams()
+  const identifier = searchParams.get("identifier") || ""
+  const method = (searchParams.get("method") as "email" | "sms") || "email"
+
+  const [otp, setOtp] = useState("")
   const [error, setError] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [resendDisabled, setResendDisabled] = useState(true)
-  const [countdown, setCountdown] = useState(30)
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const [success, setSuccess] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendSuccess, setResendSuccess] = useState(false)
+  const [countdown, setCountdown] = useState(60)
+  const [canResend, setCanResend] = useState(false)
+
+  // Password change states
+  const [isVerified, setIsVerified] = useState(false)
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [passwordError, setPasswordError] = useState("")
+  const [passwordSuccess, setPasswordSuccess] = useState(false)
+  const [passwordLoading, setPasswordLoading] = useState(false)
+
+  // Password validation states
+  const hasMinLength = password.length >= 8
+  const hasUpperCase = /[A-Z]/.test(password)
+  const hasLowerCase = /[a-z]/.test(password)
+  const hasNumber = /[0-9]/.test(password)
+  const passwordsMatch = password === confirmPassword && password !== ""
 
   useEffect(() => {
-    // Focus the first input on mount
-    if (inputRefs.current[0]) {
-      inputRefs.current[0].focus()
+    if (!identifier) {
+      router.push("/forgot-password-profile")
     }
+  }, [identifier, router])
 
-    // Start countdown for resend button
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          setResendDisabled(false)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [])
-
-  const handleChange = (index: number, value: string) => {
-    // Only allow numbers
-    if (value && !/^\d+$/.test(value)) return
-
-    const newOtp = [...otp]
-    // Take only the last character if multiple characters are pasted
-    newOtp[index] = value.slice(-1)
-    setOtp(newOtp)
-
-    // Auto-focus next input
-    if (value && index < 5 && inputRefs.current[index + 1]) {
-      inputRefs.current[index + 1]?.focus()
+  useEffect(() => {
+    let timer: NodeJS.Timeout
+    if (countdown > 0 && !canResend) {
+      timer = setTimeout(() => setCountdown(countdown - 1), 1000)
+    } else {
+      setCanResend(true)
     }
-  }
+    return () => clearTimeout(timer)
+  }, [countdown, canResend])
 
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Navigate with arrow keys
-    if (e.key === "ArrowRight" && index < 5) {
-      inputRefs.current[index + 1]?.focus()
-    } else if (e.key === "ArrowLeft" && index > 0) {
-      inputRefs.current[index - 1]?.focus()
-    }
-    // Handle backspace
-    else if (e.key === "Backspace") {
-      if (otp[index]) {
-        const newOtp = [...otp]
-        newOtp[index] = ""
-        setOtp(newOtp)
-      } else if (index > 0) {
-        inputRefs.current[index - 1]?.focus()
-      }
-    }
-  }
-
-  const handlePaste = (e: React.ClipboardEvent) => {
-    e.preventDefault()
-    const pastedData = e.clipboardData.getData("text/plain").trim()
-
-    // Check if pasted content is a 6-digit number
-    if (/^\d{6}$/.test(pastedData)) {
-      const newOtp = pastedData.split("")
-      setOtp(newOtp)
-
-      // Focus the last input
-      if (inputRefs.current[5]) {
-        inputRefs.current[5].focus()
-      }
-    }
-  }
-
-  const handleResendOTP = () => {
-    setResendDisabled(true)
-    setCountdown(30)
-
-    // Start countdown again
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          setResendDisabled(false)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    setSuccess(false)
+    setLoading(true)
 
-    // Check if OTP is complete
-    if (otp.some((digit) => digit === "")) {
-      setError("Please enter the complete verification code")
+    try {
+      console.log("Verifying OTP:", otp, "for identifier:", identifier)
+
+      const response = await fetch("/api/auth/verify-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          identifier,
+          code: otp,
+        }),
+      })
+
+      const result = await response.json()
+      console.log("Verification result:", result)
+
+      if (result.success) {
+        setSuccess(true)
+        setIsVerified(true)
+        // No need to redirect, we'll show the password form
+      } else {
+        setError(result.message || "Invalid verification code. Please try again.")
+      }
+    } catch (err) {
+      console.error("Error during verification:", err)
+      setError("An error occurred during verification. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResend = async () => {
+    setResendLoading(true)
+    setResendSuccess(false)
+    setError("")
+
+    try {
+      const response = await fetch("/api/auth/send-verification-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          identifier,
+          method,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setResendSuccess(true)
+        setCountdown(60)
+        setCanResend(false)
+      } else {
+        setError(result.message || "Failed to resend verification code. Please try again.")
+      }
+    } catch (err) {
+      console.error("Error resending code:", err)
+      setError("An error occurred. Please try again.")
+    } finally {
+      setResendLoading(false)
+    }
+  }
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPasswordError("")
+    setPasswordSuccess(false)
+
+    // Validate password
+    if (!hasMinLength || !hasUpperCase || !hasLowerCase || !hasNumber) {
+      setPasswordError("Please ensure your password meets all requirements")
       return
     }
 
-    setIsLoading(true)
+    // Check if passwords match
+    if (!passwordsMatch) {
+      setPasswordError("Passwords do not match")
+      return
+    }
+
+    setPasswordLoading(true)
 
     try {
-      // In a real app, this would verify the OTP with your API
-      await new Promise((resolve) => setTimeout(resolve, 1500)) // Simulate API call
+      // Call API to change password
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          identifier,
+          newPassword: password,
+        }),
+      })
 
-      // Redirect to reset password page on success
-      router.push("/reset-password")
+      const data = await response.json()
+
+      if (response.ok) {
+        setPasswordSuccess(true)
+        // Redirect to login after 3 seconds
+        setTimeout(() => {
+          router.push("/login")
+        }, 3000)
+      } else {
+        setPasswordError(data.message || "Failed to change password. Please try again.")
+      }
     } catch (err) {
-      setError("Invalid verification code. Please try again.")
+      console.error("Error changing password:", err)
+      setPasswordError("An error occurred. Please try again.")
     } finally {
-      setIsLoading(false)
+      setPasswordLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 fade-in">
-        <div className="text-center">
-          <Link href="/" className="inline-flex items-center justify-center">
-            <span className="sr-only">HeartPredict</span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-10 w-10 text-gray-900"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-            </svg>
-          </Link>
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Verification code</h2>
-          <p className="mt-2 text-sm text-gray-600">Enter the 6-digit code sent to your email</p>
-        </div>
-
-        {error && (
-          <Alert variant="destructive" className="my-4">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        <div className="bg-white py-8 px-4 shadow-lg sm:rounded-lg sm:px-10 border border-gray-100">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <div className="flex justify-center space-x-2">
-                {otp.map((digit, index) => (
-                  <Input
-                    key={index}
-                    ref={(el) => (inputRefs.current[index] = el)}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleChange(index, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(index, e)}
-                    onPaste={index === 0 ? handlePaste : undefined}
-                    className="w-12 h-12 text-center text-xl font-bold rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
-                    aria-label={`Digit ${index + 1}`}
-                  />
-                ))}
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-center text-2xl font-bold">
+            {isVerified ? "Set New Password" : "Verification Code"}
+          </CardTitle>
+          <CardDescription className="text-center">
+            {!isVerified &&
+              (method === "email"
+                ? `We've sent a verification code to your email ${identifier}`
+                : `We've sent a verification code to your phone ${identifier}`)}
+            {isVerified && "Please create a new secure password for your account"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!isVerified ? (
+            <form onSubmit={handleVerify} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="otp" className="block text-sm font-medium text-gray-700">
+                  Enter Verification Code
+                </label>
+                <Input
+                  id="otp"
+                  type="text"
+                  placeholder="Enter 6-digit code"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  required
+                  maxLength={6}
+                  pattern="\d{6}"
+                />
               </div>
-              <p className="mt-4 text-sm text-center text-gray-500">
-                Didn't receive the code?{" "}
-                <button
-                  type="button"
-                  className={`font-medium ${resendDisabled ? "text-gray-400" : "text-gray-900 hover:text-gray-700"}`}
-                  onClick={handleResendOTP}
-                  disabled={resendDisabled}
-                >
-                  {resendDisabled ? `Resend in ${countdown}s` : "Resend code"}
-                  {resendDisabled && <RefreshCw className="ml-1 h-3 w-3 inline animate-spin" />}
-                </button>
-              </p>
-            </div>
 
-            <div>
+              {error && (
+                <Alert variant="destructive">
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {success && (
+                <Alert>
+                  <AlertTitle>Success</AlertTitle>
+                  <AlertDescription>Verification successful! Please set your new password.</AlertDescription>
+                </Alert>
+              )}
+
+              {resendSuccess && (
+                <Alert>
+                  <AlertTitle>Success</AlertTitle>
+                  <AlertDescription>
+                    {method === "email"
+                      ? "A new verification code has been sent to your email."
+                      : "A new verification code has been sent to your phone."}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <Button type="submit" className="w-full" disabled={loading || otp.length !== 6}>
+                {loading ? "Verifying..." : "Verify"}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handlePasswordChange} className="space-y-6">
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  New password
+                </label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  className="mt-1 block w-full rounded-md border-gray-300"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+
+                <div className="mt-4 space-y-2">
+                  <p className="text-sm font-medium text-gray-700">Password requirements:</p>
+                  <ul className="space-y-1 text-sm text-gray-500">
+                    <li className="flex items-center">
+                      {hasMinLength ? (
+                        <Check className="h-4 w-4 text-green-500 mr-2" />
+                      ) : (
+                        <X className="h-4 w-4 text-gray-300 mr-2" />
+                      )}
+                      At least 8 characters
+                    </li>
+                    <li className="flex items-center">
+                      {hasUpperCase ? (
+                        <Check className="h-4 w-4 text-green-500 mr-2" />
+                      ) : (
+                        <X className="h-4 w-4 text-gray-300 mr-2" />
+                      )}
+                      At least one uppercase letter
+                    </li>
+                    <li className="flex items-center">
+                      {hasLowerCase ? (
+                        <Check className="h-4 w-4 text-green-500 mr-2" />
+                      ) : (
+                        <X className="h-4 w-4 text-gray-300 mr-2" />
+                      )}
+                      At least one lowercase letter
+                    </li>
+                    <li className="flex items-center">
+                      {hasNumber ? (
+                        <Check className="h-4 w-4 text-green-500 mr-2" />
+                      ) : (
+                        <X className="h-4 w-4 text-gray-300 mr-2" />
+                      )}
+                      At least one number
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                  Confirm new password
+                </label>
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  className="mt-1 block w-full rounded-md border-gray-300"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+                <div className="mt-1 flex items-center">
+                  {confirmPassword && (
+                    <>
+                      {passwordsMatch ? (
+                        <span className="text-sm text-green-500 flex items-center">
+                          <Check className="h-4 w-4 mr-1" /> Passwords match
+                        </span>
+                      ) : (
+                        <span className="text-sm text-red-500 flex items-center">
+                          <X className="h-4 w-4 mr-1" /> Passwords do not match
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {passwordError && (
+                <Alert variant="destructive">
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{passwordError}</AlertDescription>
+                </Alert>
+              )}
+
+              {passwordSuccess && (
+                <Alert>
+                  <AlertTitle>Success</AlertTitle>
+                  <AlertDescription>Password changed successfully! Redirecting to login...</AlertDescription>
+                </Alert>
+              )}
+
               <Button
                 type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                disabled={isLoading}
+                className="w-full"
+                disabled={
+                  passwordLoading || !passwordsMatch || !hasMinLength || !hasUpperCase || !hasLowerCase || !hasNumber
+                }
               >
-                {isLoading ? "Verifying..." : "Verify code"}
-                {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+                {passwordLoading ? "Changing password..." : "Change password"}
               </Button>
+            </form>
+          )}
+        </CardContent>
+        <CardFooter className="flex justify-center">
+          {!isVerified && (
+            <div className="text-center text-sm">
+              <p className="text-gray-600">Didn't receive the code?</p>
+              {canResend ? (
+                <Button variant="link" onClick={handleResend} disabled={resendLoading}>
+                  {resendLoading ? "Sending..." : "Resend Code"}
+                </Button>
+              ) : (
+                <p className="text-gray-500">Resend code in {countdown} seconds</p>
+              )}
             </div>
-          </form>
-        </div>
-
-        <div className="text-center">
-          <Link
-            href="/forgot-password"
-            className="font-medium text-sm text-gray-600 hover:text-gray-900 flex items-center justify-center"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to forgot password
-          </Link>
-        </div>
-      </div>
+          )}
+        </CardFooter>
+      </Card>
     </div>
   )
 }
