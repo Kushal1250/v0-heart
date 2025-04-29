@@ -10,8 +10,37 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { InfoIcon } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { v4 as uuidv4 } from "uuid"
-import { addPrediction } from "@/lib/simplified-history"
+
+// Helper function to get current user email
+const getCurrentUserEmail = () => {
+  try {
+    // Try to get from localStorage first
+    const email = localStorage.getItem("currentUserEmail")
+    if (email) return email
+
+    // If not found, check if we have a user object
+    const userJson = localStorage.getItem("user")
+    if (userJson) {
+      const user = JSON.parse(userJson)
+      if (user.email) return user.email
+    }
+
+    // Default fallback email if needed
+    return "guest@example.com"
+  } catch (e) {
+    console.error("Error getting user email:", e)
+    return "guest@example.com"
+  }
+}
+
+// Save current email to localStorage for future reference
+const saveCurrentEmail = (email) => {
+  try {
+    localStorage.setItem("currentUserEmail", email)
+  } catch (e) {
+    console.error("Error saving email:", e)
+  }
+}
 
 export function PredictionForm() {
   const router = useRouter()
@@ -58,9 +87,16 @@ export function PredictionForm() {
     setIsSubmitting(true)
 
     try {
+      // Get current user email
+      const userEmail = getCurrentUserEmail()
+
+      // Save email for future reference
+      saveCurrentEmail(userEmail)
+
       // Prepare data for submission
       const dataToSubmit = {
         ...formData,
+        userEmail,
       }
 
       // Submit to API
@@ -79,9 +115,6 @@ export function PredictionForm() {
 
       const result = await response.json()
 
-      // Generate a unique ID for this prediction
-      const predictionId = uuidv4()
-
       // Store result in localStorage to access in results page
       localStorage.setItem(
         "predictionResult",
@@ -91,30 +124,18 @@ export function PredictionForm() {
         }),
       )
 
-      // Add to prediction history using the simplified-history module
-      addPrediction({
-        id: predictionId,
-        date: new Date().toISOString(),
-        risk: result.prediction,
-        inputs: {
-          age: Number(formData.age),
-          sex: formData.sex,
-          cp: formData.cp,
-          trestbps: Number(formData.trestbps),
-          chol: Number(formData.chol),
-          fbs: formData.fbs,
-          restecg: formData.restecg,
-          thalach: Number(formData.thalach),
-          exang: formData.exang,
-          oldpeak: Number(formData.oldpeak),
-          slope: formData.slope,
-          ca: formData.ca,
-          thal: formData.thal,
-          foodHabits: formData.foodHabits,
-          junkFoodConsumption: formData.junkFoodConsumption,
-          sleepingHours: formData.sleepingHours,
-        },
-      })
+      // Also store in assessment history
+      try {
+        const assessmentHistory = JSON.parse(localStorage.getItem(`assessmentHistory_${userEmail}`) || "[]")
+        assessmentHistory.push({
+          ...formData,
+          result: result.prediction,
+          timestamp: new Date().toISOString(),
+        })
+        localStorage.setItem(`assessmentHistory_${userEmail}`, JSON.stringify(assessmentHistory))
+      } catch (storageError) {
+        console.error("Error saving to history:", storageError)
+      }
 
       // Navigate to results page
       router.push("/predict/results")

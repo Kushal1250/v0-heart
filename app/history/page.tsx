@@ -1,245 +1,232 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
-import Link from "next/link"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Heart, Info, Trash2 } from "lucide-react"
-import { formatDate } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
-
-// Define the assessment type
-interface Assessment {
-  id: string
-  date: string
-  risk: number
-  inputs: Record<string, any>
-}
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useRouter } from "next/navigation"
+import { ArrowLeft, Calendar, Clock, Heart, Trash2 } from "lucide-react"
+import { getCurrentEmail, getAssessmentHistory, clearAssessmentHistory } from "@/lib/simplified-history"
 
 export default function HistoryPage() {
-  const [assessments, setAssessments] = useState<Assessment[]>([])
-  const [currentEmail, setCurrentEmail] = useState<string>("Default User")
-  const [isClient, setIsClient] = useState(false)
+  const router = useRouter()
+  const [assessments, setAssessments] = useState([])
+  const [userEmail, setUserEmail] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState("all")
 
-  // Function to get assessments from localStorage
-  const getAssessments = () => {
-    try {
-      // Try to get the current email from localStorage
-      const storedEmail = localStorage.getItem("currentUserEmail") || "Default User"
-      setCurrentEmail(storedEmail)
-
-      // Get assessments for this email
-      const key = `assessmentHistory_${storedEmail}`
-      const stored = localStorage.getItem(key)
-      return stored ? JSON.parse(stored) : []
-    } catch (e) {
-      console.error("Error loading assessments:", e)
-      return []
-    }
-  }
-
-  // Function to save assessments to localStorage
-  const saveAssessments = (newAssessments: Assessment[]) => {
-    try {
-      const key = `assessmentHistory_${currentEmail}`
-      localStorage.setItem(key, JSON.stringify(newAssessments))
-    } catch (e) {
-      console.error("Error saving assessments:", e)
-    }
-  }
-
-  // Function to handle email change
-  const handleChangeEmail = () => {
-    const newEmail = prompt("Enter your email address:", currentEmail)
-    if (newEmail && newEmail !== currentEmail) {
-      setCurrentEmail(newEmail)
-      try {
-        localStorage.setItem("currentUserEmail", newEmail)
-        // Load assessments for the new email
-        const newAssessments = getAssessments()
-        setAssessments(newAssessments)
-      } catch (e) {
-        console.error("Error changing email:", e)
-      }
-    }
-  }
-
-  // Function to delete an assessment
-  const handleDeleteAssessment = (index: number, e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent triggering the card click
-
-    if (window.confirm("Are you sure you want to delete this assessment?")) {
-      const newAssessments = [...assessments]
-      newAssessments.splice(index, 1)
-      setAssessments(newAssessments)
-      saveAssessments(newAssessments)
-    }
-  }
-
-  // Load assessments on component mount
   useEffect(() => {
-    setIsClient(true)
-    const loadedAssessments = getAssessments()
-    setAssessments(loadedAssessments)
+    // Get current user email
+    const email = getCurrentEmail()
+    setUserEmail(email)
+
+    // Load assessment history
+    loadAssessmentHistory(email)
   }, [])
 
-  // Function to get risk level text and color
-  const getRiskLevel = (risk: number) => {
-    if (risk < 0.3) return { text: "Low Risk", color: "bg-green-500" }
-    if (risk < 0.6) return { text: "Moderate Risk", color: "bg-yellow-500" }
-    return { text: "High Risk", color: "bg-red-500" }
+  const loadAssessmentHistory = (email) => {
+    setLoading(true)
+    try {
+      const history = getAssessmentHistory(email)
+      console.log(`Loaded ${history.length} assessments for ${email}`)
+      setAssessments(history)
+    } catch (error) {
+      console.error("Error loading assessment history:", error)
+      setAssessments([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleClearHistory = () => {
+    if (confirm("Are you sure you want to clear your assessment history?")) {
+      clearAssessmentHistory(userEmail)
+      setAssessments([])
+    }
+  }
+
+  const handleViewAssessment = (assessment) => {
+    // Store the assessment in localStorage for the results page to access
+    localStorage.setItem("predictionResult", JSON.stringify(assessment))
+
+    // Navigate to results page
+    router.push("/predict/results")
+  }
+
+  const handleChangeEmail = () => {
+    const newEmail = prompt("Enter your email address:", userEmail)
+    if (newEmail && newEmail !== userEmail) {
+      setUserEmail(newEmail)
+      localStorage.setItem("currentUserEmail", newEmail)
+      loadAssessmentHistory(newEmail)
+    }
+  }
+
+  // Filter assessments based on active tab
+  const filteredAssessments = assessments.filter((assessment) => {
+    if (activeTab === "all") return true
+    if (activeTab === "high" && assessment.result?.risk === "high") return true
+    if (activeTab === "moderate" && assessment.result?.risk === "moderate") return true
+    if (activeTab === "low" && assessment.result?.risk === "low") return true
+    return false
+  })
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    try {
+      const date = new Date(dateString)
+      return date.toLocaleDateString() + " " + date.toLocaleTimeString()
+    } catch (e) {
+      return "Unknown date"
+    }
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-6">
-        <Link href="/home" className="flex items-center text-primary hover:underline">
+      <div className="flex justify-between items-center mb-6">
+        <Button variant="ghost" onClick={() => router.push("/dashboard")} className="flex items-center">
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Home
-        </Link>
+          Back to Dashboard
+        </Button>
       </div>
 
-      <div className="bg-slate-800 rounded-lg p-4 mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <Info className="h-5 w-5 text-blue-400 mr-2" />
+      <Card className="bg-gray-900 border-gray-800">
+        <CardHeader>
+          <div className="flex justify-between items-start">
             <div>
-              <h3 className="text-white font-medium">Local Assessment History</h3>
-              <p className="text-slate-300 text-sm">Stored in your browser</p>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" className="text-white border-white hover:bg-slate-700">
-            <span className="mr-1">Log in to save history</span>
-          </Button>
-        </div>
-      </div>
-
-      <Tabs defaultValue="history" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="history">Assessment History</TabsTrigger>
-          <TabsTrigger value="about">About Heart Health Tracking</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="history">
-          <div className="mb-6 flex justify-between items-center">
-            <div>
-              <h2 className="text-2xl font-bold mb-1">Assessment History</h2>
-              <p className="text-gray-500">
-                Viewing history for: {currentEmail}
-                <Button variant="link" className="p-0 h-auto text-primary ml-2" onClick={handleChangeEmail}>
+              <CardTitle className="text-2xl">Assessment History</CardTitle>
+              <CardDescription>
+                Viewing history for: {userEmail}{" "}
+                <Button variant="link" className="p-0 h-auto text-blue-400" onClick={handleChangeEmail}>
                   Change Email
                 </Button>
-              </p>
+              </CardDescription>
             </div>
+            {assessments.length > 0 && (
+              <Button variant="destructive" size="sm" onClick={handleClearHistory}>
+                <Trash2 className="h-4 w-4 mr-1" /> Clear History
+              </Button>
+            )}
           </div>
-
-          {isClient && assessments.length === 0 ? (
-            <Card className="bg-slate-900 text-white border-slate-800">
-              <CardContent className="pt-10 pb-10 flex flex-col items-center justify-center">
-                <Heart className="h-12 w-12 text-red-500 mb-4" />
-                <p className="text-lg mb-6">You haven't completed any assessments yet.</p>
-                <Button asChild className="bg-red-600 hover:bg-red-700">
-                  <Link href="/predict">Take Your First Assessment</Link>
-                </Button>
-              </CardContent>
-            </Card>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-pulse">Loading assessment history...</div>
+            </div>
+          ) : assessments.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-800 mb-4">
+                <Calendar className="h-8 w-8 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-medium mb-2">No assessment history found</h3>
+              <p className="text-gray-400 mb-6">You haven't taken any assessments yet.</p>
+              <Button onClick={() => router.push("/predict")}>Take an Assessment</Button>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {isClient &&
-                assessments.map((assessment, index) => {
-                  const riskLevel = getRiskLevel(assessment.risk)
-                  return (
-                    <Card
-                      key={assessment.id || index}
-                      className="cursor-pointer hover:shadow-lg transition-shadow"
-                      onClick={() => {
-                        // Navigate to details page or show details modal
-                        console.log("View details for assessment:", assessment)
-                      }}
-                    >
-                      <CardHeader className="pb-2 flex flex-row justify-between items-start">
-                        <div>
-                          <CardTitle className="text-lg">Assessment Result</CardTitle>
-                          <CardDescription>{formatDate(new Date(assessment.date))}</CardDescription>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Heart className="h-5 w-5 text-red-500" />
-                          <button
-                            onClick={(e) => handleDeleteAssessment(index, e)}
-                            className="text-gray-400 hover:text-red-500 transition-colors"
-                            aria-label="Delete assessment"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="mb-4">
-                          <Badge className={`${riskLevel.color} text-white`}>{riskLevel.text}</Badge>
-                          <p className="mt-2 text-2xl font-bold">{Math.round(assessment.risk * 100)}%</p>
-                          <p className="text-sm text-gray-500">Risk Score</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <p className="text-gray-500">Age</p>
-                            <p>{assessment.inputs?.age || "N/A"}</p>
+            <>
+              <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="mb-6">
+                <TabsList className="grid grid-cols-4">
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="high">High Risk</TabsTrigger>
+                  <TabsTrigger value="moderate">Moderate Risk</TabsTrigger>
+                  <TabsTrigger value="low">Low Risk</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              <div className="space-y-4">
+                {filteredAssessments.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-400">No assessments found for this filter.</p>
+                  </div>
+                ) : (
+                  filteredAssessments.map((assessment, index) => (
+                    <Card key={index} className="bg-gray-800 border-gray-700 overflow-hidden">
+                      <div className="flex">
+                        <div
+                          className={`w-2 ${
+                            assessment.result?.risk === "high"
+                              ? "bg-red-500"
+                              : assessment.result?.risk === "moderate"
+                                ? "bg-yellow-500"
+                                : "bg-green-500"
+                          }`}
+                        ></div>
+                        <div className="p-4 flex-1">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-medium mb-1">
+                                {assessment.result?.risk === "high"
+                                  ? "High Risk Assessment"
+                                  : assessment.result?.risk === "moderate"
+                                    ? "Moderate Risk Assessment"
+                                    : "Low Risk Assessment"}
+                              </h3>
+                              <div className="flex items-center text-sm text-gray-400 mb-2">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {formatDate(assessment.timestamp)}
+                              </div>
+                            </div>
+                            <div className="flex items-center">
+                              <div
+                                className={`flex items-center justify-center rounded-full w-10 h-10 ${
+                                  assessment.result?.risk === "high"
+                                    ? "bg-red-900/30"
+                                    : assessment.result?.risk === "moderate"
+                                      ? "bg-yellow-900/30"
+                                      : "bg-green-900/30"
+                                }`}
+                              >
+                                <Heart
+                                  className={`h-5 w-5 ${
+                                    assessment.result?.risk === "high"
+                                      ? "text-red-500"
+                                      : assessment.result?.risk === "moderate"
+                                        ? "text-yellow-500"
+                                        : "text-green-500"
+                                  }`}
+                                />
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-gray-500">Gender</p>
-                            <p>{assessment.inputs?.sex === "1" ? "Male" : "Female"}</p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                            <div>
+                              <p className="text-xs text-gray-500">Age</p>
+                              <p className="text-sm">{assessment.age} years</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Gender</p>
+                              <p className="text-sm">{assessment.sex === "1" ? "Male" : "Female"}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Blood Pressure</p>
+                              <p className="text-sm">{assessment.trestbps} mm Hg</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Cholesterol</p>
+                              <p className="text-sm">{assessment.chol} mg/dl</p>
+                            </div>
+                          </div>
+                          <div className="flex justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewAssessment(assessment)}
+                              className="text-xs"
+                            >
+                              View Details
+                            </Button>
                           </div>
                         </div>
-                      </CardContent>
-                      <CardFooter>
-                        <Button variant="outline" size="sm" className="w-full">
-                          View Details
-                        </Button>
-                      </CardFooter>
+                      </div>
                     </Card>
-                  )
-                })}
-            </div>
+                  ))
+                )}
+              </div>
+            </>
           )}
-
-          <div className="mt-8 text-center text-gray-500 text-sm">
-            <p>
-              Assessment history is stored locally in your browser.
-              <br />
-              <Link href="/signup" className="text-primary hover:underline">
-                Create an account
-              </Link>{" "}
-              to save your history across devices.
-            </p>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="about">
-          <Card>
-            <CardHeader>
-              <CardTitle>About Heart Health Tracking</CardTitle>
-              <CardDescription>Understanding your heart health over time</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p>
-                Regular heart health assessments can help you track changes in your cardiovascular risk factors over
-                time. By monitoring these changes, you can better understand how lifestyle modifications and medical
-                interventions affect your overall heart health.
-              </p>
-              <h3 className="text-lg font-medium">Benefits of Tracking</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Identify trends in your heart health risk factors</li>
-                <li>Measure the impact of lifestyle changes</li>
-                <li>Share comprehensive health data with your healthcare provider</li>
-                <li>Receive personalized recommendations based on your history</li>
-                <li>Stay motivated by seeing your progress over time</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        </CardContent>
+      </Card>
     </div>
   )
 }
