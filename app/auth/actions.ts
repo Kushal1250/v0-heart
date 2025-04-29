@@ -1,4 +1,4 @@
-"\"use server"
+"use server"
 
 import { sendVerificationCode, verifyOTP } from "@/lib/auth-utils"
 
