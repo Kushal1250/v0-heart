@@ -9,11 +9,9 @@ import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Heart,
-  Activity,
   Clock,
   Settings,
   ChevronRight,
-  ArrowUpRight,
   X,
   CheckCircle,
   Bell,
@@ -25,6 +23,7 @@ import {
   ArrowRight,
 } from "lucide-react"
 import { HealthMetricsOverview } from "@/components/health-metrics-overview"
+import { RecentActivity } from "@/components/recent-activity"
 
 export default function Dashboard() {
   const { user, isLoading } = useAuth()
@@ -197,24 +196,30 @@ export default function Dashboard() {
 
             <Link href="/history" className="block">
               <Card className="p-6 hover:shadow-md transition-shadow duration-200 border border-gray-100 bg-white hover:scale-[1.02] transition-transform">
-                <div className="flex-shrink-0 bg-gray-100 rounded-lg p-3">
-                  <Clock className="h-6 w-6 text-gray-900" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Review Past Assessments</h3>
-                  <p className="text-sm text-gray-500">View your assessment history</p>
+                <div className="flex items-center">
+                  <div className="flex-shrink-0 bg-gray-100 rounded-lg p-3">
+                    <Clock className="h-6 w-6 text-gray-900" />
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">Review Past Assessments</h3>
+                    <p className="text-sm text-gray-500">View your assessment history</p>
+                  </div>
+                  <ChevronRight className="ml-auto h-5 w-5 text-gray-400" />
                 </div>
               </Card>
             </Link>
 
             <Link href="/settings" className="block">
               <Card className="p-6 hover:shadow-md transition-shadow duration-200 border border-gray-100 bg-white hover:scale-[1.02] transition-transform">
-                <div className="flex-shrink-0 bg-gray-100 rounded-lg p-3">
-                  <Settings className="h-6 w-6 text-gray-900" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Settings</h3>
-                  <p className="text-sm text-gray-500">Manage your preferences</p>
+                <div className="flex items-center">
+                  <div className="flex-shrink-0 bg-gray-100 rounded-lg p-3">
+                    <Settings className="h-6 w-6 text-gray-900" />
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">Settings</h3>
+                    <p className="text-sm text-gray-500">Manage your preferences</p>
+                  </div>
+                  <ChevronRight className="ml-auto h-5 w-5 text-gray-400" />
                 </div>
               </Card>
             </Link>
@@ -235,70 +240,7 @@ export default function Dashboard() {
         <HealthMetricsOverview />
 
         {/* Recent activity */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-900">Recent Activity</h2>
-            <Link
-              href="/history"
-              className="text-sm font-medium text-gray-900 flex items-center hover:text-primary transition-colors"
-            >
-              View all <ArrowUpRight className="ml-1 h-4 w-4" />
-            </Link>
-          </div>
-
-          <Card className="border border-gray-100 bg-white overflow-hidden">
-            <div className="divide-y divide-gray-200">
-              <div className="p-6 flex items-center hover:bg-gray-50 transition-colors">
-                <div className="flex-shrink-0 bg-gray-100 rounded-full p-2">
-                  <Heart className="h-5 w-5 text-gray-900" />
-                </div>
-                <div className="ml-4 flex-1">
-                  <h3 className="text-sm font-medium text-gray-900">Heart Disease Risk Assessment</h3>
-                  <p className="text-sm text-gray-500">Completed on April 26, 2025</p>
-                </div>
-                <div className="ml-4">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    Low Risk
-                  </span>
-                </div>
-                <Button variant="ghost" size="sm" className="ml-4 hover:bg-gray-100">
-                  View
-                </Button>
-              </div>
-
-              <div className="p-6 flex items-center hover:bg-gray-50 transition-colors">
-                <div className="flex-shrink-0 bg-gray-100 rounded-full p-2">
-                  <Activity className="h-5 w-5 text-gray-900" />
-                </div>
-                <div className="ml-4 flex-1">
-                  <h3 className="text-sm font-medium text-gray-900">Profile Updated</h3>
-                  <p className="text-sm text-gray-500">Updated personal information on April 24, 2025</p>
-                </div>
-                <Button variant="ghost" size="sm" className="ml-4 hover:bg-gray-100">
-                  View
-                </Button>
-              </div>
-
-              <div className="p-6 flex items-center hover:bg-gray-50 transition-colors">
-                <div className="flex-shrink-0 bg-gray-100 rounded-full p-2">
-                  <Heart className="h-5 w-5 text-gray-900" />
-                </div>
-                <div className="ml-4 flex-1">
-                  <h3 className="text-sm font-medium text-gray-900">Heart Disease Risk Assessment</h3>
-                  <p className="text-sm text-gray-500">Completed on April 20, 2025</p>
-                </div>
-                <div className="ml-4">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                    Moderate Risk
-                  </span>
-                </div>
-                <Button variant="ghost" size="sm" className="ml-4 hover:bg-gray-100">
-                  View
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
+        <RecentActivity />
 
         {/* New Feature Notification */}
         <div className="mt-8">
