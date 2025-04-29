@@ -68,7 +68,8 @@ export default function AdminLoginPage() {
 
       // Redirect after a short delay to show success message
       setTimeout(() => {
-        router.push(redirectPath)
+        console.log("Redirecting to:", redirectPath)
+        window.location.href = redirectPath // Use direct location change instead of router
       }, 1500)
     } catch (err) {
       console.error("Admin login error:", err)

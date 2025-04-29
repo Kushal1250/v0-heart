@@ -46,6 +46,15 @@ export async function middleware(request: NextRequest) {
 
       // If admin role is required, check the user's role
       if (isAdminRequired) {
+        // First check for the is_admin cookie for direct admin login
+        const isAdminCookie = request.cookies.get("is_admin")?.value
+
+        if (isAdminCookie === "true") {
+          // Admin cookie is present, allow access
+          return NextResponse.next()
+        }
+
+        // Otherwise check the user role from database
         const user = await getUserById(session.user_id)
 
         if (!user || user.role !== "admin") {
