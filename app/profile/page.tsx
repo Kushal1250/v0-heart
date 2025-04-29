@@ -17,7 +17,7 @@ import Link from "next/link"
 import { ProfileImageUpload } from "@/components/profile-image-upload"
 
 export default function ProfilePage() {
-  const { user, isLoading } = useAuth()
+  const { user, isLoading, updateUserProfile } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
@@ -167,6 +167,17 @@ export default function ProfilePage() {
       ...prev,
       profile_picture: imageUrl,
     }))
+
+    // Also update the user context
+    if (updateUserProfile) {
+      updateUserProfile({ profile_picture: imageUrl })
+    }
+
+    // Show success message
+    toast({
+      title: "Success",
+      description: "Your profile picture has been updated successfully!",
+    })
   }
 
   if (isLoading) {
@@ -231,7 +242,7 @@ export default function ProfilePage() {
 
           <div className="flex justify-center mb-6">
             <ProfileImageUpload
-              currentImage={profileData.profile_picture || null}
+              currentImage={profileData.profile_picture || user?.profile_picture || null}
               onImageUpdate={handleProfileImageUpdate}
             />
           </div>

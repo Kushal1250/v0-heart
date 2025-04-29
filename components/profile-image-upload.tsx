@@ -43,12 +43,12 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
       return
     }
 
-    // Validate file size (max 50MB)
-    if (file.size > 50 * 1024 * 1024) {
-      setUploadError("File too large. Please upload an image smaller than 50MB.")
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("File too large. Please upload an image smaller than 5MB.")
       toast({
         title: "File too large",
-        description: "Please upload an image smaller than 50MB.",
+        description: "Please upload an image smaller than 5MB.",
         variant: "destructive",
       })
       return
@@ -79,13 +79,37 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
     setUploadError(null)
 
     try {
+      // Compress image before upload if it's large
+      let fileToUpload = selectedFile
+      if (selectedFile.size > 1 * 1024 * 1024) {
+        // If larger than 1MB
+        try {
+          fileToUpload = await compressImage(selectedFile, 0.8)
+          console.log("Image compressed successfully", {
+            originalSize: selectedFile.size,
+            compressedSize: fileToUpload.size,
+          })
+        } catch (compressionError) {
+          console.error("Image compression failed, using original file", compressionError)
+          // Continue with original file if compression fails
+        }
+      }
+
       // Create a FormData object to send the file
       const formData = new FormData()
-      formData.append("profile_picture", selectedFile)
+      formData.append("profile_picture", fileToUpload)
 
       // Use fetch with a timeout to prevent hanging requests
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 second timeout
+
+      // Simulate progress (since fetch doesn't provide upload progress)
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          const newProgress = prev + Math.random() * 15
+          return newProgress > 90 ? 90 : newProgress
+        })
+      }, 500)
 
       const response = await fetch("/api/user/profile/upload-photo", {
         method: "POST",
@@ -94,10 +118,18 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
       })
 
       clearTimeout(timeoutId)
+      clearInterval(progressInterval)
+      setUploadProgress(100)
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || `Server error: ${response.status}`)
+        let errorMessage = "Server error"
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.message || `Server error: ${response.status}`
+        } catch (jsonError) {
+          errorMessage = `Server error: ${response.status}`
+        }
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()
@@ -138,7 +170,6 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
       })
     } finally {
       setIsUploading(false)
-      setUploadProgress(0)
       // Clear the file input
       if (fileInputRef.current) {
         fileInputRef.current.value = ""
@@ -147,7 +178,9 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
   }
 
   const handleProfilePictureClick = () => {
-    fileInputRef.current?.click()
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+    }
   }
 
   const handleDialogChange = (open: boolean) => {
@@ -164,8 +197,8 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
     }
   }
 
-  // Function to compress image before upload (optional)
-  const compressImage = async (file: File, maxSizeMB: number): Promise<File> => {
+  // Function to compress image before upload
+  const compressImage = async (file: File, quality = 0.8): Promise<File> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.readAsDataURL(file)
@@ -190,7 +223,12 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
           canvas.width = width
           canvas.height = height
           const ctx = canvas.getContext("2d")
-          ctx?.drawImage(img, 0, 0, width, height)
+          if (!ctx) {
+            reject(new Error("Failed to get canvas context"))
+            return
+          }
+
+          ctx.drawImage(img, 0, 0, width, height)
 
           // Convert to blob with reduced quality
           canvas.toBlob(
@@ -202,7 +240,7 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
               resolve(new File([blob], file.name, { type: "image/jpeg" }))
             },
             "image/jpeg",
-            0.7, // Quality (0.7 = 70%)
+            quality, // Quality (0.8 = 80%)
           )
         }
         img.onerror = () => {
@@ -316,14 +354,17 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
 
           <div className="text-xs text-gray-500 text-center">
             <p>Supported formats: JPEG, PNG, GIF</p>
-            <p>Maximum file size: 50MB</p>
-            <p className="mt-1 text-amber-600">Tip: For best results, use images smaller than 5MB</p>
+            <p>Maximum file size: 5MB</p>
+            <p className="mt-1 text-amber-600">Tip: For best results, use square images</p>
           </div>
 
-          {isUploading && uploadProgress > 0 && (
+          {isUploading && (
             <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-2">
-              <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
-              <p className="text-xs text-center mt-1">{uploadProgress}% uploaded</p>
+              <div
+                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
+              <p className="text-xs text-center mt-1">{Math.round(uploadProgress)}% uploaded</p>
             </div>
           )}
 

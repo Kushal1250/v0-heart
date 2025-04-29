@@ -6,7 +6,7 @@ import { updateUserProfile } from "@/lib/db"
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: "50mb",
+      sizeLimit: "10mb",
     },
   },
 }
@@ -59,11 +59,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate file size (max 50MB)
-    if (profilePicture.size > 50 * 1024 * 1024) {
+    // Validate file size (max 10MB)
+    if (profilePicture.size > 10 * 1024 * 1024) {
       console.log(`Profile photo upload: File too large - ${profilePicture.size} bytes`)
       return NextResponse.json(
-        { message: "File too large. Please upload an image smaller than 50MB." },
+        { message: "File too large. Please upload an image smaller than 10MB." },
         { status: 400 },
       )
     }
