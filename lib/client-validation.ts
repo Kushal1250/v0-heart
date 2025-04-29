@@ -44,6 +44,21 @@ export function formatPhoneForDisplay(phone: string): string {
   return phone
 }
 
+/**
+ * Validates if a password is strong enough
+ */
 export function isStrongPassword(password: string): boolean {
   return password.length >= 8
+}
+
+/**
+ * Additional validation functions for enhanced user experience
+ */
+export function validateEmail(email: string): boolean {
+  return isValidEmail(email)
+}
+
+export function validatePassword(password: string): boolean {
+  // Password must be at least 6 characters
+  return password.length >= 6
 }

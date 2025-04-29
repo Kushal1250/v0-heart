@@ -16,7 +16,11 @@ interface AuthContextType {
   user: User | null
   isAdmin: boolean
   isLoading: boolean
-  login: (email: string, password: string, phone: string) => Promise<{ success: boolean; message: string }>
+  login: (
+    email: string,
+    password: string,
+    phone: string,
+  ) => Promise<{ success: boolean; message: string; redirectTo?: string }>
   adminLogin: (email: string, password: string) => Promise<{ success: boolean; message: string }>
   signup: (
     name: string,
@@ -78,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
 
             setUser(data.user)
-            setIsAdmin(data.user.role === "admin")
+            setIsAdmin(data.user?.role === "admin")
           } catch (jsonError) {
             console.error("Error parsing user data:", jsonError)
           }
@@ -125,9 +129,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAdmin(data.user.role === "admin")
 
       // Set flag for successful login
-      sessionStorage.setItem("loginSuccess", "true")
+      sessionStorage.setItem("justLoggedIn", "true")
 
-      return { success: true, message: "Login successful" }
+      // Check if there's a redirect path in the URL
+      const urlParams = new URLSearchParams(window.location.search)
+      const redirectTo = urlParams.get("redirect") || "/history"
+
+      return { success: true, message: "Login successful", redirectTo }
     } catch (error: any) {
       return { success: false, message: error.message || "An unexpected error occurred" }
     }

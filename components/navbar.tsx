@@ -75,7 +75,7 @@ export default function Navbar() {
     navigationItems = [
       { name: "Home", href: "/home" },
       { name: "Predict", href: "/predict" },
-      { name: "History", href: "/history" },
+      { name: "History", href: "/history" }, // Ensure this points to /history
       { name: "About", href: "/about" },
       { name: "How It Works", href: "/how-it-works" },
       ...(isAdmin ? [{ name: "Admin", href: "/admin" }] : []),
@@ -177,6 +177,15 @@ export default function Navbar() {
                               <Link href="/dashboard" className="flex items-center">
                                 <LayoutDashboard className="mr-2 h-4 w-4" />
                                 <span>Dashboard</span>
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              asChild
+                              className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
+                            >
+                              <Link href="/history" className="flex items-center">
+                                <Heart className="mr-2 h-4 w-4" />
+                                <span>History</span>
                               </Link>
                             </DropdownMenuItem>
                             {isAdmin && (
@@ -298,6 +307,13 @@ export default function Navbar() {
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <LayoutDashboard className="inline h-4 w-4 mr-2" /> Dashboard
+                  </Link>
+                  <Link
+                    href="/history"
+                    className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Heart className="inline h-4 w-4 mr-2" /> History
                   </Link>
                   <Link
                     href="/settings"

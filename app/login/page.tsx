@@ -3,42 +3,77 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { useAuth } from "@/lib/auth-context"
+import { Eye, EyeOff, User, Lock, Phone, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, User, Lock, Phone } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { validateEmail, validatePassword } from "@/lib/client-validation"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [phone, setPhone] = useState("")
-  const [error, setError] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [emailError, setEmailError] = useState("")
+  const [passwordError, setPasswordError] = useState("")
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { login } = useAuth()
+
+  // Get redirect parameter from URL if present
+  const redirectPath = searchParams.get("redirect") || "/history"
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword)
+  }
+
+  const validateForm = () => {
+    let isValid = true
+    setEmailError("")
+    setPasswordError("")
+
+    if (!validateEmail(email)) {
+      setEmailError("Please enter a valid email address")
+      isValid = false
+    }
+
+    if (!validatePassword(password)) {
+      setPasswordError("Password must be at least 6 characters")
+      isValid = false
+    }
+
+    return isValid
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+
+    if (!validateForm()) {
+      return
+    }
+
     setIsLoading(true)
+    setError("")
 
     try {
       const result = await login(email, password, phone)
+
       if (result.success) {
-        // Set success flag in session storage for dashboard to display welcome message
-        sessionStorage.setItem("loginSuccess", "true")
-        // Redirect to the new home page
-        router.push("/home")
+        // Store login success flag for showing welcome message
+        sessionStorage.setItem("justLoggedIn", "true")
+
+        // Redirect to the specified path or history page
+        router.push(result.redirectTo || redirectPath)
       } else {
         setError(result.message)
       }
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred")
+    } catch (error) {
+      setError("An unexpected error occurred. Please try again.")
+      console.error("Login error:", error)
     } finally {
       setIsLoading(false)
     }
@@ -46,91 +81,139 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="login-bg-animation"></div>
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Login</CardTitle>
-          <CardDescription className="text-center">Enter your credentials to access your account</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
+      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow-md">
+        <div className="text-center">
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Login</h2>
+          <p className="mt-2 text-sm text-gray-600">Enter your credentials to access your account</p>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">{error}</div>
+        )}
+
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email
+              </label>
+              <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <User className="h-5 w-5 text-gray-400" />
                 </div>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
+                  autoComplete="email"
+                  required
+                  className={`pl-10 ${emailError ? "border-red-500" : ""}`}
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
-                  required
                 />
               </div>
+              {emailError && <p className="mt-1 text-sm text-red-600">{emailError}</p>}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-gray-400" />
                 </div>
                 <Input
                   id="password"
-                  type="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  required
+                  className={`pl-10 ${passwordError ? "border-red-500" : ""}`}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
-                  required
                 />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={togglePasswordVisibility}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-gray-400" />
+                  )}
+                </button>
               </div>
+              {passwordError && <p className="mt-1 text-sm text-red-600">{passwordError}</p>}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number (Optional)</Label>
-              <div className="relative">
+
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                Phone Number (Optional)
+              </label>
+              <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Phone className="h-5 w-5 text-gray-400" />
                 </div>
                 <Input
                   id="phone"
+                  name="phone"
                   type="tel"
+                  autoComplete="tel"
+                  className="pl-10"
                   placeholder="+1 (555) 123-4567"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="pl-10"
                 />
               </div>
             </div>
-            <div className="flex items-center justify-between">
-              <div className="text-sm">
-                <Link href="/forgot-password" className="text-primary hover:text-primary/90">
-                  Forgot your password?
-                </Link>
-              </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="text-sm">
+              <Link href="/forgot-password" className="font-medium text-blue-600 hover:text-blue-500">
+                Forgot your password?
+              </Link>
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+          </div>
+
+          <div>
+            <Button
+              type="submit"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={isLoading}
+            >
               {isLoading ? "Logging in..." : "Login"}
+              {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
             </Button>
-          </form>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <div className="text-sm text-center">
-            Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-primary hover:text-primary/90">
-              Sign up
+          </div>
+        </form>
+
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Don't have an account?</span>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <Link href="/signup">
+              <Button
+                type="button"
+                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Create an account
+              </Button>
             </Link>
           </div>
-        </CardFooter>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }
