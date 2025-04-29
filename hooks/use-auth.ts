@@ -1,42 +1,63 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import type React from "react"
 
-// Simple authentication hook that manages user email
-export function useAuth() {
+import { useState, useEffect, createContext, useContext } from "react"
+import { getCurrentUserEmail, setCurrentUserEmail, clearCurrentUserEmail } from "@/lib/user-specific-storage"
+
+type AuthContextType = {
+  userEmail: string | null
+  isAuthenticated: boolean
+  user: { email: string } | null
+  login: (email: string) => void
+  logout: () => void
+  authLoading: boolean
+}
+
+const AuthContext = createContext<AuthContextType>({
+  userEmail: null,
+  isAuthenticated: false,
+  user: null,
+  login: () => {},
+  logout: () => {},
+  authLoading: true,
+})
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userEmail, setUserEmail] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [authLoading, setAuthLoading] = useState(true)
 
-  // Load email from localStorage on component mount
   useEffect(() => {
-    const storedEmail = localStorage.getItem("userEmail")
+    // Check if user is already authenticated
+    const storedEmail = getCurrentUserEmail()
     if (storedEmail) {
       setUserEmail(storedEmail)
     }
-    setIsLoading(false)
+    setAuthLoading(false)
   }, [])
 
-  // Save email to localStorage
-  const login = useCallback((email: string) => {
-    localStorage.setItem("userEmail", email)
+  const login = (email: string) => {
+    setCurrentUserEmail(email)
     setUserEmail(email)
-    return true
-  }, [])
+  }
 
-  // Remove email from localStorage
-  const logout = useCallback(() => {
-    localStorage.removeItem("userEmail")
+  const logout = () => {
+    clearCurrentUserEmail()
     setUserEmail(null)
-  }, [])
+  }
 
-  // Check if user is authenticated (has an email)
-  const isAuthenticated = !!userEmail
-
-  return {
+  const value = {
     userEmail,
-    isAuthenticated,
-    isLoading,
+    isAuthenticated: !!userEmail,
+    user: userEmail ? { email: userEmail } : null,
     login,
     logout,
+    authLoading,
   }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+export function useAuth() {
+  return useContext(AuthContext)
 }
