@@ -3,13 +3,8 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { Search, Users, Shield, Activity, RefreshCw, Eye, Database } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { AdminCheck } from "@/components/admin-check"
 
 interface User {
   id: string
@@ -294,242 +289,28 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={runMigration}
-            disabled={migrating}
-            className="flex items-center gap-2"
-          >
-            <Database className={`h-4 w-4 ${migrating ? "animate-pulse" : ""}`} />
-            {migrating ? "Migrating..." : "Run Migration"}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            {refreshing ? "Refreshing..." : "Refresh Data"}
-          </Button>
+    <AdminCheck>
+      <div className="container mx-auto p-4">
+        <h1 className="text-2xl font-bold mb-4">Admin Dashboard</h1>
+
+        {/* Admin dashboard content */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="bg-white p-4 rounded shadow">
+            <h2 className="text-lg font-semibold mb-2">User Management</h2>
+            <p>Manage users and permissions</p>
+          </div>
+
+          <div className="bg-white p-4 rounded shadow">
+            <h2 className="text-lg font-semibold mb-2">Content Management</h2>
+            <p>Manage site content and resources</p>
+          </div>
+
+          <div className="bg-white p-4 rounded shadow">
+            <h2 className="text-lg font-semibold mb-2">Analytics</h2>
+            <p>View site analytics and reports</p>
+          </div>
         </div>
       </div>
-
-      {migrationMessage && (
-        <Alert variant={migrationMessage.includes("failed") ? "destructive" : "default"} className="mb-6">
-          <AlertDescription>{migrationMessage}</AlertDescription>
-        </Alert>
-      )}
-
-      {error && activeTab === "users" && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertDescription className="flex items-center justify-between">
-            <span>{error}</span>
-            <Button variant="outline" size="sm" onClick={handleLoginRetry}>
-              Re-login
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {predictionError && activeTab === "predictions" && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertDescription className="flex items-center justify-between">
-            <span>{predictionError}</span>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={runMigration}>
-                Run Migration
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleLoginRetry}>
-                Re-login
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {predictionMessage && activeTab === "predictions" && !predictionError && (
-        <Alert className="mb-6">
-          <AlertDescription className="flex items-center justify-between">
-            <span>{predictionMessage}</span>
-            <Button variant="outline" size="sm" onClick={runMigration}>
-              Run Migration
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <Tabs defaultValue="users" className="mb-6" value={activeTab} onValueChange={(value) => setActiveTab(value)}>
-        <TabsList>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="predictions">Predictions</TabsTrigger>
-          <TabsTrigger value="stats">Statistics</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="users" className="space-y-4">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="relative w-full md:w-1/3">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search users by name, email or phone"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-          </div>
-
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Password</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Provider</TableHead>
-                  <TableHead>Created</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
-                      No users found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.name || "N/A"}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.password || "••••••••"}</TableCell>
-                      <TableCell>
-                        <Badge variant={user.role === "admin" ? "default" : "outline"}>{user.role}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{user.provider || "email"}</Badge>
-                      </TableCell>
-                      <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="predictions" className="space-y-4">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="relative w-full md:w-1/3">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search predictions by user"
-                value={predictionSearchTerm}
-                onChange={(e) => setPredictionSearchTerm(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-          </div>
-
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Prediction Result</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Details</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPredictions.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
-                      {predictionMessage ? (
-                        <div className="flex flex-col items-center gap-2">
-                          <p>{predictionMessage}</p>
-                          <Button variant="outline" size="sm" onClick={runMigration}>
-                            Run Migration
-                          </Button>
-                        </div>
-                      ) : (
-                        "No predictions found"
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredPredictions.map((pred) => (
-                    <TableRow key={pred.id}>
-                      <TableCell className="font-medium">{pred.userName}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={pred.result > 0.5 ? "destructive" : "success"}
-                          className={pred.result > 0.5 ? "bg-red-600" : "bg-green-600"}
-                        >
-                          {(pred.result * 100).toFixed(0)}% Risk
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{new Date(pred.timestamp).toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewPredictionDetails(pred)}
-                          className="flex items-center gap-1"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          View Details
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="stats">
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{userStats.total}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Admin Users</CardTitle>
-                <Shield className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{userStats.admins}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">New Today</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{userStats.newToday}</div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
-    </div>
+    </AdminCheck>
   )
 }

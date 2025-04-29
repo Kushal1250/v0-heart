@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { getSessionByToken, getUserById } from "@/lib/db"
+import { getSessionByToken } from "@/lib/db"
 
 // Define which paths require authentication
 const authRequiredPaths = [
   "/dashboard",
   "/profile",
   "/settings",
-  "/admin",
   "/predict/results",
   // "/history" - Removed from protected routes
 ]
@@ -18,11 +17,22 @@ const adminRequiredPaths = ["/admin"]
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Check if the path requires authentication
-  const isAuthRequired = authRequiredPaths.some((path) => pathname.startsWith(path))
-  const isAdminRequired = adminRequiredPaths.some((path) => pathname.startsWith(path))
+  // Special case for admin paths
+  if (adminRequiredPaths.some((path) => pathname.startsWith(path))) {
+    // Check for admin cookie first (client-side auth)
+    const isAdminCookie = request.cookies.get("is_admin")?.value
 
-  if (isAuthRequired || isAdminRequired) {
+    if (isAdminCookie === "true") {
+      // Admin cookie is present, allow access
+      return NextResponse.next()
+    }
+
+    // No admin cookie, redirect to admin login
+    return NextResponse.redirect(new URL("/admin-login", request.url))
+  }
+
+  // Handle regular auth paths
+  if (authRequiredPaths.some((path) => pathname.startsWith(path))) {
     // Get the session token from the cookie
     const sessionToken = request.cookies.get("session")?.value
 
@@ -42,25 +52,6 @@ export async function middleware(request: NextRequest) {
         const url = new URL("/login", request.url)
         url.searchParams.set("redirect", pathname)
         return NextResponse.redirect(url)
-      }
-
-      // If admin role is required, check the user's role
-      if (isAdminRequired) {
-        // First check for the is_admin cookie for direct admin login
-        const isAdminCookie = request.cookies.get("is_admin")?.value
-
-        if (isAdminCookie === "true") {
-          // Admin cookie is present, allow access
-          return NextResponse.next()
-        }
-
-        // Otherwise check the user role from database
-        const user = await getUserById(session.user_id)
-
-        if (!user || user.role !== "admin") {
-          // User is not an admin, redirect to unauthorized page
-          return NextResponse.redirect(new URL("/unauthorized", request.url))
-        }
       }
 
       // Session is valid, continue
