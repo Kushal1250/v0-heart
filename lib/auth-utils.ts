@@ -148,3 +148,35 @@ export async function getUserFromRequest(request: NextRequest) {
     return null
   }
 }
+
+/**
+ * Gets the user from the session token
+ * This is the missing export that was causing the deployment error
+ */
+export async function getUserFromSession(sessionToken: string | undefined): Promise<{
+  id: string
+  email: string
+  name: string | null
+  role: string
+} | null> {
+  try {
+    if (!sessionToken) {
+      return null
+    }
+
+    const session = await getSessionByToken(sessionToken)
+    if (!session) {
+      return null
+    }
+
+    const user = await getUserById(session.user_id)
+    if (!user) {
+      return null
+    }
+
+    return user
+  } catch (error) {
+    console.error("Error getting user from session:", error)
+    return null
+  }
+}

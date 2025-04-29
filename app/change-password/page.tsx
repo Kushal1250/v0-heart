@@ -164,6 +164,11 @@ export default function ChangePasswordPage() {
                   {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              <div className="text-right">
+                <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-800">
+                  Forgot current password?
+                </Link>
+              </div>
             </div>
 
             <div className="space-y-2">

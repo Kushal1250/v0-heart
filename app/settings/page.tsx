@@ -1,17 +1,24 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowLeft, SettingsIcon, Moon, Sun } from "lucide-react"
+import { ArrowLeft, SettingsIcon, Moon, Sun, Shield, Activity } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useState, useEffect, useRef } from "react"
 
 export default function SettingsPage() {
   const [theme, setTheme] = useState<"dark" | "light">("dark")
   const [saveHistory, setSaveHistory] = useState(true)
   const [notifications, setNotifications] = useState(false)
+  const [emailNotifications, setEmailNotifications] = useState(false)
+  const [dataSharing, setDataSharing] = useState(false)
+  const [language, setLanguage] = useState("english")
+  const [units, setUnits] = useState("metric")
+  const [privacyMode, setPrivacyMode] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [animating, setAnimating] = useState(false)
   const themeToggleRef = useRef<HTMLDivElement>(null)
@@ -35,6 +42,31 @@ export default function SettingsPage() {
     const savedNotifications = localStorage.getItem("notifications")
     if (savedNotifications !== null) {
       setNotifications(savedNotifications === "true")
+    }
+
+    const savedEmailNotifications = localStorage.getItem("emailNotifications")
+    if (savedEmailNotifications !== null) {
+      setEmailNotifications(savedEmailNotifications === "true")
+    }
+
+    const savedDataSharing = localStorage.getItem("dataSharing")
+    if (savedDataSharing !== null) {
+      setDataSharing(savedDataSharing === "true")
+    }
+
+    const savedLanguage = localStorage.getItem("language")
+    if (savedLanguage !== null) {
+      setLanguage(savedLanguage)
+    }
+
+    const savedUnits = localStorage.getItem("units")
+    if (savedUnits !== null) {
+      setUnits(savedUnits)
+    }
+
+    const savedPrivacyMode = localStorage.getItem("privacyMode")
+    if (savedPrivacyMode !== null) {
+      setPrivacyMode(savedPrivacyMode === "true")
     }
   }, [])
 
@@ -68,6 +100,36 @@ export default function SettingsPage() {
     localStorage.setItem("notifications", checked.toString())
   }
 
+  // Handle email notifications toggle
+  const handleEmailNotificationsToggle = (checked: boolean) => {
+    setEmailNotifications(checked)
+    localStorage.setItem("emailNotifications", checked.toString())
+  }
+
+  // Handle data sharing toggle
+  const handleDataSharingToggle = (checked: boolean) => {
+    setDataSharing(checked)
+    localStorage.setItem("dataSharing", checked.toString())
+  }
+
+  // Handle language change
+  const handleLanguageChange = (value: string) => {
+    setLanguage(value)
+    localStorage.setItem("language", value)
+  }
+
+  // Handle units change
+  const handleUnitsChange = (value: string) => {
+    setUnits(value)
+    localStorage.setItem("units", value)
+  }
+
+  // Handle privacy mode toggle
+  const handlePrivacyModeToggle = (checked: boolean) => {
+    setPrivacyMode(checked)
+    localStorage.setItem("privacyMode", checked.toString())
+  }
+
   if (!mounted) {
     return null // Avoid rendering until client-side to prevent hydration mismatch
   }
@@ -91,68 +153,170 @@ export default function SettingsPage() {
 
         <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-6 text-center">Settings</h1>
 
-        <Card className="bg-gray-900 border-gray-800 mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <SettingsIcon className="h-5 w-5 text-red-500" />
-              Application Settings
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6 relative">
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              <div className="code-settings-animation"></div>
-            </div>
+        <Tabs defaultValue="appearance" className="w-full">
+          <TabsList className="grid grid-cols-3 mb-6">
+            <TabsTrigger value="appearance">Appearance</TabsTrigger>
+            <TabsTrigger value="privacy">Privacy & Data</TabsTrigger>
+            <TabsTrigger value="preferences">Preferences</TabsTrigger>
+          </TabsList>
 
-            <div className="flex items-center justify-between relative">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="dark-mode" className="text-base">
-                  Dark Mode
-                </Label>
-                {theme === "dark" ? (
-                  <Moon className="h-4 w-4 text-blue-400" />
-                ) : (
-                  <Sun className="h-4 w-4 text-yellow-400" />
-                )}
-              </div>
-              <div ref={themeToggleRef} className={`theme-toggle-animation ${animating ? "active" : ""}`}>
-                <Switch id="dark-mode" checked={theme === "dark"} onCheckedChange={toggleTheme} />
-              </div>
-            </div>
+          <TabsContent value="appearance">
+            <Card className="bg-gray-900 border-gray-800 mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <SettingsIcon className="h-5 w-5 text-red-500" />
+                  Appearance Settings
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6 relative">
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <div className="code-settings-animation"></div>
+                </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="save-history" className="text-base">
-                  Save Assessment History
-                </Label>
-                <p className="text-sm text-gray-400">Store your assessment history in your browser</p>
-              </div>
-              <Switch id="save-history" checked={saveHistory} onCheckedChange={handleSaveHistoryToggle} />
-            </div>
+                <div className="flex items-center justify-between relative">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="dark-mode" className="text-base">
+                      Dark Mode
+                    </Label>
+                    {theme === "dark" ? (
+                      <Moon className="h-4 w-4 text-blue-400" />
+                    ) : (
+                      <Sun className="h-4 w-4 text-yellow-400" />
+                    )}
+                  </div>
+                  <div ref={themeToggleRef} className={`theme-toggle-animation ${animating ? "active" : ""}`}>
+                    <Switch id="dark-mode" checked={theme === "dark"} onCheckedChange={toggleTheme} />
+                  </div>
+                </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="notifications" className="text-base">
-                  Notifications
-                </Label>
-                <p className="text-sm text-gray-400">Receive reminders for follow-up assessments</p>
-              </div>
-              <Switch id="notifications" checked={notifications} onCheckedChange={handleNotificationsToggle} />
-            </div>
-          </CardContent>
-        </Card>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="language" className="text-base">
+                      Language
+                    </Label>
+                    <p className="text-sm text-gray-400">Select your preferred language</p>
+                  </div>
+                  <Select value={language} onValueChange={handleLanguageChange}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="english">English</SelectItem>
+                      <SelectItem value="spanish">Spanish</SelectItem>
+                      <SelectItem value="french">French</SelectItem>
+                      <SelectItem value="german">German</SelectItem>
+                      <SelectItem value="chinese">Chinese</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        <Card className="bg-gray-900 border-gray-800">
-          <CardHeader>
-            <CardTitle>Account Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center py-8 relative">
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              <div className="code-settings-animation"></div>
-            </div>
-            <p className="text-gray-400 mb-4">You are not currently logged in.</p>
-            <Button className="settings-button text-white">Create Account</Button>
-          </CardContent>
-        </Card>
+          <TabsContent value="privacy">
+            <Card className="bg-gray-900 border-gray-800 mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-red-500" />
+                  Privacy & Data Settings
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6 relative">
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <div className="code-settings-animation"></div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="save-history" className="text-base">
+                      Save Assessment History
+                    </Label>
+                    <p className="text-sm text-gray-400">Store your assessment history in your browser</p>
+                  </div>
+                  <Switch id="save-history" checked={saveHistory} onCheckedChange={handleSaveHistoryToggle} />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="data-sharing" className="text-base">
+                      Anonymous Data Sharing
+                    </Label>
+                    <p className="text-sm text-gray-400">Share anonymous data to improve our predictions</p>
+                  </div>
+                  <Switch id="data-sharing" checked={dataSharing} onCheckedChange={handleDataSharingToggle} />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="privacy-mode" className="text-base">
+                      Enhanced Privacy Mode
+                    </Label>
+                    <p className="text-sm text-gray-400">Hide sensitive health information from view</p>
+                  </div>
+                  <Switch id="privacy-mode" checked={privacyMode} onCheckedChange={handlePrivacyModeToggle} />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="preferences">
+            <Card className="bg-gray-900 border-gray-800 mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-red-500" />
+                  Preferences
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6 relative">
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <div className="code-settings-animation"></div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="notifications" className="text-base">
+                      Browser Notifications
+                    </Label>
+                    <p className="text-sm text-gray-400">Receive reminders for follow-up assessments</p>
+                  </div>
+                  <Switch id="notifications" checked={notifications} onCheckedChange={handleNotificationsToggle} />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="email-notifications" className="text-base">
+                      Email Notifications
+                    </Label>
+                    <p className="text-sm text-gray-400">Receive updates and reminders via email</p>
+                  </div>
+                  <Switch
+                    id="email-notifications"
+                    checked={emailNotifications}
+                    onCheckedChange={handleEmailNotificationsToggle}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="units" className="text-base">
+                      Measurement Units
+                    </Label>
+                    <p className="text-sm text-gray-400">Choose your preferred measurement system</p>
+                  </div>
+                  <Select value={units} onValueChange={handleUnitsChange}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Select units" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="metric">Metric (cm, kg)</SelectItem>
+                      <SelectItem value="imperial">Imperial (in, lb)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )
