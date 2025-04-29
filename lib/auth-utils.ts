@@ -11,7 +11,6 @@ import type { NextRequest } from "next/server"
 import { sendSMS } from "@/lib/sms-utils"
 import { logError } from "@/lib/error-logger"
 import { sendEmail } from "@/lib/email-utils"
-import { sql } from "@/lib/db"
 
 export function getSessionToken(): string | undefined {
   return cookies().get("session")?.value
@@ -71,29 +70,27 @@ export async function getCurrentUser(): Promise<{
   role: string
 } | null> {
   try {
-    // Get the session token from cookies
-    const cookieStore = cookies()
-    const sessionToken = cookieStore.get("session_token")?.value
+    const token = getSessionToken()
 
-    if (!sessionToken) {
-      console.log("No session token found in cookies")
+    if (!token) {
+      console.log("No session token found")
       return null
     }
 
-    // Query the database for the user associated with this session token
-    const result = await sql`
-      SELECT u.* FROM users u
-      JOIN sessions s ON u.id = s.user_id
-      WHERE s.token = ${sessionToken}
-      AND s.expires > NOW()
-    `
+    const session = await getSessionByToken(token)
 
-    if (result.length === 0) {
-      console.log("No valid session found for token")
+    if (!session) {
+      console.log("No session found for token")
       return null
     }
 
-    const user = result[0]
+    const user = await getUserById(session.user_id)
+
+    if (!user) {
+      console.log("No user found for session user_id")
+      return null
+    }
+
     return user
   } catch (error) {
     console.error("Error getting current user:", error)
@@ -434,23 +431,14 @@ export async function resendVerificationCode(
  * @param user User object or user role string
  * @returns Boolean indicating if the user is an admin
  */
-export async function isAuthenticated() {
-  const user = await getCurrentUser()
-  return !!user
-}
+export function isAdmin(user: { role?: string } | string | null | undefined): boolean {
+  if (!user) return false
 
-export async function isAdmin() {
-  const user = await getCurrentUser()
-  return user?.role === "admin"
-}
+  // If user is a string, assume it's the role
+  if (typeof user === "string") {
+    return user === "admin"
+  }
 
-export function getClientSessionToken() {
-  if (typeof document === "undefined") return null
-
-  const cookies = document.cookie.split(";")
-  const sessionCookie = cookies.find((cookie) => cookie.trim().startsWith("session_token="))
-
-  if (!sessionCookie) return null
-
-  return sessionCookie.split("=")[1]
+  // Otherwise, check the role property
+  return user.role === "admin"
 }
