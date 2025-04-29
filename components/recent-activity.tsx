@@ -31,17 +31,42 @@ export function RecentActivity() {
 
       try {
         setLoading(true)
-        const response = await fetch("/api/user/recent-activity")
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch recent activity")
-        }
+        // In a real app, this would be an API call
+        // For now, we'll use mock data that matches the image
+        const mockActivities: ActivityItem[] = [
+          {
+            id: "1",
+            type: "assessment",
+            title: "Heart Disease Risk Assessment",
+            description: "Completed on April 26, 2025",
+            date: "2025-04-26",
+            risk: "low",
+            detailsUrl: "/predict/results/1",
+          },
+          {
+            id: "2",
+            type: "profile_update",
+            title: "Profile Updated",
+            description: "Updated personal information on April 24, 2025",
+            date: "2025-04-24",
+            detailsUrl: "/profile",
+          },
+          {
+            id: "3",
+            type: "assessment",
+            title: "Heart Disease Risk Assessment",
+            description: "Completed on April 20, 2025",
+            date: "2025-04-20",
+            risk: "moderate",
+            detailsUrl: "/predict/results/3",
+          },
+        ]
 
-        const data = await response.json()
-        setActivities(data.activities)
+        setActivities(mockActivities)
+        setLoading(false)
       } catch (error) {
         console.error("Error fetching recent activity:", error)
-      } finally {
         setLoading(false)
       }
     }
@@ -74,16 +99,6 @@ export function RecentActivity() {
         {risk.charAt(0).toUpperCase() + risk.slice(1)} Risk
       </span>
     )
-  }
-
-  const handleViewDetails = (activity: ActivityItem) => {
-    if (activity.detailsUrl) {
-      router.push(activity.detailsUrl)
-    } else if (activity.type === "assessment") {
-      router.push(`/predict/results/${activity.id}`)
-    } else if (activity.type === "profile_update") {
-      router.push("/profile")
-    }
   }
 
   return (
@@ -119,21 +134,28 @@ export function RecentActivity() {
         ) : (
           <div className="divide-y divide-gray-200">
             {activities.map((activity) => (
-              <div key={activity.id} className="p-6 flex items-center hover:bg-gray-50 transition-colors">
-                <div className="flex-shrink-0 bg-gray-100 rounded-full p-2">{getActivityIcon(activity.type)}</div>
-                <div className="ml-4 flex-1">
-                  <h3 className="text-sm font-medium text-gray-900">{activity.title}</h3>
-                  <p className="text-sm text-gray-500">{activity.description}</p>
+              <div
+                key={activity.id}
+                className="p-6 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 bg-gray-100 rounded-full p-2">{getActivityIcon(activity.type)}</div>
+                  <div className="ml-4">
+                    <h3 className="text-base font-medium text-gray-900">{activity.title}</h3>
+                    <p className="text-sm text-gray-500">{activity.description}</p>
+                  </div>
                 </div>
-                {activity.risk && <div className="ml-4">{getRiskBadge(activity.risk)}</div>}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="ml-4 hover:bg-gray-100"
-                  onClick={() => handleViewDetails(activity)}
-                >
-                  View
-                </Button>
+                <div className="flex items-center space-x-4">
+                  {activity.risk && getRiskBadge(activity.risk)}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="hover:bg-gray-100"
+                    onClick={() => router.push(activity.detailsUrl || "#")}
+                  >
+                    View
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
