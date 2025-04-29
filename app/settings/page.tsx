@@ -5,13 +5,11 @@ import { ArrowLeft, SettingsIcon, Moon, Sun, Shield, Activity } from "lucide-rea
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/lib/auth-context"
-import { toast } from "@/components/ui/use-toast"
 
 export default function SettingsPage() {
   const [theme, setTheme] = useState<"dark" | "light">("dark")
@@ -194,54 +192,6 @@ export default function SettingsPage() {
         </div>
 
         <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-6 text-center">Settings</h1>
-
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-medium">Profile Details</h3>
-            <p className="text-sm text-gray-500">Update your profile information displayed in the dropdown menu.</p>
-          </div>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="display-name">Display Name</Label>
-                <Input
-                  id="display-name"
-                  placeholder="Your display name"
-                  defaultValue={user?.name || ""}
-                  onChange={(e) => {
-                    if (e.target.value.trim()) {
-                      updateUserDetails({ name: e.target.value })
-                    }
-                  }}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="display-email">Display Email</Label>
-                <Input
-                  id="display-email"
-                  placeholder="Your display email"
-                  defaultValue={user?.email || ""}
-                  onChange={(e) => {
-                    if (e.target.value.trim()) {
-                      updateUserDetails({ email: e.target.value })
-                    }
-                  }}
-                />
-              </div>
-            </div>
-            <Button
-              type="button"
-              onClick={() => {
-                toast({
-                  title: "Profile details updated",
-                  description: "Your profile details have been updated successfully.",
-                })
-              }}
-            >
-              Save Changes
-            </Button>
-          </div>
-        </div>
 
         <Tabs defaultValue="appearance" className="w-full">
           <TabsList className="grid grid-cols-3 mb-6">

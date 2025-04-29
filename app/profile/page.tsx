@@ -21,10 +21,11 @@ import {
   Loader2,
   Upload,
   RefreshCw,
+  KeyRound,
 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import Link from "next/link"
 
 export default function ProfilePage() {
   const { user, isLoading } = useAuth()
@@ -216,7 +217,6 @@ export default function ProfilePage() {
       const response = await fetch("/api/user/profile/upload-photo", {
         method: "POST",
         body: formData,
-        cache: "no-store",
       })
 
       console.log("Upload response status:", response.status)
@@ -331,32 +331,14 @@ export default function ProfilePage() {
               >
                 {profileData.profile_picture ? (
                   <>
-                    {profileData.profile_picture.startsWith("data:") ? (
-                      // For data URLs
-                      <div className="h-full w-full">
-                        <img
-                          src={`${profileData.profile_picture}`}
-                          alt="Profile"
-                          className="h-full w-full object-cover"
-                          key={`profile-img-${avatarKey}`}
-                        />
-                      </div>
-                    ) : (
-                      // For regular URLs
-                      <Avatar className="h-24 w-24">
-                        <AvatarImage
-                          src={`${profileData.profile_picture}${profileData.profile_picture.includes("?") ? "&" : "?"}v=${avatarKey}`}
-                          alt="Profile"
-                          className="h-full w-full object-cover"
-                        />
-                        <AvatarFallback className="bg-primary/10 text-primary text-2xl">
-                          {profileData.name?.[0]?.toUpperCase() ||
-                            user?.name?.[0]?.toUpperCase() ||
-                            user?.email?.[0]?.toUpperCase() ||
-                            "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
+                    <div className="h-full w-full">
+                      <img
+                        src={profileData.profile_picture || "/placeholder.svg"}
+                        alt="Profile"
+                        className="h-full w-full object-cover"
+                        key={`profile-img-${avatarKey}`}
+                      />
+                    </div>
                     <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <Camera className="h-8 w-8 text-white" />
                     </div>
@@ -478,6 +460,24 @@ export default function ProfilePage() {
               </div>
             </div>
           )}
+
+          {/* Password Reset Section */}
+          <div className="mt-8 border-t pt-6">
+            <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+              <KeyRound className="h-5 w-5" /> Password Management
+            </h3>
+            <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Reset your password</p>
+                  <p className="text-sm text-gray-500">Change your password to keep your account secure</p>
+                </div>
+                <Link href="/reset-password">
+                  <Button variant="outline">Reset Password</Button>
+                </Link>
+              </div>
+            </div>
+          </div>
         </CardContent>
         <CardFooter className="flex justify-between border-t pt-6">
           <p className="text-xs text-muted-foreground">Last updated: {new Date().toLocaleDateString()}</p>
