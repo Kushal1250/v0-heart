@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { runPrediction, fallbackPrediction, type PredictionInput } from "@/lib/prediction"
-import { saveToHistory } from "@/lib/user-specific-storage"
+import { saveAssessment, saveCurrentEmail } from "@/lib/simplified-history"
 
 export type PredictionResult = {
   prediction: number
@@ -72,18 +72,21 @@ export async function POST(request: NextRequest) {
       hasDisease: result.prediction === 1,
     }
 
-    // If we have an email, save the assessment to local storage for that email
+    // If we have an email, save the assessment to history
     if (userEmail) {
       try {
-        // Save assessment to user's email-specific history
-        saveToHistory(userEmail, {
+        // Save current email for future reference
+        saveCurrentEmail(userEmail)
+
+        // Save assessment to history
+        saveAssessment(userEmail, {
           ...body,
           result: predictionResult,
-          timestamp: new Date().toISOString(),
         })
+
         console.log(`Prediction saved for email ${userEmail} with result ${JSON.stringify(predictionResult)}`)
       } catch (storageError) {
-        console.error("Error saving to local storage:", storageError)
+        console.error("Error saving to history:", storageError)
       }
     }
 

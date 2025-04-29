@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Trash2, Bug } from "lucide-react"
+import { Trash2, Bug, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
-  getCurrentUserEmail,
-  setCurrentUserEmail,
-  getHistoryByEmail,
+  getCurrentEmail,
+  saveCurrentEmail,
+  getHistory,
   deleteHistoryItem,
-} from "@/lib/user-specific-storage"
+  debugHistory,
+  migrateOldHistory,
+} from "@/lib/simplified-history"
 
 export default function HistoryPage() {
   const [history, setHistory] = useState([])
@@ -20,46 +22,28 @@ export default function HistoryPage() {
   const [error, setError] = useState(null)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [showDebugTools, setShowDebugTools] = useState(false)
+  const [debugMessage, setDebugMessage] = useState("")
   const router = useRouter()
 
   // Load history on mount
   useEffect(() => {
-    const storedEmail = getCurrentUserEmail()
+    const storedEmail = getCurrentEmail()
     if (storedEmail) {
       setEmail(storedEmail)
       loadHistory(storedEmail)
     }
-
-    // Try to fetch from server if logged in
-    const fetchFromServer = async () => {
-      try {
-        const response = await fetch("/api/user/predictions")
-        if (response.ok) {
-          const data = await response.json()
-          if (Array.isArray(data) && data.length > 0) {
-            console.log("Retrieved history from server:", data)
-            // Transform server data to match local format if needed
-            const formattedData = data.map((item) => ({
-              id: item.id,
-              timestamp: new Date(item.created_at).getTime(),
-              result: {
-                risk: calculateRiskLevel(item.result),
-                score: item.result * 100,
-                hasDisease: item.result >= 0.5,
-              },
-              ...item.prediction_data,
-            }))
-            setHistory(formattedData)
-            setIsSubmitted(true)
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch from server:", error)
-      }
-    }
-
-    fetchFromServer()
     setIsLoading(false)
+
+    // Try to migrate old history data
+    try {
+      const migrated = migrateOldHistory()
+      if (migrated && storedEmail) {
+        // Reload history after migration
+        loadHistory(storedEmail)
+      }
+    } catch (e) {
+      console.error("Migration error:", e)
+    }
   }, [])
 
   // Load history for a specific email
@@ -68,17 +52,20 @@ export default function HistoryPage() {
 
     try {
       console.log(`Loading history for email: ${emailToLoad}`)
-      // Check localStorage directly to debug
-      console.log("All localStorage keys:", Object.keys(localStorage))
-      console.log(`Looking for key with: heart_assessment_history_${emailToLoad.toLowerCase()}`)
-
-      const userHistory = getHistoryByEmail(emailToLoad)
+      const userHistory = getHistory(emailToLoad)
       console.log("Retrieved history:", userHistory)
       setHistory(userHistory)
       setIsSubmitted(true)
+
+      if (userHistory.length === 0) {
+        setDebugMessage("No history found. Try the 'Migrate Old Data' button if you've taken assessments before.")
+      } else {
+        setDebugMessage("")
+      }
     } catch (err) {
       console.error("Error loading history:", err)
       setError("Failed to load history. Please try again.")
+      setDebugMessage("Error loading history. Check console for details.")
     }
   }
 
@@ -88,7 +75,7 @@ export default function HistoryPage() {
     if (!email) return
 
     console.log(`Submitting email: ${email}`)
-    setCurrentUserEmail(email)
+    saveCurrentEmail(email)
     loadHistory(email)
   }
 
@@ -130,7 +117,7 @@ export default function HistoryPage() {
     }
 
     const riskClass = getRiskClass(item.result.risk)
-    const percentage = Math.round((item.result.score || 0) * 100)
+    const percentage = item.result.score || 0
     const riskText = `${item.result.risk?.charAt(0).toUpperCase() + item.result.risk?.slice(1) || "Unknown"} Risk (${percentage}%)`
 
     return <span className={riskClass}>{riskText}</span>
@@ -144,6 +131,35 @@ export default function HistoryPage() {
   // Toggle debug tools
   const toggleDebugTools = () => {
     setShowDebugTools(!showDebugTools)
+  }
+
+  // Debug history
+  const handleDebugHistory = () => {
+    debugHistory()
+    setDebugMessage("Debug information logged to console. Press F12 to view.")
+  }
+
+  // Migrate old data
+  const handleMigrateOldData = () => {
+    try {
+      const migrated = migrateOldHistory()
+      if (migrated) {
+        setDebugMessage("Successfully migrated old history data!")
+        // Reload history
+        loadHistory(email)
+      } else {
+        setDebugMessage("No old history data found to migrate.")
+      }
+    } catch (e) {
+      console.error("Migration error:", e)
+      setDebugMessage(`Error migrating data: ${e.message}`)
+    }
+  }
+
+  // Refresh history
+  const handleRefreshHistory = () => {
+    loadHistory(email)
+    setDebugMessage("History refreshed.")
   }
 
   // If loading, show loading state
@@ -199,17 +215,62 @@ export default function HistoryPage() {
                 setEmail("")
                 setHistory([])
                 setIsSubmitted(false)
+                setDebugMessage("")
               }}
             >
               Change Email
             </Button>
           </p>
 
-          <Button variant="ghost" size="sm" onClick={toggleDebugTools} className="flex items-center gap-1">
-            <Bug className="h-4 w-4" />
-            {showDebugTools ? "Hide Tools" : "Troubleshoot"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleRefreshHistory} className="flex items-center gap-1">
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
+            <Button variant="ghost" size="sm" onClick={toggleDebugTools} className="flex items-center gap-1">
+              <Bug className="h-4 w-4" />
+              {showDebugTools ? "Hide Tools" : "Troubleshoot"}
+            </Button>
+          </div>
         </div>
+      )}
+
+      {/* Debug message */}
+      {debugMessage && <div className="mb-4 p-3 bg-blue-50 text-blue-800 rounded-md text-sm">{debugMessage}</div>}
+
+      {/* Debug tools */}
+      {isSubmitted && showDebugTools && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-sm">Troubleshooting Tools</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={handleDebugHistory}>
+                Debug History
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleMigrateOldData}>
+                Migrate Old Data
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  if (confirm("This will clear ALL local storage data. This action cannot be undone. Continue?")) {
+                    localStorage.clear()
+                    setDebugMessage("All local storage data has been cleared. Please refresh the page.")
+                  }
+                }}
+              >
+                Clear All Data
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              These tools can help troubleshoot issues with your assessment history. Use the browser console (F12) to
+              view debug information.
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {/* History list */}
@@ -223,7 +284,7 @@ export default function HistoryPage() {
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="text-lg font-semibold">{renderRiskLevel(item)}</h3>
-                        <p className="text-sm text-gray-500">{formatDate(item.timestamp || item.date)}</p>
+                        <p className="text-sm text-gray-500">{formatDate(item.timestamp)}</p>
                       </div>
                       <Button
                         variant="ghost"
@@ -256,8 +317,10 @@ export default function HistoryPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          // Navigate to details page
-                          window.location.href = `/predict/results/${item.id}?email=${encodeURIComponent(email)}`
+                          // Store the item in localStorage for the results page to use
+                          localStorage.setItem("predictionResult", JSON.stringify(item))
+                          // Navigate to results page
+                          router.push("/predict/results")
                         }}
                       >
                         View Full Details
@@ -281,10 +344,4 @@ export default function HistoryPage() {
       )}
     </div>
   )
-}
-
-function calculateRiskLevel(score) {
-  if (score >= 0.7) return "high"
-  if (score >= 0.3) return "moderate"
-  return "low"
 }
