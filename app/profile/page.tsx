@@ -39,10 +39,11 @@ export default function ProfilePage() {
     type: "success" | "error" | null
     message: string
   }>({ type: null, message: "" })
+  const [imageLoadError, setImageLoadError] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push("/login")
+      router.push("/login?redirect=/profile")
     } else if (user) {
       // Fetch user profile data
       fetchUserProfile()
@@ -55,11 +56,14 @@ export default function ProfilePage() {
     setIsFetchingProfile(true)
     try {
       console.log("Fetching user profile...")
-      const response = await fetch("/api/user/profile", {
+      // Add cache-busting query parameter
+      const cacheBuster = new Date().getTime()
+      const response = await fetch(`/api/user/profile?t=${cacheBuster}`, {
         method: "GET",
         headers: {
-          "Cache-Control": "no-cache",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
           Pragma: "no-cache",
+          Expires: "0",
         },
         cache: "no-store",
       })
@@ -73,7 +77,13 @@ export default function ProfilePage() {
       }
 
       const data = await response.json()
-      console.log("Profile data received:", data)
+      console.log("Profile data received:", {
+        ...data,
+        profile_picture: data.profile_picture ? `${data.profile_picture.substring(0, 30)}...` : "none",
+      })
+
+      // Reset image load error when we get new data
+      setImageLoadError(false)
 
       setProfileData(data)
       setFormData({
@@ -168,6 +178,9 @@ export default function ProfilePage() {
       profile_picture: imageUrl,
     }))
 
+    // Reset image load error when we get new data
+    setImageLoadError(false)
+
     // Also update the user context
     if (updateUserProfile) {
       updateUserProfile({ profile_picture: imageUrl })
@@ -178,6 +191,15 @@ export default function ProfilePage() {
       title: "Success",
       description: "Your profile picture has been updated successfully!",
     })
+  }
+
+  // Get current profile picture with a cache-busting timestamp
+  const getProfilePicture = () => {
+    const picture = profileData.profile_picture || user?.profile_picture || null
+    if (!picture || imageLoadError) {
+      return "/diverse-online-profiles.png"
+    }
+    return picture
   }
 
   if (isLoading) {
@@ -241,10 +263,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex justify-center mb-6">
-            <ProfileImageUpload
-              currentImage={profileData.profile_picture || user?.profile_picture || null}
-              onImageUpdate={handleProfileImageUpdate}
-            />
+            <ProfileImageUpload currentImage={getProfilePicture()} onImageUpdate={handleProfileImageUpdate} />
           </div>
 
           {isFetchingProfile && !alert.type ? (

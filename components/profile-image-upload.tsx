@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Camera, Loader2, Upload, User, AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
@@ -24,6 +23,16 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
+  // Reset preview when dialog opens/closes
+  useEffect(() => {
+    if (!isDialogOpen) {
+      setPreviewImage(null)
+      setSelectedFile(null)
+      setUploadError(null)
+      setUploadProgress(0)
+    }
+  }, [isDialogOpen])
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -32,12 +41,12 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
     setUploadError(null)
 
     // Validate file type
-    const validTypes = ["image/jpeg", "image/png", "image/gif"]
+    const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
     if (!validTypes.includes(file.type)) {
-      setUploadError("Invalid file type. Please upload a JPEG, PNG, or GIF image.")
+      setUploadError("Invalid file type. Please upload a JPEG, PNG, GIF, or WebP image.")
       toast({
         title: "Invalid file type",
-        description: "Please upload a JPEG, PNG, or GIF image.",
+        description: "Please upload a JPEG, PNG, GIF, or WebP image.",
         variant: "destructive",
       })
       return
@@ -79,29 +88,19 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
     setUploadError(null)
 
     try {
-      // Compress image before upload if it's large
-      let fileToUpload = selectedFile
-      if (selectedFile.size > 1 * 1024 * 1024) {
-        // If larger than 1MB
-        try {
-          fileToUpload = await compressImage(selectedFile, 0.8)
-          console.log("Image compressed successfully", {
-            originalSize: selectedFile.size,
-            compressedSize: fileToUpload.size,
-          })
-        } catch (compressionError) {
-          console.error("Image compression failed, using original file", compressionError)
-          // Continue with original file if compression fails
-        }
-      }
+      // Create small thumbnail version for preview
+      const imageToUpload = await compressImage(selectedFile)
+
+      console.log("Image prepared for upload", {
+        originalSize: selectedFile.size,
+        compressedSize: imageToUpload.size,
+        type: imageToUpload.type,
+      })
 
       // Create a FormData object to send the file
       const formData = new FormData()
-      formData.append("profile_picture", fileToUpload)
-
-      // Use fetch with a timeout to prevent hanging requests
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 second timeout
+      formData.append("profile_picture", imageToUpload)
+      formData.append("timestamp", Date.now().toString()) // Add timestamp to prevent caching
 
       // Simulate progress (since fetch doesn't provide upload progress)
       const progressInterval = setInterval(() => {
@@ -114,10 +113,9 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
       const response = await fetch("/api/user/profile/upload-photo", {
         method: "POST",
         body: formData,
-        signal: controller.signal,
+        // Don't set Content-Type header, let the browser set it with the boundary
       })
 
-      clearTimeout(timeoutId)
       clearInterval(progressInterval)
       setUploadProgress(100)
 
@@ -126,7 +124,11 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
         try {
           const errorData = await response.json()
           errorMessage = errorData.message || `Server error: ${response.status}`
+
+          // Log detailed error information
+          console.error("Upload failed:", errorData)
         } catch (jsonError) {
+          console.error("Could not parse error response:", jsonError)
           errorMessage = `Server error: ${response.status}`
         }
         throw new Error(errorMessage)
@@ -198,7 +200,7 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
   }
 
   // Function to compress image before upload
-  const compressImage = async (file: File, quality = 0.8): Promise<File> => {
+  const compressImage = async (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.readAsDataURL(file)
@@ -207,50 +209,80 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
         img.src = event.target?.result as string
         img.onload = () => {
           const canvas = document.createElement("canvas")
+
+          // Calculate new dimensions while maintaining aspect ratio
+          const maxDimension = 800 // Max width or height
           let width = img.width
           let height = img.height
 
-          // Calculate new dimensions while maintaining aspect ratio
-          const maxDimension = 1200 // Max width or height
           if (width > height && width > maxDimension) {
-            height = (height * maxDimension) / width
+            height = Math.round((height * maxDimension) / width)
             width = maxDimension
           } else if (height > maxDimension) {
-            width = (width * maxDimension) / height
+            width = Math.round((width * maxDimension) / height)
             height = maxDimension
           }
 
           canvas.width = width
           canvas.height = height
           const ctx = canvas.getContext("2d")
+
           if (!ctx) {
-            reject(new Error("Failed to get canvas context"))
+            console.error("Failed to get canvas context")
+            // If compression fails, use the original file
+            resolve(file)
             return
           }
 
+          // For better quality
+          ctx.imageSmoothingEnabled = true
+          ctx.imageSmoothingQuality = "high"
           ctx.drawImage(img, 0, 0, width, height)
 
           // Convert to blob with reduced quality
           canvas.toBlob(
             (blob) => {
               if (!blob) {
-                reject(new Error("Canvas to Blob conversion failed"))
+                console.error("Canvas to Blob conversion failed")
+                // If compression fails, use the original file
+                resolve(file)
                 return
               }
-              resolve(new File([blob], file.name, { type: "image/jpeg" }))
+
+              // Create a new file from the blob
+              const newFile = new File([blob], file.name, {
+                type: "image/jpeg",
+                lastModified: Date.now(),
+              })
+
+              resolve(newFile)
             },
             "image/jpeg",
-            quality, // Quality (0.8 = 80%)
+            0.85, // Quality (0.85 = 85%)
           )
         }
+
         img.onerror = () => {
-          reject(new Error("Failed to load image"))
+          console.error("Failed to load image")
+          // If compression fails, use the original file
+          resolve(file)
         }
       }
+
       reader.onerror = () => {
-        reject(new Error("Failed to read file"))
+        console.error("Failed to read file")
+        // If compression fails, use the original file
+        resolve(file)
       }
     })
+  }
+
+  // Create a placeholder for missing images
+  const getPlaceholderImage = () => {
+    if (currentImage?.startsWith("data:image/")) {
+      return currentImage
+    }
+    return "/diverse-online-profiles.png"
   }
 
   return (
@@ -264,11 +296,12 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
             <>
               <div className="h-full w-full">
                 <img
-                  src={currentImage || "/placeholder.svg"}
+                  src={currentImage || "/placeholder.svg?height=100&width=100&query=user%20profile"}
                   alt="Profile"
                   className="h-full w-full object-cover"
                   onError={(e) => {
-                    e.currentTarget.src = "/vibrant-street-market.png"
+                    console.log("Image load error, using placeholder")
+                    e.currentTarget.src = "/diverse-online-profiles.png"
                   }}
                 />
               </div>
@@ -320,7 +353,8 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
                   alt="Preview"
                   className="h-full w-full object-cover"
                   onError={(e) => {
-                    e.currentTarget.src = "/vibrant-street-market.png"
+                    console.log("Preview image load error")
+                    e.currentTarget.src = "/diverse-online-profiles.png"
                     setUploadError("Failed to preview image. The file may be corrupted.")
                   }}
                 />
@@ -330,7 +364,8 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
                   alt="Current"
                   className="h-full w-full object-cover"
                   onError={(e) => {
-                    e.currentTarget.src = "/vibrant-street-market.png"
+                    console.log("Current image load error")
+                    e.currentTarget.src = "/diverse-online-profiles.png"
                   }}
                 />
               ) : (
@@ -344,7 +379,7 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
               type="file"
               ref={fileInputRef}
               className="hidden"
-              accept="image/jpeg,image/png,image/gif"
+              accept="image/jpeg,image/png,image/gif,image/webp"
               onChange={handleFileSelect}
             />
             <Button variant="outline" onClick={handleProfilePictureClick}>
@@ -353,7 +388,7 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
           </div>
 
           <div className="text-xs text-gray-500 text-center">
-            <p>Supported formats: JPEG, PNG, GIF</p>
+            <p>Supported formats: JPEG, PNG, GIF, WebP</p>
             <p>Maximum file size: 5MB</p>
             <p className="mt-1 text-amber-600">Tip: For best results, use square images</p>
           </div>

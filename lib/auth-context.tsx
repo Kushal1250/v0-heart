@@ -31,6 +31,7 @@ interface AuthContextType {
   logout: () => Promise<void>
   updateUserProfile: (data: Partial<User>) => void
   updateUserDetails: (details: { name?: string; email?: string }) => void
+  isAuthenticated: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -39,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -58,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role: "admin",
           })
           setIsAdmin(true)
+          setIsAuthenticated(true)
           setIsLoading(false)
           return
         }
@@ -79,16 +82,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               } catch (error) {
                 console.error("Error loading saved user details:", error)
               }
-            }
 
-            setUser(data.user)
-            setIsAdmin(data.user?.role === "admin")
+              setUser(data.user)
+              setIsAdmin(data.user?.role === "admin")
+              setIsAuthenticated(true)
+            } else {
+              setIsAuthenticated(false)
+            }
           } catch (jsonError) {
             console.error("Error parsing user data:", jsonError)
+            setIsAuthenticated(false)
           }
+        } else {
+          setIsAuthenticated(false)
         }
       } catch (error) {
         console.error("Auth check error:", error)
+        setIsAuthenticated(false)
       } finally {
         setIsLoading(false)
       }
@@ -127,15 +137,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(data.user)
       setIsAdmin(data.user.role === "admin")
+      setIsAuthenticated(true)
 
       // Set flag for successful login
       sessionStorage.setItem("justLoggedIn", "true")
 
       // Check if there's a redirect path in the URL
       const urlParams = new URLSearchParams(window.location.search)
-      const redirectTo = urlParams.get("redirect") || "/history"
+      const redirectTo = urlParams.get("redirect")
 
-      return { success: true, message: "Login successful", redirectTo }
+      // If we have a redirect parameter, use it; otherwise use the path from the response
+      // or default to /history
+      return {
+        success: true,
+        message: "Login successful",
+        redirectTo: redirectTo || data.redirectTo || "/history",
+      }
     } catch (error: any) {
       return { success: false, message: error.message || "An unexpected error occurred" }
     }
@@ -178,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: "admin",
       })
       setIsAdmin(true)
+      setIsAuthenticated(true)
 
       // Set flag for successful login
       sessionStorage.setItem("loginSuccess", "true")
@@ -218,6 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(data.user)
       setIsAdmin(data.user.role === "admin")
+      setIsAuthenticated(true)
       return { success: true, message: "Signup successful" }
     } catch (error: any) {
       return { success: false, message: error.message || "An unexpected error occurred" }
@@ -229,6 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await fetch("/api/auth/logout", { method: "POST" })
       setUser(null)
       setIsAdmin(false)
+      setIsAuthenticated(false)
 
       // Clear admin cookie
       document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
@@ -268,6 +288,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isAdmin,
         isLoading,
+        isAuthenticated,
         login,
         adminLogin,
         signup,

@@ -314,7 +314,7 @@ export default function HistoryPage() {
     )
   }
 
-  // If not authenticated, show login prompt
+  // If not authenticated, show login prompt with redirect back to history
   if (!isAuthenticated && !authLoading) {
     return (
       <div className="container mx-auto px-4 py-8 md:py-12">
@@ -344,7 +344,7 @@ export default function HistoryPage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button asChild className="bg-red-600 hover:bg-red-700">
-                  <Link href="/login">Log In</Link>
+                  <Link href={`/login?redirect=${encodeURIComponent("/history")}`}>Log In</Link>
                 </Button>
                 <Button asChild variant="outline">
                   <Link href="/signup">Create Account</Link>
@@ -466,7 +466,7 @@ export default function HistoryPage() {
                   </div>
                 </div>
                 <Button asChild variant="outline" size="sm" className="text-xs">
-                  <Link href="/login" className="flex items-center gap-1">
+                  <Link href={`/login?redirect=${encodeURIComponent("/history")}`} className="flex items-center gap-1">
                     <LogIn className="h-3 w-3" />
                     Log in to save history
                   </Link>

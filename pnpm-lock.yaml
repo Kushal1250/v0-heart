@@ -104,6 +104,9 @@ importers:
       bcrypt-ts:
         specifier: latest
         version: 6.0.0
+      bcryptjs:
+        specifier: latest
+        version: 3.0.2
       child_process:
         specifier: latest
         version: 1.0.2
@@ -1475,6 +1478,10 @@ packages:
   bcrypt-ts@6.0.0:
     resolution: {integrity: sha512-P6B36krzeMDEIzG2o2SiDxHCSHeWF2Fvj/Kvmr5gAMBs6jpKfU/9LPXkrd4Ztp3reeq9nNZEU3DQq/e0xZ1T9w==}
     engines: {node: '>=18'}
+
+  bcryptjs@3.0.2:
+    resolution: {integrity: sha512-k38b3XOZKv60C4E2hVsXTolJWfkGRMbILBIe2IBITXciy5bOsTKot5kDrf3ZfufQtQOUN5mXceUEpU1rTl9Uog==}
+    hasBin: true
 
   binary-extensions@2.3.0:
     resolution: {integrity: sha512-Ceh+7ox5qe7LJuLHoY0feh3pHuUDHAcRUeyL2VYghZwfpkNIy/+8Ocg0a3UuSoYzavmylwuLWQOf3hl0jjMMIw==}
@@ -3861,6 +3868,8 @@ snapshots:
   base64-js@1.5.1: {}
 
   bcrypt-ts@6.0.0: {}
+
+  bcryptjs@3.0.2: {}
 
   binary-extensions@2.3.0: {}
 

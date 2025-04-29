@@ -72,7 +72,8 @@
     "pdfkit": "latest",
     "@neondatabase/serverless": "latest",
     "twilio": "latest",
-    "bcrypt-ts": "latest"
+    "bcrypt-ts": "latest",
+    "bcryptjs": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

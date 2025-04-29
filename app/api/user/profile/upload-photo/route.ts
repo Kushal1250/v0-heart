@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const profilePicture = formData.get("profile_picture") as File
+    const profilePicture = formData.get("profile_picture") as File | null
 
     if (!profilePicture) {
       console.log("Profile photo upload: No file uploaded")
@@ -50,11 +50,11 @@ export async function POST(request: NextRequest) {
     )
 
     // Validate file type
-    const validTypes = ["image/jpeg", "image/png", "image/gif"]
+    const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
     if (!validTypes.includes(profilePicture.type)) {
       console.log(`Profile photo upload: Invalid file type - ${profilePicture.type}`)
       return NextResponse.json(
-        { message: "Invalid file type. Please upload a JPEG, PNG, or GIF image." },
+        { message: "Invalid file type. Please upload a JPEG, PNG, GIF, or WebP image." },
         { status: 400 },
       )
     }
@@ -81,6 +81,14 @@ export async function POST(request: NextRequest) {
       const base64Image = buffer.toString("base64")
       dataUrl = `data:${profilePicture.type};base64,${base64Image}`
       console.log(`Profile photo upload: Data URL created, length: ${dataUrl.length} characters`)
+
+      if (dataUrl.length > 2 * 1024 * 1024) {
+        // 2MB limit for data URL
+        console.log(
+          `Profile photo upload: Data URL too large (${dataUrl.length} bytes), will compress further on server`,
+        )
+        // Here we could implement server-side compression, but for now just warn
+      }
     } catch (error) {
       console.error("Profile photo upload: Error converting file to data URL", error)
       return NextResponse.json(
@@ -94,6 +102,7 @@ export async function POST(request: NextRequest) {
     // Store the data URL in the database
     try {
       console.log("Profile photo upload: Updating user profile in database")
+
       const updatedUser = await updateUserProfile(currentUser.id, {
         profile_picture: dataUrl,
       })

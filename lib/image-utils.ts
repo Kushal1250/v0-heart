@@ -9,7 +9,7 @@
  * @param quality JPEG quality (0-1)
  * @returns A promise that resolves to the resized image data URL
  */
-export async function resizeImageDataUrl(dataUrl: string, maxDimension = 1200, quality = 0.8): Promise<string> {
+export async function resizeImageDataUrl(dataUrl: string, maxDimension = 800, quality = 0.85): Promise<string> {
   return new Promise((resolve, reject) => {
     try {
       const img = new Image()
@@ -36,6 +36,9 @@ export async function resizeImageDataUrl(dataUrl: string, maxDimension = 1200, q
           return
         }
 
+        // For better quality
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = "high"
         ctx.drawImage(img, 0, 0, width, height)
 
         // Convert back to data URL
@@ -68,4 +71,29 @@ export async function isValidImageDataUrl(dataUrl: string): Promise<boolean> {
     img.onerror = () => resolve(false)
     img.src = dataUrl
   })
+}
+
+/**
+ * Converts a File object to a data URL
+ * @param file The file to convert
+ * @returns A promise that resolves to the data URL
+ */
+export function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error("Failed to read file"))
+    reader.readAsDataURL(file)
+  })
+}
+
+/**
+ * Creates a placeholder image URL
+ * @param width Width of the placeholder image
+ * @param height Height of the placeholder image
+ * @param text Text to display in the placeholder
+ * @returns A placeholder image URL
+ */
+export function createPlaceholderImage(width = 200, height = 200, text = "user profile"): string {
+  return `/placeholder.svg?height=${height}&width=${width}&query=${encodeURIComponent(text)}`
 }

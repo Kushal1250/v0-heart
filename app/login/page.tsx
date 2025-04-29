@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Eye, EyeOff, User, Lock, Phone, ArrowRight } from "lucide-react"
@@ -25,7 +25,12 @@ export default function LoginPage() {
   const { login } = useAuth()
 
   // Get redirect parameter from URL if present
-  const redirectPath = searchParams.get("redirect") || "/history"
+  const redirectPath = searchParams.get("redirect") || "/dashboard"
+
+  // Log the redirect path for debugging
+  useEffect(() => {
+    console.log("Redirect path:", redirectPath)
+  }, [redirectPath])
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword)
@@ -66,8 +71,12 @@ export default function LoginPage() {
         // Store login success flag for showing welcome message
         sessionStorage.setItem("justLoggedIn", "true")
 
-        // Redirect to the specified path or history page
-        router.push(result.redirectTo || redirectPath)
+        // Use the redirect path from the URL or result, ensuring it's properly preserved
+        const finalRedirectPath = result.redirectTo || redirectPath
+        console.log("Redirecting to:", finalRedirectPath)
+
+        // Redirect to the specified path
+        router.push(finalRedirectPath)
       } else {
         setError(result.message)
       }
@@ -85,6 +94,11 @@ export default function LoginPage() {
         <div className="text-center">
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Login</h2>
           <p className="mt-2 text-sm text-gray-600">Enter your credentials to access your account</p>
+          {redirectPath && redirectPath !== "/dashboard" && (
+            <p className="mt-2 text-sm text-blue-600">
+              You'll be redirected back to {redirectPath.replace(/^\//, "")} after login
+            </p>
+          )}
         </div>
 
         {error && (

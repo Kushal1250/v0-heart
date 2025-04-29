@@ -1,44 +1,77 @@
 import { NextResponse } from "next/server"
-import { getUserByEmail, comparePasswords, createSession } from "@/lib/db"
-import { generateToken, createResponseWithCookie } from "@/lib/auth-utils"
+import { sql } from "@neondatabase/serverless"
+import bcrypt from "bcryptjs"
+import { v4 as uuidv4 } from "uuid"
+import { cookies } from "next/headers"
 
 export async function POST(request: Request) {
   try {
-    const { email, password, phone } = await request.json()
+    const { email, password } = await request.json()
 
-    // Basic validation
+    // Validate input
     if (!email || !password) {
       return NextResponse.json({ message: "Email and password are required" }, { status: 400 })
     }
 
-    // Get user
-    const user = await getUserByEmail(email)
-    if (!user) {
+    // Check if user exists
+    const userResult = await sql`
+      SELECT * FROM users WHERE email = ${email}
+    `
+
+    if (userResult.rowCount === 0) {
       return NextResponse.json({ message: "Invalid email or password" }, { status: 401 })
     }
 
-    // Verify phone if provided (optional verification)
-    if (phone && user.phone && phone !== user.phone) {
-      return NextResponse.json({ message: "Invalid phone number" }, { status: 401 })
-    }
+    const user = userResult.rows[0]
 
-    // Check password
-    const isPasswordValid = await comparePasswords(password, user.password)
+    // Check if password is correct
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash)
+
     if (!isPasswordValid) {
       return NextResponse.json({ message: "Invalid email or password" }, { status: 401 })
     }
 
-    // Create session
-    const token = generateToken()
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
-    await createSession(user.id, token, expiresAt)
+    // Generate session token
+    const sessionToken = uuidv4()
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + 30) // 30 days from now
 
-    // Return user data (without password) and set cookie
-    const { password: _, ...userWithoutPassword } = user
-    return createResponseWithCookie({ user: userWithoutPassword }, token)
+    // Store session in database
+    await sql`
+      INSERT INTO sessions (token, user_id, expires_at)
+      VALUES (${sessionToken}, ${user.id}, ${expiresAt.toISOString()})
+    `
+
+    // Set session cookie
+    cookies().set({
+      name: "session",
+      value: sessionToken,
+      httpOnly: true,
+      path: "/",
+      expires: expiresAt,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    })
+
+    // Get the redirect URL from the request headers or query params
+    const referer = request.headers.get("referer") || ""
+    const url = new URL(referer)
+    const redirectPath = url.searchParams.get("redirect") || "/history"
+
+    // Return user data (excluding password)
+    return NextResponse.json({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        profile_picture: user.profile_picture,
+        phone: user.phone,
+      },
+      redirectTo: redirectPath,
+    })
   } catch (error) {
     console.error("Login error:", error)
-    const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred during login"
-    return NextResponse.json({ message: errorMessage }, { status: 500 })
+    return NextResponse.json({ message: "An error occurred during login" }, { status: 500 })
   }
 }
