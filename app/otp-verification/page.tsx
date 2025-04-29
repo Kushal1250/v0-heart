@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { resendVerificationAction } from "@/app/auth/actions"
 import { Check, X } from "lucide-react"
 
 export default function OTPVerificationPage() {
@@ -16,7 +15,6 @@ export default function OTPVerificationPage() {
   const searchParams = useSearchParams()
   const identifier = searchParams.get("identifier") || ""
   const method = (searchParams.get("method") as "email" | "sms") || "email"
-  const redirectUrl = searchParams.get("redirectUrl") || "/reset-password-profile"
 
   const [otp, setOtp] = useState("")
   const [error, setError] = useState("")
@@ -65,28 +63,32 @@ export default function OTPVerificationPage() {
     setLoading(true)
 
     try {
-      // Call the API endpoint that uses verifyOTP
-      const response = await fetch("/api/auth/verify-otp", {
+      console.log("Verifying OTP:", otp, "for identifier:", identifier)
+
+      const response = await fetch("/api/auth/verify-code", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ otp, identifier }),
+        body: JSON.stringify({
+          identifier,
+          code: otp,
+        }),
       })
 
       const result = await response.json()
+      console.log("Verification result:", result)
 
       if (result.success) {
         setSuccess(true)
         setIsVerified(true)
-        // Store the token for password reset
-        localStorage.setItem("resetToken", result.token)
+        // No need to redirect, we'll show the password form
       } else {
         setError(result.message || "Invalid verification code. Please try again.")
       }
     } catch (err) {
+      console.error("Error during verification:", err)
       setError("An error occurred during verification. Please try again.")
-      console.error(err)
     } finally {
       setLoading(false)
     }
@@ -98,7 +100,18 @@ export default function OTPVerificationPage() {
     setError("")
 
     try {
-      const result = await resendVerificationAction(identifier, method)
+      const response = await fetch("/api/auth/send-verification-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          identifier,
+          method,
+        }),
+      })
+
+      const result = await response.json()
 
       if (result.success) {
         setResendSuccess(true)
@@ -108,8 +121,8 @@ export default function OTPVerificationPage() {
         setError(result.message || "Failed to resend verification code. Please try again.")
       }
     } catch (err) {
+      console.error("Error resending code:", err)
       setError("An error occurred. Please try again.")
-      console.error(err)
     } finally {
       setResendLoading(false)
     }
@@ -143,7 +156,6 @@ export default function OTPVerificationPage() {
         },
         body: JSON.stringify({
           identifier,
-          verificationCode: otp,
           newPassword: password,
         }),
       })
@@ -160,8 +172,8 @@ export default function OTPVerificationPage() {
         setPasswordError(data.message || "Failed to change password. Please try again.")
       }
     } catch (err) {
+      console.error("Error changing password:", err)
       setPasswordError("An error occurred. Please try again.")
-      console.error(err)
     } finally {
       setPasswordLoading(false)
     }
@@ -171,11 +183,15 @@ export default function OTPVerificationPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-center text-2xl font-bold">Verification Code</CardTitle>
+          <CardTitle className="text-center text-2xl font-bold">
+            {isVerified ? "Set New Password" : "Verification Code"}
+          </CardTitle>
           <CardDescription className="text-center">
-            {method === "email"
-              ? `We've sent a verification code to your email ${identifier}`
-              : `We've sent a verification code to your phone ${identifier}`}
+            {!isVerified &&
+              (method === "email"
+                ? `We've sent a verification code to your email ${identifier}`
+                : `We've sent a verification code to your phone ${identifier}`)}
+            {isVerified && "Please create a new secure password for your account"}
           </CardDescription>
         </CardHeader>
         <CardContent>

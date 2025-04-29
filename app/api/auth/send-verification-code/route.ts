@@ -1,271 +1,78 @@
 import { NextResponse } from "next/server"
-import { getUserByEmail, getUserByPhone, createVerificationCode } from "@/lib/db"
-import { isValidEmail, getUserFromRequest } from "@/lib/auth-utils"
-import { isValidPhone, sendVerificationWithFallback } from "@/lib/enhanced-sms-utils"
+import { sql } from "@/lib/db"
+import { getUserByEmail } from "@/lib/db"
 import { sendEmail } from "@/lib/email-utils"
-import { logError, ErrorSeverity, createErrorResponse } from "@/lib/error-logger"
+import { sendSMS } from "@/lib/sms-utils"
+import { v4 as uuidv4 } from "uuid"
 
 export async function POST(request: Request) {
   try {
-    const { email, phone, isLoggedIn, method = "auto" } = await request.json()
-    console.log(
-      `Verification request received: ${isLoggedIn ? "logged in" : "not logged in"}, email: ${email || "none"}, phone: ${
-        phone || "none"
-      }, method: ${method}`,
-    )
+    const { identifier, method } = await request.json()
 
-    // If user is logged in, get their info from the session
-    if (isLoggedIn) {
-      const currentUser = await getUserFromRequest(request as any)
-
-      if (!currentUser) {
-        console.log("Authentication required for logged-in user verification")
-        return NextResponse.json({ message: "Authentication required" }, { status: 401 })
-      }
-
-      // Generate a 6-digit code
-      const code = Math.floor(100000 + Math.random() * 900000).toString()
-      console.log(`Generated verification code for logged-in user: ${code}`)
-
-      // Store the code in the database
-      try {
-        await createVerificationCode(currentUser.id, code)
-      } catch (error) {
-        console.error("Error storing verification code:", error)
-        const errorResponse = await createErrorResponse(
-          "createVerificationCode",
-          error,
-          currentUser.id,
-          { userId: currentUser.id },
-          ErrorSeverity.HIGH,
-        )
-
-        return NextResponse.json(
-          {
-            success: false,
-            message: "Failed to store verification code. Please try again later.",
-            errorDetails: error instanceof Error ? error.message : "Unknown database error",
-            errorId: errorResponse.errorId,
-          },
-          { status: 500 },
-        )
-      }
-
-      // Determine whether to send via email or SMS based on what was provided
-      let contactMethod = method
-      if (contactMethod === "auto") {
-        contactMethod = phone ? "sms" : "email"
-      }
-
-      if (contactMethod === "sms") {
-        // Use the provided phone or the user's phone
-        const phoneToUse = phone || currentUser.phone
-
-        if (!phoneToUse) {
-          console.log("No phone number provided or found in user profile")
-          return NextResponse.json(
-            {
-              success: false,
-              message: "No phone number provided or found in user profile",
-            },
-            { status: 400 },
-          )
-        }
-
-        // Try SMS with email fallback if the user has an email
-        const verificationResult = await sendVerificationWithFallback(phoneToUse, currentUser.email, code)
-
-        if (!verificationResult.success) {
-          console.error("Verification sending failed:", verificationResult.message)
-          const errorId = await logError(
-            "sendVerification",
-            new Error(verificationResult.message),
-            { phone: phoneToUse, email: currentUser.email, fallbackAttempted: !!currentUser.email },
-            ErrorSeverity.HIGH,
-          )
-
-          return NextResponse.json(
-            {
-              success: false,
-              message: verificationResult.message,
-              errorId,
-            },
-            { status: 500 },
-          )
-        }
-
-        // Return success with method information
-        return NextResponse.json({
-          success: true,
-          message: verificationResult.message,
-          method: verificationResult.method,
-          fallbackUsed: verificationResult.fallbackUsed,
-        })
-      } else {
-        // Send email verification
-        const emailResult = await sendEmail({
-          to: currentUser.email,
-          subject: "Your Verification Code",
-          text: `Your HeartPredict verification code is: ${code}. Valid for 15 minutes.`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2>Your Verification Code</h2>
-              <p>Use the following code to verify your account:</p>
-              <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold;">
-                ${code}
-              </div>
-              <p>This code will expire in 15 minutes.</p>
-              <p>If you didn't request this code, please ignore this email.</p>
-            </div>
-          `,
-        })
-
-        if (!emailResult.success) {
-          console.error("Email sending failed:", emailResult.message)
-          const errorId = await logError(
-            "sendEmail",
-            new Error(emailResult.message),
-            { email: currentUser.email },
-            ErrorSeverity.HIGH,
-          )
-
-          return NextResponse.json(
-            {
-              success: false,
-              message: "Failed to send verification code via email. Please try again.",
-              errorDetails: emailResult.message,
-              previewUrl: emailResult.previewUrl,
-              errorId,
-            },
-            { status: 500 },
-          )
-        }
-
-        return NextResponse.json({
-          success: true,
-          message: "Verification code sent via email",
-          method: "email",
-          previewUrl: emailResult.previewUrl,
-        })
-      }
+    if (!identifier) {
+      return NextResponse.json({ success: false, message: "Email or phone number is required" }, { status: 400 })
     }
 
-    // For non-logged in users, validate input
-    if (!email && !phone) {
-      console.log("Email or phone number is required")
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Email or phone number is required",
-        },
-        { status: 400 },
-      )
+    if (!method || (method !== "email" && method !== "sms")) {
+      return NextResponse.json({ success: false, message: "Valid verification method is required" }, { status: 400 })
     }
 
-    if (email && !isValidEmail(email)) {
-      console.log(`Invalid email format: ${email}`)
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Valid email is required",
-        },
-        { status: 400 },
-      )
-    }
-
-    if (phone) {
-      // Validate phone number
-      const isValid = await isValidPhone(phone)
-      if (!isValid) {
-        console.log(`Invalid phone number format: ${phone}`)
-        return NextResponse.json(
-          {
-            success: false,
-            message: "Invalid phone number format. Please enter a valid phone number.",
-          },
-          { status: 400 },
-        )
-      }
-    }
-
-    // Check if user exists
-    let user = null
-    if (email) {
-      user = await getUserByEmail(email)
-    } else if (phone) {
-      user = await getUserByPhone(phone)
-    }
+    console.log(`Sending verification code to ${identifier} via ${method}`)
 
     // Generate a 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString()
     console.log(`Generated verification code: ${code}`)
 
-    // Store the code in the database (even if user doesn't exist, for security)
-    const identifier = user ? user.id : email || phone
-    try {
-      await createVerificationCode(identifier, code)
-    } catch (error) {
-      console.error("Error storing verification code:", error)
-      const errorId = await logError("createVerificationCode", error, { identifier }, ErrorSeverity.HIGH)
+    // Check if the verification_codes table exists, create if not
+    const tableExists = await sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'verification_codes'
+      );
+    `
 
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Failed to store verification code. Please try again later.",
-          errorDetails: error instanceof Error ? error.message : "Unknown database error",
-          errorId,
-        },
-        { status: 500 },
-      )
+    if (!tableExists[0].exists) {
+      console.log("Creating verification_codes table...")
+      await sql`
+        CREATE TABLE verification_codes (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id TEXT NOT NULL,
+          code TEXT NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '15 minutes')
+        )
+      `
     }
 
-    // Determine contact method
-    let contactMethod = method
-    if (contactMethod === "auto") {
-      contactMethod = phone ? "sms" : "email"
-    }
-
-    // Send the code via SMS or email
-    if (contactMethod === "sms" && phone) {
-      // If user exists and has an email, we can use it as fallback
-      const userEmail = user ? user.email : null
-
-      // Try SMS with email fallback if available
-      const verificationResult = await sendVerificationWithFallback(phone, userEmail, code)
-
-      if (!verificationResult.success) {
-        console.error("Verification sending failed:", verificationResult.message)
-        const errorId = await logError(
-          "sendVerification",
-          new Error(verificationResult.message),
-          { phone, email: userEmail, fallbackAttempted: !!userEmail },
-          ErrorSeverity.HIGH,
-        )
-
-        return NextResponse.json(
-          {
-            success: false,
-            message: verificationResult.message,
-            errorId,
-          },
-          { status: 500 },
-        )
+    // Get user ID if identifier is an email
+    let userId = identifier
+    if (method === "email" && identifier.includes("@")) {
+      const user = await getUserByEmail(identifier)
+      if (user) {
+        userId = user.id
+        console.log(`Found user ID ${userId} for email ${identifier}`)
       }
+    }
 
-      // Return success with method information
-      return NextResponse.json({
-        success: true,
-        message: verificationResult.message,
-        method: verificationResult.method,
-        fallbackUsed: verificationResult.fallbackUsed,
-      })
-    } else if (contactMethod === "email" && email) {
-      // Send email verification
-      console.log(`Sending email verification to ${email}`)
+    // Delete any existing codes for this user/identifier
+    await sql`DELETE FROM verification_codes WHERE user_id = ${userId} OR user_id = ${identifier}`
+
+    // Store the new code
+    const verificationId = uuidv4()
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
+
+    await sql`
+      INSERT INTO verification_codes (id, user_id, code, expires_at)
+      VALUES (${verificationId}, ${userId}, ${code}, ${expiresAt})
+    `
+    console.log(`Stored verification code in database for ${userId}`)
+
+    // Send the code via the specified method
+    if (method === "email") {
       const emailResult = await sendEmail({
-        to: email,
+        to: identifier,
         subject: "Your Verification Code",
-        text: `Your HeartPredict verification code is: ${code}. Valid for 15 minutes.`,
+        text: `Your verification code is: ${code}. It will expire in 15 minutes.`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2>Your Verification Code</h2>
@@ -280,16 +87,10 @@ export async function POST(request: Request) {
       })
 
       if (!emailResult.success) {
-        console.error("Email sending failed:", emailResult.message)
-        const errorId = await logError("sendEmail", new Error(emailResult.message), { email }, ErrorSeverity.HIGH)
-
         return NextResponse.json(
           {
             success: false,
-            message: "Failed to send verification code via email. Please try again.",
-            errorDetails: emailResult.message,
-            previewUrl: emailResult.previewUrl,
-            errorId,
+            message: emailResult.message || "Failed to send verification email",
           },
           { status: 500 },
         )
@@ -297,27 +98,36 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        message: "Verification code sent via email",
-        method: "email",
+        message: "Verification code sent to your email",
         previewUrl: emailResult.previewUrl,
+      })
+    } else if (method === "sms") {
+      const message = `Your verification code is: ${code}. It will expire in 15 minutes.`
+      const smsResult = await sendSMS(identifier, message)
+
+      if (!smsResult.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: smsResult.message || "Failed to send verification SMS",
+          },
+          { status: 500 },
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Verification code sent to your phone",
       })
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "If an account exists, a verification code has been sent",
-      method: phone ? "sms" : "email",
-    })
-  } catch (error: any) {
-    console.error("Verification code request error:", error)
-    const errorId = await logError("sendVerificationCode", error, {}, ErrorSeverity.HIGH)
-
+    return NextResponse.json({ success: false, message: "Invalid verification method" }, { status: 400 })
+  } catch (error) {
+    console.error("Error sending verification code:", error)
     return NextResponse.json(
       {
         success: false,
-        message: "An error occurred while processing your request",
-        errorDetails: error instanceof Error ? error.message : "Unknown error",
-        errorId,
+        message: "An error occurred while sending the verification code",
       },
       { status: 500 },
     )
