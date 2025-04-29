@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getUserFromRequest } from "@/lib/auth-utils"
+import { createErrorResponse } from "@/lib/error-logger"
 
 export async function GET(request: Request) {
   try {
@@ -10,39 +11,45 @@ export async function GET(request: Request) {
     }
 
     // Check SMS configuration
-    const smsConfigured = !!(
-      process.env.TWILIO_ACCOUNT_SID &&
-      process.env.TWILIO_AUTH_TOKEN &&
-      process.env.TWILIO_PHONE_NUMBER
+    const smsConfigured = Boolean(
+      process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER,
     )
 
     // Check email configuration
-    const emailConfigured = !!(
-      process.env.EMAIL_SERVER &&
-      process.env.EMAIL_PORT &&
-      process.env.EMAIL_USER &&
-      process.env.EMAIL_PASSWORD
+    const emailConfigured = Boolean(
+      process.env.EMAIL_SERVER && process.env.EMAIL_PORT && process.env.EMAIL_USER && process.env.EMAIL_PASSWORD,
     )
 
-    return NextResponse.json({
+    // Prepare detailed status information
+    const status = {
       sms: {
         configured: smsConfigured,
-        message: smsConfigured ? "Twilio is properly configured" : "Twilio credentials are missing or incomplete",
+        message: smsConfigured
+          ? "SMS verification is configured correctly"
+          : "SMS verification is not configured. Please add Twilio credentials to your environment variables.",
+        details: {
+          accountSid: Boolean(process.env.TWILIO_ACCOUNT_SID) ? "Configured" : "Missing",
+          authToken: Boolean(process.env.TWILIO_AUTH_TOKEN) ? "Configured" : "Missing",
+          phoneNumber: Boolean(process.env.TWILIO_PHONE_NUMBER) ? "Configured" : "Missing",
+        },
       },
       email: {
         configured: emailConfigured,
         message: emailConfigured
-          ? "Email service is properly configured"
-          : "Email configuration is missing or incomplete",
+          ? "Email verification is configured correctly"
+          : "Email verification is not configured. Please add email server credentials to your environment variables.",
+        details: {
+          server: Boolean(process.env.EMAIL_SERVER) ? "Configured" : "Missing",
+          port: Boolean(process.env.EMAIL_PORT) ? "Configured" : "Missing",
+          user: Boolean(process.env.EMAIL_USER) ? "Configured" : "Missing",
+          password: Boolean(process.env.EMAIL_PASSWORD) ? "Configured" : "Missing",
+        },
       },
-    })
+    }
+
+    return NextResponse.json(status)
   } catch (error) {
-    console.error("Error checking verification status:", error)
-    return NextResponse.json(
-      {
-        message: `Failed to check verification status: ${error instanceof Error ? error.message : "Unknown error"}`,
-      },
-      { status: 500 },
-    )
+    const errorResponse = await createErrorResponse("verification/check-status", error)
+    return NextResponse.json(errorResponse, { status: 500 })
   }
 }

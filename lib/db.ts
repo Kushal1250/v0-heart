@@ -523,14 +523,14 @@ export async function getPredictionById(id: string) {
  * @param code Verification code
  * @returns The created verification code record
  */
-export async function createVerificationCode(userId: string, code: string) {
+export async function createVerificationCode(identifier: string, code: string) {
   try {
-    if (!userId || !code) {
+    if (!identifier || !code) {
       throw new Error("User ID and code are required to create a verification code")
     }
 
     // Delete any existing codes for this user
-    await sql`DELETE FROM verification_codes WHERE user_id = ${userId}`
+    await sql`DELETE FROM verification_codes WHERE user_id = ${identifier}`
 
     // Create a new code
     const verificationId = uuidv4()
@@ -538,7 +538,7 @@ export async function createVerificationCode(userId: string, code: string) {
 
     const result = await sql`
       INSERT INTO verification_codes (id, user_id, code, expires_at)
-      VALUES (${verificationId}, ${userId}, ${code}, ${expiresAt})
+      VALUES (${verificationId}, ${identifier}, ${code}, ${expiresAt})
       RETURNING id, user_id, code, created_at, expires_at
     `
 
@@ -568,6 +568,28 @@ export async function getVerificationCodeByUserIdAndCode(userId: string, code: s
     return codes[0] || null
   } catch (error) {
     console.error("Database error in getVerificationCodeByUserIdAndCode:", error)
+    throw new Error(`Failed to get verification code: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
+ * Get a verification code by identifier (email or phone)
+ * @param identifier User ID
+ * @returns The verification code record or null
+ */
+export async function getVerificationCode(identifier: string) {
+  try {
+    if (!identifier) {
+      throw new Error("Identifier is required to get verification code")
+    }
+
+    const codes = await sql`
+      SELECT * FROM verification_codes
+      WHERE user_id = ${identifier} AND expires_at > NOW()
+    `
+    return codes[0] || null
+  } catch (error) {
+    console.error("Database error in getVerificationCode:", error)
     throw new Error(`Failed to get verification code: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }

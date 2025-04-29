@@ -71,7 +71,6 @@
     "util": "latest",
     "pdfkit": "latest",
     "@neondatabase/serverless": "latest",
-    "twilio": "latest",
     "bcrypt-ts": "latest"
   },
   "devDependencies": {

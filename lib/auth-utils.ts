@@ -1,7 +1,16 @@
 import { cookies } from "next/headers"
 import { v4 as uuidv4 } from "uuid"
-import { getSessionByToken, getUserById } from "@/lib/db"
+import {
+  getSessionByToken,
+  getUserById,
+  createVerificationCode,
+  getVerificationCode,
+  deleteVerificationCode,
+} from "@/lib/db"
 import type { NextRequest } from "next/server"
+import { sendSMS } from "@/lib/sms-utils"
+import { logError } from "@/lib/error-logger"
+import nodemailer from "nodemailer"
 
 export function getSessionToken(): string | undefined {
   return cookies().get("session")?.value
@@ -178,5 +187,192 @@ export async function getUserFromSession(sessionToken: string | undefined): Prom
   } catch (error) {
     console.error("Error getting user from session:", error)
     return null
+  }
+}
+
+/**
+ * Generates a random verification code
+ */
+function generateVerificationCode(): string {
+  // Generate a 6-digit code
+  return Math.floor(100000 + Math.random() * 900000).toString()
+}
+
+/**
+ * Sends a verification code via email
+ */
+async function sendEmailVerification(email: string, code: string): Promise<boolean> {
+  try {
+    // Create a transporter
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_SERVER,
+      port: Number.parseInt(process.env.EMAIL_PORT || "587"),
+      secure: process.env.EMAIL_SECURE === "true",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+    })
+
+    // Send the email
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: email,
+      subject: "Your Verification Code",
+      text: `Your verification code is: ${code}. It will expire in 15 minutes.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Your Verification Code</h2>
+          <p>Use the following code to verify your account:</p>
+          <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold;">
+            ${code}
+          </div>
+          <p>This code will expire in 15 minutes.</p>
+          <p>If you didn't request this code, please ignore this email.</p>
+        </div>
+      `,
+    })
+
+    return true
+  } catch (error) {
+    await logError("sendEmailVerification", error, { email })
+    return false
+  }
+}
+
+/**
+ * Sends a verification code to the user
+ * @param identifier Email or phone number
+ * @param method 'email' or 'sms'
+ */
+export async function sendVerificationCode(
+  identifier: string,
+  method: "email" | "sms",
+): Promise<{
+  success: boolean
+  message: string
+}> {
+  try {
+    // Generate a verification code
+    const code = generateVerificationCode()
+
+    // Store the code in the database with a 15-minute expiration
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
+    await createVerificationCode(identifier, code, expiresAt)
+
+    // Send the code via the specified method
+    if (method === "email") {
+      const sent = await sendEmailVerification(identifier, code)
+      if (!sent) {
+        return {
+          success: false,
+          message: "Failed to send verification code via email. Please try again.",
+        }
+      }
+    } else if (method === "sms") {
+      const message = `Your verification code is: ${code}. It will expire in 15 minutes.`
+      const sent = await sendSMS(identifier, message)
+      if (!sent.success) {
+        return {
+          success: false,
+          message: "Failed to send verification code via SMS. Please try again.",
+        }
+      }
+    }
+
+    return {
+      success: true,
+      message: `Verification code sent via ${method}.`,
+    }
+  } catch (error) {
+    await logError("sendVerificationCode", error, { identifier, method })
+    return {
+      success: false,
+      message: "An error occurred while sending the verification code.",
+    }
+  }
+}
+
+/**
+ * Verifies a one-time password (OTP)
+ * @param identifier Email or phone number
+ * @param code The verification code
+ */
+export async function verifyOTP(
+  identifier: string,
+  code: string,
+): Promise<{
+  success: boolean
+  message: string
+}> {
+  try {
+    // Get the verification code from the database
+    const verificationCode = await getVerificationCode(identifier)
+
+    // Check if the code exists
+    if (!verificationCode) {
+      return {
+        success: false,
+        message: "Verification code not found or expired. Please request a new code.",
+      }
+    }
+
+    // Check if the code has expired
+    if (new Date() > new Date(verificationCode.expires_at)) {
+      await deleteVerificationCode(identifier)
+      return {
+        success: false,
+        message: "Verification code has expired. Please request a new code.",
+      }
+    }
+
+    // Check if the code matches
+    if (verificationCode.code !== code) {
+      return {
+        success: false,
+        message: "Invalid verification code. Please try again.",
+      }
+    }
+
+    // Delete the code after successful verification
+    await deleteVerificationCode(identifier)
+
+    return {
+      success: true,
+      message: "Verification successful.",
+    }
+  } catch (error) {
+    await logError("verifyOTP", error, { identifier })
+    return {
+      success: false,
+      message: "An error occurred while verifying the code.",
+    }
+  }
+}
+
+/**
+ * Resends a verification code
+ * @param identifier Email or phone number
+ * @param method 'email' or 'sms'
+ */
+export async function resendVerificationCode(
+  identifier: string,
+  method: "email" | "sms",
+): Promise<{
+  success: boolean
+  message: string
+}> {
+  try {
+    // Delete any existing verification code
+    await deleteVerificationCode(identifier)
+
+    // Send a new verification code
+    return await sendVerificationCode(identifier, method)
+  } catch (error) {
+    await logError("resendVerificationCode", error, { identifier, method })
+    return {
+      success: false,
+      message: "An error occurred while resending the verification code.",
+    }
   }
 }

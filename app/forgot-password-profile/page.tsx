@@ -5,12 +5,12 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import Link from "next/link"
-import { isValidPhone } from "@/lib/sms-utils"
+import { isValidEmail, isValidPhone } from "@/lib/client-validation"
+import { sendVerificationAction } from "@/app/auth/actions"
 
 export default function ForgotPasswordProfilePage() {
   const router = useRouter()
@@ -18,132 +18,113 @@ export default function ForgotPasswordProfilePage() {
   const [phone, setPhone] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [activeTab, setActiveTab] = useState("email")
+  const [activeTab, setActiveTab] = useState<"email" | "sms">("email")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    // Validate input based on active tab
-    if (activeTab === "email" && !email.trim()) {
-      setError("Please enter your email address")
-      return
-    }
-
-    if (activeTab === "phone" && !phone.trim()) {
-      setError("Please enter your phone number")
-      return
-    }
-
-    if (activeTab === "phone" && !isValidPhone(phone)) {
-      setError("Please enter a valid phone number")
-      return
-    }
-
-    setLoading(true)
     setError("")
+    setLoading(true)
+
+    const identifier = activeTab === "email" ? email : phone
+
+    // Client-side validation
+    if (activeTab === "email" && !isValidEmail(email)) {
+      setError("Please enter a valid email address")
+      setLoading(false)
+      return
+    }
+
+    if (activeTab === "sms" && !isValidPhone(phone)) {
+      setError("Please enter a valid phone number")
+      setLoading(false)
+      return
+    }
 
     try {
-      const response = await fetch("/api/auth/send-verification-code", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: activeTab === "email" ? email : undefined,
-          phone: activeTab === "phone" ? phone : undefined,
-          isLoggedIn: true,
-        }),
-      })
+      const result = await sendVerificationAction(identifier, activeTab)
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.message || "Failed to send verification code")
-        setLoading(false)
-        return
+      if (result.success) {
+        router.push(`/otp-verification?identifier=${encodeURIComponent(identifier)}&method=${activeTab}`)
+      } else {
+        setError(result.message || "Failed to send verification code. Please try again.")
       }
-
-      setSuccess(true)
-
-      // Redirect to OTP verification page
-      router.push(
-        `/otp-verification?${activeTab === "email" ? `email=${encodeURIComponent(email)}` : `phone=${encodeURIComponent(phone)}`}&profile=true`,
-      )
     } catch (err) {
       setError("An error occurred. Please try again.")
+      console.error(err)
+    } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold">Forgot Password</CardTitle>
-          <CardDescription>Choose how you want to receive your verification code</CardDescription>
+          <CardTitle className="text-center text-2xl font-bold">Reset Your Password</CardTitle>
+          <CardDescription className="text-center">
+            We'll send you a verification code to reset your password
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="email" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "email" | "sms")} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="email">Email</TabsTrigger>
-              <TabsTrigger value="phone">Phone</TabsTrigger>
+              <TabsTrigger value="sms">SMS</TabsTrigger>
             </TabsList>
-
             <TabsContent value="email">
-              <form onSubmit={handleSubmit}>
-                <div className="mb-4">
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                     Email Address
                   </label>
                   <Input
                     id="email"
                     type="email"
+                    placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email address"
-                    disabled={loading}
-                    className="w-full"
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    required
                   />
                 </div>
 
                 {error && (
-                  <Alert variant="destructive" className="mb-4">
+                  <Alert variant="destructive">
+                    <AlertTitle>Error</AlertTitle>
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
 
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" className="w-full" disabled={loading || !email}>
                   {loading ? "Sending..." : "Send Verification Code"}
                 </Button>
               </form>
             </TabsContent>
-
-            <TabsContent value="phone">
-              <form onSubmit={handleSubmit}>
-                <div className="mb-4">
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+            <TabsContent value="sms">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
                     Phone Number
                   </label>
                   <Input
                     id="phone"
                     type="tel"
+                    placeholder="+1 (555) 123-4567"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Enter your phone number"
-                    disabled={loading}
-                    className="w-full"
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    required
                   />
-                  <p className="text-xs text-gray-500 mt-1">Format: +1 (555) 123-4567 or 5551234567</p>
                 </div>
 
                 {error && (
-                  <Alert variant="destructive" className="mb-4">
+                  <Alert variant="destructive">
+                    <AlertTitle>Error</AlertTitle>
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
 
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" className="w-full" disabled={loading || !phone}>
                   {loading ? "Sending..." : "Send Verification Code"}
                 </Button>
               </form>
@@ -151,9 +132,9 @@ export default function ForgotPasswordProfilePage() {
           </Tabs>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <Link href="/profile" className="text-sm text-blue-600 hover:underline">
-            Back to Profile
-          </Link>
+          <Button variant="link" onClick={() => router.push("/login")}>
+            Back to Login
+          </Button>
         </CardFooter>
       </Card>
     </div>

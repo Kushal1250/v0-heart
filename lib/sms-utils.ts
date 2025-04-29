@@ -1,83 +1,108 @@
 "use server"
 
-import { Twilio } from "twilio"
+// Define a type for the SMS response
+export type SMSResponse = {
+  success: boolean
+  message: string
+  errorId?: string
+  sid?: string
+}
 
-// Initialize Twilio client with environment variables
-const twilioClient =
-  process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-    ? new Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
-    : null
+// Format phone number to E.164 format
+export async function formatPhoneToE164(phone: string): Promise<string> {
+  if (!phone) return ""
 
-/**
- * Send an SMS message using Twilio
- * @param to Phone number to send the SMS to (E.164 format: +1234567890)
- * @param body Text message to send
- * @returns Promise that resolves to success status and message
- */
-export async function sendSMS(to: string, body: string): Promise<{ success: boolean; message: string }> {
+  // Remove all non-digit characters except + at the beginning
+  let cleaned = phone.replace(/[^\d+]/g, "")
+
+  // If it doesn't start with +, assume it's a US number
+  if (!cleaned.startsWith("+")) {
+    cleaned = `+1${cleaned}`
+  }
+
+  return cleaned
+}
+
+// Validate phone number
+export async function isValidPhone(phone: string): Promise<boolean> {
+  if (!phone) return false
+
+  // Basic validation for international phone numbers
+  const cleaned = phone.replace(/[^\d+]/g, "")
+
+  // Check if it starts with + and has between 8 and 15 digits
+  // or if it's just digits (8-15)
+  return (
+    (cleaned.startsWith("+") && cleaned.length >= 9 && cleaned.length <= 16) ||
+    (!cleaned.startsWith("+") && cleaned.length >= 8 && cleaned.length <= 15)
+  )
+}
+
+// Send SMS using Twilio
+export async function sendSMS(to: string, message: string): Promise<SMSResponse> {
   try {
-    // Check if Twilio is configured
-    if (!twilioClient) {
-      console.warn("Twilio is not configured. SMS will not be sent.")
+    // Format the phone number
+    const formattedPhone = await formatPhoneToE164(to)
+
+    // Validate the phone number
+    const isValid = await isValidPhone(formattedPhone)
+    if (!isValid) {
+      return { success: false, message: "Invalid phone number format" }
+    }
+
+    // Check if Twilio credentials are configured
+    const accountSid = process.env.TWILIO_ACCOUNT_SID
+    const authToken = process.env.TWILIO_AUTH_TOKEN
+    const fromNumber = process.env.TWILIO_PHONE_NUMBER
+
+    if (!accountSid || !authToken || !fromNumber) {
+      console.log(`[DEV MODE] Would send SMS to ${formattedPhone}: ${message}`)
       return {
-        success: false,
-        message: "SMS service is not configured",
+        success: true,
+        message: "SMS simulated in development mode (Twilio not configured)",
+        sid: "dev_mode_simulated",
       }
     }
 
-    // Format phone number to E.164 format if not already
-    const formattedPhone = await formatPhoneToE164(to)
+    // In development, just log the message
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[DEV MODE] Would send SMS to ${formattedPhone}: ${message}`)
+      return {
+        success: true,
+        message: "SMS simulated in development mode",
+        sid: "dev_mode_simulated",
+      }
+    }
 
-    // Send the SMS
-    const message = await twilioClient.messages.create({
-      body,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: formattedPhone,
-    })
+    // In production, send the actual SMS
+    try {
+      // Dynamically import Twilio to avoid bundling issues
+      const twilio = require("twilio")
+      const client = twilio(accountSid, authToken)
 
-    console.log(`SMS sent successfully. SID: ${message.sid}`)
-    return {
-      success: true,
-      message: "SMS sent successfully",
+      const result = await client.messages.create({
+        body: message,
+        from: fromNumber,
+        to: formattedPhone,
+      })
+
+      return {
+        success: true,
+        message: "SMS sent successfully",
+        sid: result.sid,
+      }
+    } catch (twilioError) {
+      console.error("Twilio error:", twilioError)
+      return {
+        success: false,
+        message: twilioError instanceof Error ? twilioError.message : "Failed to send SMS via Twilio",
+      }
     }
   } catch (error) {
     console.error("Error sending SMS:", error)
     return {
       success: false,
-      message: error instanceof Error ? error.message : "Unknown error sending SMS",
+      message: error instanceof Error ? error.message : "Failed to send SMS",
     }
   }
-}
-
-/**
- * Format a phone number to E.164 format (+1234567890)
- * @param phone Phone number to format
- * @returns Formatted phone number
- */
-export async function formatPhoneToE164(phone: string): Promise<string> {
-  // Remove all non-digit characters
-  const digits = phone.replace(/\D/g, "")
-
-  // If the number doesn't start with a country code, add +1 (US/Canada)
-  if (!phone.startsWith("+")) {
-    // If it's a 10-digit number, assume US/Canada and add +1
-    if (digits.length === 10) {
-      return `+1${digits}`
-    }
-    // If it already has a country code (11+ digits), add +
-    return `+${digits}`
-  }
-
-  return phone // Already in E.164 format
-}
-
-/**
- * Validate if a phone number is in a valid format
- * @param phone Phone number to validate
- * @returns Boolean indicating if the phone is valid
- */
-export async function isValidPhone(phone: string): Promise<boolean> {
-  // Basic validation - should have at least 10 digits
-  const digits = phone.replace(/\D/g, "")
-  return digits.length >= 10
 }
