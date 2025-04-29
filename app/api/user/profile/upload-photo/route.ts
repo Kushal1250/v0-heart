@@ -32,10 +32,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "File too large. Please upload an image smaller than 5MB." }, { status: 400 })
     }
 
-    // Generate a unique image URL based on timestamp and user ID
-    // In a real application, you would upload to a storage service like AWS S3
+    // For demonstration purposes, we'll use a placeholder image with a unique query parameter
+    // In a real application, you would upload to a storage service like AWS S3 or Vercel Blob
     const timestamp = Date.now()
-    const imageUrl = `/placeholder.svg?height=200&width=200&query=user-${currentUser.id}-${timestamp}`
+    const randomId = Math.random().toString(36).substring(2, 15)
+    const imageUrl = `/placeholder.svg?height=200&width=200&query=profile-${currentUser.id}-${timestamp}-${randomId}`
+
+    console.log("Setting profile picture URL:", imageUrl)
 
     // Update user profile with the new image URL
     const updatedUser = await updateUserProfile(currentUser.id, {
@@ -48,8 +51,9 @@ export async function POST(request: NextRequest) {
 
     // Return the updated profile picture URL
     return NextResponse.json({
-      profile_picture: updatedUser.profile_picture,
+      profile_picture: imageUrl,
       success: true,
+      message: "Profile picture updated successfully",
     })
   } catch (error) {
     console.error("Error uploading profile picture:", error)

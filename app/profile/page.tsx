@@ -21,6 +21,7 @@ import {
   Loader2,
   Upload,
   RefreshCw,
+  KeyRound,
 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
@@ -52,6 +53,9 @@ export default function ProfilePage() {
     type: "success" | "error" | null
     message: string
   }>({ type: null, message: "" })
+
+  // Add a state to track the avatar key for cache busting
+  const [avatarKey, setAvatarKey] = useState(Date.now())
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -208,22 +212,27 @@ export default function ProfilePage() {
       const formData = new FormData()
       formData.append("profile_picture", file)
 
+      console.log("Uploading profile picture...")
       const response = await fetch("/api/user/profile/upload-photo", {
         method: "POST",
         body: formData,
         cache: "no-store",
-        headers: {
-          // Don't set Content-Type here, it will be set automatically with the correct boundary
-          "Cache-Control": "no-cache",
-        },
       })
+
+      console.log("Upload response status:", response.status)
 
       if (!response.ok) {
         const error = await response.json()
+        console.error("Upload error:", error)
         throw new Error(error.message || "Failed to upload profile picture")
       }
 
       const data = await response.json()
+      console.log("Upload response data:", data)
+
+      if (!data.profile_picture) {
+        throw new Error("No profile picture URL returned from server")
+      }
 
       // Update profile data with new image URL
       setProfileData((prev) => ({
@@ -231,15 +240,13 @@ export default function ProfilePage() {
         profile_picture: data.profile_picture,
       }))
 
+      // Update avatar key to force re-render
+      setAvatarKey(Date.now())
+
       toast({
         title: "Success",
         description: "Profile picture updated successfully!",
       })
-
-      // Force a refresh to ensure the image is updated
-      setTimeout(() => {
-        window.location.reload()
-      }, 1000)
     } catch (error: any) {
       console.error("Error uploading profile picture:", error)
       toast({
@@ -326,7 +333,7 @@ export default function ProfilePage() {
                   <>
                     <Avatar className="h-24 w-24">
                       <AvatarImage
-                        src={profileData.profile_picture || "/placeholder.svg"}
+                        src={`${profileData.profile_picture}${profileData.profile_picture.includes("?") ? "&" : "?"}v=${avatarKey}`}
                         alt="Profile"
                         className="h-full w-full object-cover"
                       />
@@ -458,17 +465,20 @@ export default function ProfilePage() {
               </div>
             </div>
           )}
+
           {!isEditing && (
             <div className="mt-8 border-t pt-6">
-              <h3 className="text-lg font-medium mb-4">Password Management</h3>
+              <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                <KeyRound className="h-5 w-5" /> Password Management
+              </h3>
               <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">Reset your password</p>
-                    <p className="text-sm text-gray-500">Change your password to keep your account secure</p>
+                    <p className="font-medium">Change your password</p>
+                    <p className="text-sm text-gray-500">Update your password to keep your account secure</p>
                   </div>
-                  <Link href="/reset-password">
-                    <Button variant="outline">Reset Password</Button>
+                  <Link href="/change-password">
+                    <Button variant="outline">Change Password</Button>
                   </Link>
                 </div>
               </div>

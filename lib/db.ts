@@ -166,7 +166,10 @@ export async function createUser(email: string, password: string, name?: string,
 // Add back the comparePasswords function that was missing
 export async function comparePasswords(password: string, hashedPassword: string) {
   try {
-    return compare(password, hashedPassword)
+    console.log("Comparing passwords...")
+    const result = await compare(password, hashedPassword)
+    console.log("Password comparison result:", result)
+    return result
   } catch (error) {
     console.error("Password comparison error:", error)
     throw new Error("Password comparison failed")
@@ -288,8 +291,13 @@ export async function updateUserPassword(userId: string, newPassword: string) {
       throw new Error("User ID and new password are required to update password")
     }
 
+    console.log("Hashing new password...")
     const hashedPassword = await hash(newPassword, 10)
+
+    console.log("Updating password for user:", userId)
     await sql`UPDATE users SET password = ${hashedPassword} WHERE id = ${userId}`
+
+    console.log("Password updated successfully")
     return true
   } catch (error) {
     console.error("Database error in updateUserPassword:", error)
