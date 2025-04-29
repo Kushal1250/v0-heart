@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Calendar, Clock, Heart, Trash2 } from "lucide-react"
 import { getCurrentEmail, getAssessmentHistory, clearAssessmentHistory } from "@/lib/simplified-history"
+import { useAuth } from "@/lib/auth-context"
 
 export default function HistoryPage() {
   const router = useRouter()
@@ -18,14 +19,13 @@ export default function HistoryPage() {
   const [isEditingEmail, setIsEditingEmail] = useState(false)
   const [newEmail, setNewEmail] = useState("")
 
-  useEffect(() => {
-    // Get current user email
-    const email = getCurrentEmail()
-    setUserEmail(email)
+  const { user } = useAuth() // Get user from auth context at the top level
+  const initialEmail = user?.email || getCurrentEmail() // Get initial email here
 
-    // Load assessment history
-    loadAssessmentHistory(email)
-  }, [])
+  useEffect(() => {
+    setUserEmail(initialEmail)
+    loadAssessmentHistory(initialEmail)
+  }, [initialEmail])
 
   const loadAssessmentHistory = (email) => {
     setLoading(true)

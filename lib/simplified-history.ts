@@ -58,6 +58,17 @@ export function getCurrentEmail(): string {
       if (user.email) return user.email
     }
 
+    // Check for auth user in sessionStorage
+    const authUserJson = sessionStorage.getItem("authUser")
+    if (authUserJson) {
+      try {
+        const authUser = JSON.parse(authUserJson)
+        if (authUser.email) return authUser.email
+      } catch (e) {
+        console.error("Error parsing auth user:", e)
+      }
+    }
+
     // Default fallback email if needed
     return "guest@example.com"
   } catch (error) {
