@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
-import { getUserByEmail } from "@/lib/db"
+import { getUserByEmail, getUserByPhone } from "@/lib/db"
 import { sendEmail } from "@/lib/email-utils"
-import { sendSMS } from "@/lib/sms-utils"
+import { sendSMS, isValidPhone } from "@/lib/sms-utils"
 import { v4 as uuidv4 } from "uuid"
 
 export async function POST(request: Request) {
@@ -18,6 +18,17 @@ export async function POST(request: Request) {
     }
 
     console.log(`Sending verification code to ${identifier} via ${method}`)
+
+    // Validate phone number if method is SMS
+    if (method === "sms") {
+      const isValid = await isValidPhone(identifier)
+      if (!isValid) {
+        return NextResponse.json(
+          { success: false, message: "Invalid phone number format. Please enter a valid phone number." },
+          { status: 400 },
+        )
+      }
+    }
 
     // Generate a 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString()
@@ -44,14 +55,19 @@ export async function POST(request: Request) {
       `
     }
 
-    // Get user ID if identifier is an email
+    // Get user ID if identifier is an email or phone
     let userId = identifier
+    let user = null
+
     if (method === "email" && identifier.includes("@")) {
-      const user = await getUserByEmail(identifier)
-      if (user) {
-        userId = user.id
-        console.log(`Found user ID ${userId} for email ${identifier}`)
-      }
+      user = await getUserByEmail(identifier)
+    } else if (method === "sms") {
+      user = await getUserByPhone(identifier)
+    }
+
+    if (user) {
+      userId = user.id
+      console.log(`Found user ID ${userId} for identifier ${identifier}`)
     }
 
     // Delete any existing codes for this user/identifier
@@ -102,14 +118,48 @@ export async function POST(request: Request) {
         previewUrl: emailResult.previewUrl,
       })
     } else if (method === "sms") {
-      const message = `Your verification code is: ${code}. It will expire in 15 minutes.`
-      const smsResult = await sendSMS(identifier, message)
+      // Use our improved SMS function
+      const smsResult = await sendSMS(identifier, `Your verification code is: ${code}. It will expire in 15 minutes.`)
 
       if (!smsResult.success) {
+        console.error("SMS sending failed:", smsResult)
+
+        // If we have a user with an email, try email as fallback
+        if (user && user.email) {
+          console.log(`Attempting email fallback for user ${user.id}`)
+          const emailResult = await sendEmail({
+            to: user.email,
+            subject: "Your Verification Code",
+            text: `Your verification code is: ${code}. It will expire in 15 minutes.`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>Your Verification Code</h2>
+                <p>Use the following code to verify your account:</p>
+                <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold;">
+                  ${code}
+                </div>
+                <p>This code will expire in 15 minutes.</p>
+                <p>If you didn't request this code, please ignore this email.</p>
+                <p><small>Note: We sent this code via email because SMS delivery failed.</small></p>
+              </div>
+            `,
+          })
+
+          if (emailResult.success) {
+            return NextResponse.json({
+              success: true,
+              message: "SMS delivery failed, but we sent your code via email instead",
+              method: "email",
+              fallbackUsed: true,
+            })
+          }
+        }
+
         return NextResponse.json(
           {
             success: false,
             message: smsResult.message || "Failed to send verification SMS",
+            errorDetails: smsResult.errorDetails,
           },
           { status: 500 },
         )

@@ -1,47 +1,65 @@
 import { NextResponse } from "next/server"
-import { getUserByEmail, updateUserPassword } from "@/lib/db"
-import { isValidEmail, isStrongPassword } from "@/lib/auth-utils"
+import { sql } from "@/lib/db"
+import { hash } from "bcrypt-ts"
+import { getUserByEmail, getUserByPhone } from "@/lib/db"
 
 export async function POST(request: Request) {
   try {
     const { identifier, newPassword } = await request.json()
 
-    // Validate inputs
-    if (!identifier) {
-      return NextResponse.json({ message: "Email or phone number is required" }, { status: 400 })
-    }
-
-    if (!newPassword) {
-      return NextResponse.json({ message: "New password is required" }, { status: 400 })
+    if (!identifier || !newPassword) {
+      return NextResponse.json({ success: false, message: "Identifier and new password are required" }, { status: 400 })
     }
 
     // Validate password strength
-    if (!isStrongPassword(newPassword)) {
+    if (newPassword.length < 8) {
       return NextResponse.json(
-        { message: "Password must be at least 8 characters with uppercase, lowercase, and numbers" },
+        { success: false, message: "Password must be at least 8 characters long" },
         { status: 400 },
       )
     }
 
-    // Get the user
-    let user
-    if (isValidEmail(identifier)) {
+    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Password must contain at least one uppercase letter, one lowercase letter, and one number",
+        },
+        { status: 400 },
+      )
+    }
+
+    // Get user by identifier (email or phone)
+    let user = null
+
+    if (identifier.includes("@")) {
       user = await getUserByEmail(identifier)
     } else {
-      // Handle phone number case if needed
-      return NextResponse.json({ message: "Phone verification not supported yet" }, { status: 400 })
+      user = await getUserByPhone(identifier)
     }
 
     if (!user) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 })
+      return NextResponse.json({ success: false, message: "User not found" }, { status: 404 })
     }
 
-    // Update the password
-    await updateUserPassword(user.id, newPassword)
+    // Hash the new password
+    const hashedPassword = await hash(newPassword, 10)
 
-    return NextResponse.json({ message: "Password updated successfully" })
+    // Update the user's password
+    await sql`UPDATE users SET password = ${hashedPassword} WHERE id = ${user.id}`
+
+    return NextResponse.json({
+      success: true,
+      message: "Password updated successfully",
+    })
   } catch (error) {
-    console.error("Password reset error:", error)
-    return NextResponse.json({ message: "An error occurred" }, { status: 500 })
+    console.error("Error resetting password:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        message: "An error occurred while resetting the password",
+      },
+      { status: 500 },
+    )
   }
 }

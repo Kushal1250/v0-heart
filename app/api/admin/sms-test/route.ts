@@ -1,34 +1,37 @@
 import { NextResponse } from "next/server"
-import { sendTestSMS } from "@/lib/enhanced-sms-utils"
-import { getUserFromRequest } from "@/lib/auth-utils"
-import { logError } from "@/lib/error-logger"
+import { sendTestSMS } from "@/lib/sms-utils"
+import { verifyAdminSession } from "@/lib/auth-utils"
 
 export async function POST(request: Request) {
   try {
-    // Check if user is admin
-    const user = await getUserFromRequest(request as any)
-    if (!user || user.role !== "admin") {
+    // Verify admin session
+    const admin = await verifyAdminSession(request)
+    if (!admin) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
     const { phone } = await request.json()
 
     if (!phone) {
-      return NextResponse.json({ success: false, message: "Phone number is required" }, { status: 400 })
+      return NextResponse.json({ message: "Phone number is required" }, { status: 400 })
     }
 
-    console.log(`Admin SMS test to ${phone}`)
+    // Send test SMS
     const result = await sendTestSMS(phone)
 
-    return NextResponse.json(result)
+    return NextResponse.json({
+      success: result.success,
+      message: result.message,
+      sid: result.sid,
+      errorDetails: result.errorDetails,
+      debugInfo: result.debugInfo,
+    })
   } catch (error) {
-    console.error("SMS test error:", error)
-    await logError("smsTest", error)
-
+    console.error("Error sending test SMS:", error)
     return NextResponse.json(
       {
         success: false,
-        message: error instanceof Error ? error.message : "An unknown error occurred",
+        message: "An error occurred while sending test SMS",
       },
       { status: 500 },
     )

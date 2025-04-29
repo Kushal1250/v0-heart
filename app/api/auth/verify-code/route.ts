@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
-import { getUserByEmail } from "@/lib/db"
+import { getUserByEmail, getUserByPhone } from "@/lib/db"
 
 export async function POST(request: Request) {
   try {
@@ -8,17 +8,30 @@ export async function POST(request: Request) {
 
     if (!identifier || !code) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Identifier and verification code are required",
-        },
+        { success: false, message: "Identifier and verification code are required" },
         { status: 400 },
       )
     }
 
-    console.log(`Verifying code for identifier: ${identifier}, code: ${code}`)
+    console.log(`Verifying code ${code} for identifier ${identifier}`)
 
-    // First, check if the verification_codes table exists
+    // Get user ID if identifier is an email or phone
+    let userId = identifier
+    let user = null
+
+    if (identifier.includes("@")) {
+      user = await getUserByEmail(identifier)
+    } else {
+      // Try to get user by phone
+      user = await getUserByPhone(identifier)
+    }
+
+    if (user) {
+      userId = user.id
+      console.log(`Found user ID ${userId} for identifier ${identifier}`)
+    }
+
+    // Check if the verification_codes table exists
     const tableExists = await sql`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
@@ -29,59 +42,58 @@ export async function POST(request: Request) {
     if (!tableExists[0].exists) {
       console.log("verification_codes table doesn't exist")
       return NextResponse.json(
-        {
-          success: false,
-          message: "Verification system is not set up properly",
-        },
-        { status: 500 },
+        { success: false, message: "Verification code not found or expired. Please request a new code." },
+        { status: 404 },
       )
     }
 
-    // Get user ID if identifier is an email
-    let userId = identifier
-    if (identifier.includes("@")) {
-      const user = await getUserByEmail(identifier)
-      if (user) {
-        userId = user.id
-        console.log(`Found user ID ${userId} for email ${identifier}`)
-      }
-    }
-
-    // Check both the identifier and user ID for the verification code
+    // Try to find the code for either the identifier or the user ID
     const verificationCodes = await sql`
       SELECT * FROM verification_codes
       WHERE (user_id = ${identifier} OR user_id = ${userId})
       AND code = ${code}
       AND expires_at > NOW()
+      ORDER BY created_at DESC
+      LIMIT 1
     `
 
-    console.log(`Found ${verificationCodes.length} verification codes`)
+    console.log(`Found ${verificationCodes.length} matching verification codes`)
 
     if (verificationCodes.length === 0) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Verification code not found or expired. Please request a new code.",
-        },
-        { status: 400 },
+        { success: false, message: "Verification code not found or expired. Please request a new code." },
+        { status: 404 },
       )
     }
 
-    // Code is valid, mark it as verified by deleting it
-    await sql`DELETE FROM verification_codes WHERE id = ${verificationCodes[0].id}`
+    const verificationCode = verificationCodes[0]
+    console.log("Verification code found:", verificationCode)
 
-    // Return success
+    // Delete the used code
+    await sql`DELETE FROM verification_codes WHERE id = ${verificationCode.id}`
+    console.log(`Deleted verification code ${verificationCode.id}`)
+
+    // Generate a token for password reset
+    const token = crypto.randomUUID()
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour
+
+    // Store the token in the database
+    await sql`
+      INSERT INTO password_reset_tokens (id, user_id, token, expires_at)
+      VALUES (${crypto.randomUUID()}, ${userId}, ${token}, ${expiresAt})
+    `
+
     return NextResponse.json({
       success: true,
       message: "Verification successful",
-      userId: userId,
+      token,
     })
   } catch (error) {
     console.error("Error verifying code:", error)
     return NextResponse.json(
       {
         success: false,
-        message: "An error occurred during verification",
+        message: "An error occurred while verifying the code",
       },
       { status: 500 },
     )
