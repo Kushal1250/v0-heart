@@ -13,7 +13,12 @@ import { logError } from "@/lib/error-logger"
 import { sendEmail } from "@/lib/email-utils"
 
 export function getSessionToken(): string | undefined {
-  return cookies().get("session")?.value
+  try {
+    return cookies().get("session")?.value
+  } catch (error) {
+    console.error("Error getting session token:", error)
+    return undefined
+  }
 }
 
 export async function getUserIdFromToken(token: string): Promise<string | null> {
@@ -59,7 +64,11 @@ export function createResponseWithCookie(data: any, token: string): any {
 }
 
 export function clearSessionCookie(): void {
-  cookies().delete("session")
+  try {
+    cookies().delete("session")
+  } catch (error) {
+    console.error("Error clearing session cookie:", error)
+  }
 }
 
 // Add back the getCurrentUser function that was missing
@@ -104,22 +113,27 @@ export async function verifyAdminSession(request: Request): Promise<{
   name: string | null
   role: string
 } | null> {
-  const sessionToken = getSessionToken()
-  if (!sessionToken) {
+  try {
+    const sessionToken = getSessionToken()
+    if (!sessionToken) {
+      return null
+    }
+
+    const session = await getSessionByToken(sessionToken)
+    if (!session) {
+      return null
+    }
+
+    const user = await getUserById(session.user_id)
+    if (!user || user.role !== "admin") {
+      return null
+    }
+
+    return user
+  } catch (error) {
+    console.error("Error verifying admin session:", error)
     return null
   }
-
-  const session = await getSessionByToken(sessionToken)
-  if (!session) {
-    return null
-  }
-
-  const user = await getUserById(session.user_id)
-  if (!user || user.role !== "admin") {
-    return null
-  }
-
-  return user
 }
 
 /**
@@ -269,6 +283,14 @@ export async function sendVerificationCode(
   previewUrl?: string
 }> {
   try {
+    // Check if identifier is provided
+    if (!identifier) {
+      return {
+        success: false,
+        message: "Email or phone number is required",
+      }
+    }
+
     console.log(`Sending verification code to ${identifier} via ${method}`)
 
     // Generate a verification code
@@ -354,6 +376,14 @@ export async function verifyOTP(
   message: string
 }> {
   try {
+    // Check if identifier is provided
+    if (!identifier) {
+      return {
+        success: false,
+        message: "Email or phone number is required",
+      }
+    }
+
     // Get the verification code from the database
     const verificationCode = await getVerificationCode(identifier)
 
@@ -412,6 +442,14 @@ export async function resendVerificationCode(
   previewUrl?: string
 }> {
   try {
+    // Check if identifier is provided
+    if (!identifier) {
+      return {
+        success: false,
+        message: "Email or phone number is required",
+      }
+    }
+
     // Delete any existing verification code
     await deleteVerificationCode(identifier)
 
