@@ -6,7 +6,7 @@
 // Type definition for assessment history item
 export interface AssessmentHistoryItem {
   id: string
-  timestamp: number | string
+  timestamp: number
   age: string | number
   sex: string | number
   trestbps: string | number
@@ -32,31 +32,84 @@ export interface AssessmentHistoryItem {
 
 // Constants
 const HISTORY_KEY_PREFIX = "heart_history_"
-const CURRENT_EMAIL_KEY = "currentUserEmail"
+const CURRENT_EMAIL_KEY = "heart_current_email"
 
-/**
- * Save the current user's email
- */
+// Save the current user's email
 export function saveCurrentEmail(email: string): void {
-  if (!email) return
   try {
-    localStorage.setItem(CURRENT_EMAIL_KEY, email.toLowerCase())
-    console.log(`Current email saved: ${email}`)
+    localStorage.setItem("currentUserEmail", email)
+    console.log("Current email saved:", email)
   } catch (error) {
     console.error("Error saving current email:", error)
   }
 }
 
-/**
- * Get the current user's email
- */
-export function getCurrentEmail(): string | null {
+// Get the current user's email
+export function getCurrentEmail(): string {
   try {
-    // Try to get from localStorage
-    return localStorage.getItem(CURRENT_EMAIL_KEY)
+    // Try to get from localStorage first
+    const email = localStorage.getItem("currentUserEmail")
+    if (email) return email
+
+    // If not found, check if we have a user object
+    const userJson = localStorage.getItem("user")
+    if (userJson) {
+      const user = JSON.parse(userJson)
+      if (user.email) return user.email
+    }
+
+    // Default fallback email if needed
+    return "guest@example.com"
   } catch (error) {
     console.error("Error getting current email:", error)
-    return null
+    return "guest@example.com"
+  }
+}
+
+// Save an assessment to history
+export function saveAssessment(email: string, assessment: any): void {
+  try {
+    // Get existing history or create new array
+    const historyKey = `assessmentHistory_${email}`
+    const existingHistory = localStorage.getItem(historyKey)
+    const history = existingHistory ? JSON.parse(existingHistory) : []
+
+    // Add timestamp if not present
+    if (!assessment.timestamp) {
+      assessment.timestamp = new Date().toISOString()
+    }
+
+    // Add to history
+    history.push(assessment)
+
+    // Save back to localStorage
+    localStorage.setItem(historyKey, JSON.stringify(history))
+    console.log(`Assessment saved for ${email}. Total assessments: ${history.length}`)
+  } catch (error) {
+    console.error("Error saving assessment:", error)
+  }
+}
+
+// Get assessment history for a user
+export function getAssessmentHistory(email: string): any[] {
+  try {
+    const historyKey = `assessmentHistory_${email}`
+    const existingHistory = localStorage.getItem(historyKey)
+    return existingHistory ? JSON.parse(existingHistory) : []
+  } catch (error) {
+    console.error("Error getting assessment history:", error)
+    return []
+  }
+}
+
+// Clear assessment history for a user
+export function clearAssessmentHistory(email: string): void {
+  try {
+    const historyKey = `assessmentHistory_${email}`
+    localStorage.removeItem(historyKey)
+    console.log(`Assessment history cleared for ${email}`)
+  } catch (error) {
+    console.error("Error clearing assessment history:", error)
   }
 }
 
@@ -64,73 +117,7 @@ export function getCurrentEmail(): string | null {
  * Get the storage key for a specific email
  */
 function getStorageKey(email: string): string {
-  return `assessmentHistory_${email.toLowerCase()}`
-}
-
-/**
- * Save assessment to history
- */
-export function saveAssessment(email: string, assessment: any): void {
-  if (!email || !assessment) {
-    console.error("Cannot save assessment: missing email or assessment data")
-    return
-  }
-
-  try {
-    // Get existing history
-    const history = getAssessmentHistory(email)
-
-    // Ensure assessment has an ID
-    if (!assessment.id) {
-      assessment.id = generateId()
-    }
-
-    // Ensure assessment has a timestamp
-    if (!assessment.timestamp) {
-      assessment.timestamp = new Date().toISOString()
-    }
-
-    // Add to beginning of history
-    history.unshift(assessment)
-
-    // Save back to localStorage
-    const storageKey = getStorageKey(email)
-    localStorage.setItem(storageKey, JSON.stringify(history))
-
-    console.log(`Assessment saved for ${email}`, assessment)
-    console.log(`Total history items: ${history.length}`)
-  } catch (error) {
-    console.error("Error saving assessment:", error)
-  }
-}
-
-/**
- * Get history for a specific email
- */
-export function getAssessmentHistory(email: string): any[] {
-  if (!email) return []
-
-  try {
-    const storageKey = getStorageKey(email)
-    const historyJson = localStorage.getItem(storageKey)
-
-    if (!historyJson) {
-      console.log(`No history found for ${email} at key ${storageKey}`)
-      return []
-    }
-
-    const history = JSON.parse(historyJson)
-    if (!Array.isArray(history)) {
-      console.error(`History for ${email} is not an array:`, history)
-      return []
-    }
-
-    console.log(`Retrieved ${history.length} history items for ${email}`)
-    return history
-  } catch (error) {
-    console.error(`Error retrieving history for ${email}:`, error)
-    return []
-  }
+  return `${HISTORY_KEY_PREFIX}${email.toLowerCase()}`
 }
 
 /**
@@ -143,8 +130,8 @@ export function deleteHistoryItem(email: string, id: string): void {
     const history = getAssessmentHistory(email)
     const updatedHistory = history.filter((item) => item.id !== id)
 
-    const storageKey = getStorageKey(email)
-    localStorage.setItem(storageKey, JSON.stringify(updatedHistory))
+    const historyKey = `assessmentHistory_${email}`
+    localStorage.setItem(historyKey, JSON.stringify(updatedHistory))
 
     console.log(`Deleted history item ${id} for ${email}`)
   } catch (error) {
@@ -155,16 +142,8 @@ export function deleteHistoryItem(email: string, id: string): void {
 /**
  * Clear all history for a specific email
  */
-export function clearAssessmentHistory(email: string): void {
-  if (!email) return
-
-  try {
-    const storageKey = getStorageKey(email)
-    localStorage.removeItem(storageKey)
-    console.log(`Cleared all history for ${email}`)
-  } catch (error) {
-    console.error("Error clearing history:", error)
-  }
+export function clearHistory(email: string): void {
+  clearAssessmentHistory(email)
 }
 
 /**
@@ -190,13 +169,13 @@ export function debugHistory(): void {
     console.log("All localStorage keys:", allKeys)
 
     // Find all history keys
-    const historyKeys = allKeys.filter((key) => key.startsWith("assessmentHistory_"))
+    const historyKeys = allKeys.filter((key) => key.startsWith(HISTORY_KEY_PREFIX))
     console.log("History keys:", historyKeys)
 
     // Show history for each key
     historyKeys.forEach((key) => {
       try {
-        const email = key.replace("assessmentHistory_", "")
+        const email = key.replace(HISTORY_KEY_PREFIX, "")
         const history = getAssessmentHistory(email)
         console.log(`History for ${email}:`, history)
       } catch (e) {
@@ -220,10 +199,7 @@ export function migrateOldHistory(): boolean {
     // Look for old history keys
     const allKeys = Object.keys(localStorage)
     const oldHistoryKeys = allKeys.filter(
-      (key) =>
-        key.includes("assessment_history") ||
-        key.includes("heart_assessment_history") ||
-        key.startsWith(HISTORY_KEY_PREFIX),
+      (key) => key.includes("assessment_history") || key.includes("heart_assessment_history"),
     )
 
     console.log("Found old history keys:", oldHistoryKeys)
@@ -258,7 +234,7 @@ export function migrateOldHistory(): boolean {
 
         // If we couldn't extract email, use current email or default
         if (!email) {
-          email = getCurrentEmail() || "guest@example.com"
+          email = getCurrentEmail() || "user@example.com"
         }
 
         // Migrate each item

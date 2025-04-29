@@ -10,12 +10,40 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { InfoIcon } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { useAuth } from "@/lib/auth-context"
-import { saveAssessment } from "@/lib/simplified-history"
+
+// Helper function to get current user email
+const getCurrentUserEmail = () => {
+  try {
+    // Try to get from localStorage first
+    const email = localStorage.getItem("currentUserEmail")
+    if (email) return email
+
+    // If not found, check if we have a user object
+    const userJson = localStorage.getItem("user")
+    if (userJson) {
+      const user = JSON.parse(userJson)
+      if (user.email) return user.email
+    }
+
+    // Default fallback email if needed
+    return "guest@example.com"
+  } catch (e) {
+    console.error("Error getting user email:", e)
+    return "guest@example.com"
+  }
+}
+
+// Save current email to localStorage for future reference
+const saveCurrentEmail = (email) => {
+  try {
+    localStorage.setItem("currentUserEmail", email)
+  } catch (e) {
+    console.error("Error saving email:", e)
+  }
+}
 
 export function PredictionForm() {
   const router = useRouter()
-  const { user } = useAuth()
   const [formData, setFormData] = useState({
     age: "",
     sex: "",
@@ -59,11 +87,11 @@ export function PredictionForm() {
     setIsSubmitting(true)
 
     try {
-      // Get current user email from auth context or fallback to localStorage
-      const userEmail = user?.email || localStorage.getItem("currentUserEmail") || "guest@example.com"
+      // Get current user email
+      const userEmail = getCurrentUserEmail()
 
-      // Save current email for future reference
-      localStorage.setItem("currentUserEmail", userEmail)
+      // Save email for future reference
+      saveCurrentEmail(userEmail)
 
       // Prepare data for submission
       const dataToSubmit = {
@@ -87,19 +115,27 @@ export function PredictionForm() {
 
       const result = await response.json()
 
-      // Create assessment object with result
-      const assessment = {
-        ...formData,
-        result: result.prediction,
-        timestamp: new Date().toISOString(),
-        id: Date.now().toString(36) + Math.random().toString(36).substring(2),
-      }
-
       // Store result in localStorage to access in results page
-      localStorage.setItem("predictionResult", JSON.stringify(assessment))
+      localStorage.setItem(
+        "predictionResult",
+        JSON.stringify({
+          ...formData,
+          result: result.prediction,
+        }),
+      )
 
-      // Save to assessment history using the simplified history system
-      saveAssessment(userEmail, assessment)
+      // Also store in assessment history
+      try {
+        const assessmentHistory = JSON.parse(localStorage.getItem(`assessmentHistory_${userEmail}`) || "[]")
+        assessmentHistory.push({
+          ...formData,
+          result: result.prediction,
+          timestamp: new Date().toISOString(),
+        })
+        localStorage.setItem(`assessmentHistory_${userEmail}`, JSON.stringify(assessmentHistory))
+      } catch (storageError) {
+        console.error("Error saving to history:", storageError)
+      }
 
       // Navigate to results page
       router.push("/predict/results")
