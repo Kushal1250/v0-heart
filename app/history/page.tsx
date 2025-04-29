@@ -6,23 +6,26 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Calendar, Clock, Heart, Trash2 } from "lucide-react"
-import { getCurrentEmail, getAssessmentHistory, clearAssessmentHistory } from "@/lib/simplified-history"
+import { getAssessmentHistory, clearAssessmentHistory } from "@/lib/simplified-history"
+import { useAuth } from "@/lib/auth-context"
 
 export default function HistoryPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [assessments, setAssessments] = useState([])
-  const [userEmail, setUserEmail] = useState("")
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
 
   useEffect(() => {
-    // Get current user email
-    const email = getCurrentEmail()
-    setUserEmail(email)
-
-    // Load assessment history
-    loadAssessmentHistory(email)
-  }, [])
+    // Load assessment history using the logged-in user's email
+    if (user && user.email) {
+      loadAssessmentHistory(user.email)
+    } else {
+      // If not logged in, check localStorage for any stored email
+      const storedEmail = localStorage.getItem("currentUserEmail") || "guest@example.com"
+      loadAssessmentHistory(storedEmail)
+    }
+  }, [user])
 
   const loadAssessmentHistory = (email) => {
     setLoading(true)
@@ -39,8 +42,9 @@ export default function HistoryPage() {
   }
 
   const handleClearHistory = () => {
+    const email = user?.email || localStorage.getItem("currentUserEmail") || "guest@example.com"
     if (confirm("Are you sure you want to clear your assessment history?")) {
-      clearAssessmentHistory(userEmail)
+      clearAssessmentHistory(email)
       setAssessments([])
     }
   }
@@ -51,15 +55,6 @@ export default function HistoryPage() {
 
     // Navigate to results page
     router.push("/predict/results")
-  }
-
-  const handleChangeEmail = () => {
-    const newEmail = prompt("Enter your email address:", userEmail)
-    if (newEmail && newEmail !== userEmail) {
-      setUserEmail(newEmail)
-      localStorage.setItem("currentUserEmail", newEmail)
-      loadAssessmentHistory(newEmail)
-    }
   }
 
   // Filter assessments based on active tab
@@ -81,6 +76,9 @@ export default function HistoryPage() {
     }
   }
 
+  // Get the current user email for display
+  const currentEmail = user?.email || localStorage.getItem("currentUserEmail") || "guest@example.com"
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
@@ -96,10 +94,17 @@ export default function HistoryPage() {
             <div>
               <CardTitle className="text-2xl">Assessment History</CardTitle>
               <CardDescription>
-                Viewing history for: {userEmail}{" "}
-                <Button variant="link" className="p-0 h-auto text-blue-400" onClick={handleChangeEmail}>
-                  Change Email
-                </Button>
+                {user ? (
+                  <>Viewing history for: {currentEmail}</>
+                ) : (
+                  <>
+                    Viewing local history.{" "}
+                    <Button variant="link" className="p-0 h-auto text-blue-400" onClick={() => router.push("/login")}>
+                      Log in
+                    </Button>{" "}
+                    to save across devices.
+                  </>
+                )}
               </CardDescription>
             </div>
             {assessments.length > 0 && (
