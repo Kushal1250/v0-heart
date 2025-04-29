@@ -73,9 +73,9 @@
     "@neondatabase/serverless": "latest",
     "twilio": "latest",
     "bcrypt-ts": "latest",
-    "bcryptjs": "latest",
     "jsonwebtoken": "latest",
-    "sharp": "latest"
+    "sharp": "latest",
+    "bcryptjs": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

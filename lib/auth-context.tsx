@@ -65,7 +65,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return
         }
 
-        const response = await fetch("/api/auth/user")
+        const response = await fetch("/api/auth/user", {
+          credentials: "include", // Important for cookies
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        })
+
         if (response.ok) {
           try {
             const data = await response.json()
@@ -115,24 +121,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password, phone }),
+        credentials: "include", // Important for cookies
       })
 
-      if (!response.ok) {
-        let errorMessage = "Login failed"
-        try {
-          const errorData = await response.json()
-          errorMessage = errorData.message || errorMessage
-        } catch (jsonError) {
-          errorMessage = `Login failed: ${response.statusText || "Unknown error"}`
-        }
-        return { success: false, message: errorMessage }
+      // Handle network errors
+      if (!response) {
+        return { success: false, message: "Network error. Please check your connection and try again." }
       }
 
       let data
       try {
         data = await response.json()
       } catch (jsonError) {
+        console.error("Error parsing login response:", jsonError)
         return { success: false, message: "Invalid response from server" }
+      }
+
+      if (!response.ok) {
+        return {
+          success: false,
+          message: data?.message || `Login failed: ${response.statusText || "Unknown error"}`,
+        }
+      }
+
+      if (!data?.user) {
+        return { success: false, message: "Login failed: User data not returned" }
       }
 
       setUser(data.user)
@@ -147,14 +160,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const redirectTo = urlParams.get("redirect")
 
       // If we have a redirect parameter, use it; otherwise use the path from the response
-      // or default to /history
+      // or default to /dashboard
       return {
         success: true,
         message: "Login successful",
-        redirectTo: redirectTo || data.redirectTo || "/history",
+        redirectTo: redirectTo || data.redirectTo || "/dashboard",
       }
     } catch (error: any) {
-      return { success: false, message: error.message || "An unexpected error occurred" }
+      console.error("Login function error:", error)
+      return {
+        success: false,
+        message: error?.message || "An unexpected error occurred during login",
+      }
     }
   }
 
@@ -214,6 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ name, email, password, phone }),
+        credentials: "include",
       })
 
       if (!response.ok) {
@@ -245,13 +263,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" })
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      })
       setUser(null)
       setIsAdmin(false)
       setIsAuthenticated(false)
 
       // Clear admin cookie
       document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+
+      // Clear local storage
+      localStorage.removeItem("userDetails")
     } catch (error) {
       console.error("Logout error:", error)
     }

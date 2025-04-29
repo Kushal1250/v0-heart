@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
@@ -23,12 +23,7 @@ export default function LoginPage() {
   const { login } = useAuth()
 
   // Get redirect parameter from URL if present
-  const redirectPath = searchParams.get("redirect") || "/dashboard"
-
-  // Log the redirect path for debugging
-  useEffect(() => {
-    console.log("Redirect path:", redirectPath)
-  }, [redirectPath])
+  const redirectPath = searchParams?.get("redirect") || "/dashboard"
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword)
@@ -39,12 +34,18 @@ export default function LoginPage() {
     setEmailError("")
     setPasswordError("")
 
-    if (!validateEmail(email)) {
+    if (!email.trim()) {
+      setEmailError("Email is required")
+      isValid = false
+    } else if (!validateEmail(email)) {
       setEmailError("Please enter a valid email address")
       isValid = false
     }
 
-    if (!validatePassword(password)) {
+    if (!password) {
+      setPasswordError("Password is required")
+      isValid = false
+    } else if (!validatePassword(password)) {
       setPasswordError("Password must be at least 6 characters")
       isValid = false
     }
@@ -63,24 +64,29 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const result = await login(email, password, phone)
+      // Trim the email to prevent whitespace issues
+      const trimmedEmail = email.trim()
+
+      const result = await login(trimmedEmail, password, phone)
 
       if (result.success) {
         // Store login success flag for showing welcome message
         sessionStorage.setItem("justLoggedIn", "true")
 
         // Use the redirect path from the URL or result, ensuring it's properly preserved
-        const finalRedirectPath = result.redirectTo || redirectPath
+        const finalRedirectPath = result.redirectTo || redirectPath || "/dashboard"
         console.log("Redirecting to:", finalRedirectPath)
 
-        // Redirect to the specified path
-        router.push(finalRedirectPath)
+        // Add a small delay before redirecting to ensure state is updated
+        setTimeout(() => {
+          router.push(finalRedirectPath)
+        }, 100)
       } else {
-        setError(result.message)
+        setError(result.message || "Login failed. Please check your credentials and try again.")
       }
-    } catch (error) {
-      setError("An unexpected error occurred. Please try again.")
+    } catch (error: any) {
       console.error("Login error:", error)
+      setError(error?.message || "An unexpected error occurred. Please try again.")
     } finally {
       setIsLoading(false)
     }
