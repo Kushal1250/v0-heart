@@ -93,14 +93,18 @@ export async function getUserByEmail(email: string) {
 
 // Add this function after the getUserByEmail function
 
+/**
+ * Get user by phone number
+ * @param phone Phone number
+ * @returns User object or null
+ */
 export async function getUserByPhone(phone: string) {
-  try {
-    const users = await sql`SELECT * FROM users WHERE phone = ${phone}`
-    return users[0] || null
-  } catch (error) {
-    console.error("Error getting user by phone:", error)
-    return null
-  }
+  const result = await sql`
+    SELECT * FROM users
+    WHERE phone = ${phone}
+  `
+
+  return result.length > 0 ? result[0] : null
 }
 
 export async function getUserByEmailAndPhone(email: string, phone: string) {
@@ -431,11 +435,7 @@ export async function updateUserProfile(
   }
 }
 
-export async function createPrediction(
-  userId: string,
-  result: number,
-  predictionData: Record<string, any>,
-): Promise<any> {
+export async function createPrediction(userId: string, result: any, predictionData: Record<string, any>): Promise<any> {
   try {
     if (!userId) {
       throw new Error("User ID is required to create a prediction")
@@ -445,7 +445,7 @@ export async function createPrediction(
 
     const predictions = await sql`
       INSERT INTO predictions (id, user_id, result, prediction_data)
-      VALUES (${predictionId}, ${userId}, ${result}, ${JSON.stringify(predictionData)})
+      VALUES (${predictionId}, ${userId}, ${result.score / 100}, ${JSON.stringify(predictionData)})
       RETURNING *
     `
 
@@ -517,47 +517,102 @@ export async function getPredictionById(id: string) {
   }
 }
 
-// Create a verification code for a user
+/**
+ * Create a verification code for a user
+ * @param userId User ID
+ * @param code Verification code
+ * @returns The created verification code record
+ */
 export async function createVerificationCode(userId: string, code: string) {
   try {
+    if (!userId || !code) {
+      throw new Error("User ID and code are required to create a verification code")
+    }
+
     // Delete any existing codes for this user
     await sql`DELETE FROM verification_codes WHERE user_id = ${userId}`
 
     // Create a new code
-    await sql`
-      INSERT INTO verification_codes (user_id, code)
-      VALUES (${userId}, ${code})
+    const verificationId = uuidv4()
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
+
+    const result = await sql`
+      INSERT INTO verification_codes (id, user_id, code, expires_at)
+      VALUES (${verificationId}, ${userId}, ${code}, ${expiresAt})
+      RETURNING id, user_id, code, created_at, expires_at
     `
-    return true
+
+    return result[0]
   } catch (error) {
-    console.error("Error creating verification code:", error)
+    console.error("Database error in createVerificationCode:", error)
     throw new Error(`Failed to create verification code: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
 
-// Get a verification code by user ID and code
+/**
+ * Get a verification code by user ID and code
+ * @param userId User ID
+ * @param code Verification code
+ * @returns The verification code record or null
+ */
 export async function getVerificationCodeByUserIdAndCode(userId: string, code: string) {
   try {
+    if (!userId || !code) {
+      throw new Error("User ID and code are required to get verification code")
+    }
+
     const codes = await sql`
+      SELECT * FROM verification_codes
+      WHERE user_id = ${userId} AND code = ${code} AND expires_at > NOW()
+    `
+    return codes[0] || null
+  } catch (error) {
+    console.error("Database error in getVerificationCodeByUserIdAndCode:", error)
+    throw new Error(`Failed to get verification code: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
+ * Verify a code for a user
+ * @param userId User ID
+ * @param code Verification code
+ * @returns Boolean indicating if the code is valid
+ */
+export async function verifyCode(userId: string, code: string) {
+  try {
+    if (!userId || !code) {
+      throw new Error("User ID and code are required to verify code")
+    }
+
+    const result = await sql`
       SELECT * FROM verification_codes
       WHERE user_id = ${userId}
       AND code = ${code}
       AND expires_at > NOW()
     `
-    return codes[0] || null
+
+    return result.length > 0
   } catch (error) {
-    console.error("Error getting verification code:", error)
-    throw new Error(`Failed to get verification code: ${error instanceof Error ? error.message : "Unknown error"}`)
+    console.error("Database error in verifyCode:", error)
+    throw new Error(`Failed to verify code: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
 
-// Delete a verification code
+/**
+ * Delete a verification code
+ * @param userId User ID
+ * @param code Verification code
+ */
 export async function deleteVerificationCode(id: string) {
   try {
+    if (!id) {
+      throw new Error("Verification code ID is required to delete verification code")
+    }
+
     await sql`DELETE FROM verification_codes WHERE id = ${id}`
     return true
   } catch (error) {
-    console.error("Error deleting verification code:", error)
+    console.error("Database error in deleteVerificationCode:", error)
     throw new Error(`Failed to delete verification code: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
