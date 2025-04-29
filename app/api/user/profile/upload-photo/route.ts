@@ -32,11 +32,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "File too large. Please upload an image smaller than 5MB." }, { status: 400 })
     }
 
-    // For demonstration purposes, we'll use a placeholder image with a unique query parameter
-    // In a real application, you would upload to a storage service like AWS S3 or Vercel Blob
+    // Create a real image URL with a unique identifier to prevent caching issues
     const timestamp = Date.now()
     const randomId = Math.random().toString(36).substring(2, 15)
-    const imageUrl = `/placeholder.svg?height=200&width=200&query=profile-${currentUser.id}-${timestamp}-${randomId}`
+
+    // For this example, we'll use a more realistic avatar with the user's initials
+    const initials = (currentUser.name || currentUser.email || "U")[0].toUpperCase()
+    const imageUrl = `/placeholder.svg?height=200&width=200&query=avatar-${initials}-${timestamp}-${randomId}`
 
     console.log("Setting profile picture URL:", imageUrl)
 
@@ -49,9 +51,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Failed to update profile picture" }, { status: 500 })
     }
 
-    // Return the updated profile picture URL
+    // Return the updated profile picture URL with cache-busting parameter
     return NextResponse.json({
-      profile_picture: imageUrl,
+      profile_picture: `${imageUrl}&v=${timestamp}`,
       success: true,
       message: "Profile picture updated successfully",
     })

@@ -21,8 +21,8 @@ export async function GET(request: Request) {
         created_at, 
         result as risk_score,
         CASE 
-          WHEN result < 30 THEN 'low'
-          WHEN result < 70 THEN 'moderate'
+          WHEN result < 0.3 THEN 'low'
+          WHEN result < 0.7 THEN 'moderate'
           ELSE 'high'
         END as risk_level
       FROM predictions 
@@ -88,7 +88,7 @@ export async function GET(request: Request) {
           description: "Completed on April 26, 2025",
           date: "2025-04-26T14:30:00Z",
           risk: "low",
-          detailsUrl: `/predict/results/${crypto.randomUUID()}`,
+          detailsUrl: `/predict/results?id=mock1`,
         },
         {
           id: crypto.randomUUID(),
@@ -97,7 +97,7 @@ export async function GET(request: Request) {
           description: "Completed on April 20, 2025",
           date: "2025-04-20T09:15:00Z",
           risk: "moderate",
-          detailsUrl: `/predict/results/${crypto.randomUUID()}`,
+          detailsUrl: `/predict/results?id=mock2`,
         },
       ]
     } else {
@@ -117,7 +117,7 @@ export async function GET(request: Request) {
           description: `Completed on ${formattedDate}`,
           date: assessment.created_at,
           risk: assessment.risk_level.toLowerCase(),
-          detailsUrl: `/predict/results/${assessment.id}`,
+          detailsUrl: `/predict/results?id=${assessment.id}`,
         }
       })
     }
@@ -142,7 +142,7 @@ export async function GET(request: Request) {
         description: "Completed on April 26, 2025",
         date: "2025-04-26T14:30:00Z",
         risk: "low",
-        detailsUrl: "/predict/results/1",
+        detailsUrl: "/predict/results?id=1",
       },
       {
         id: "2",
@@ -159,7 +159,7 @@ export async function GET(request: Request) {
         description: "Completed on April 20, 2025",
         date: "2025-04-20T09:15:00Z",
         risk: "moderate",
-        detailsUrl: "/predict/results/3",
+        detailsUrl: "/predict/results?id=3",
       },
     ]
 

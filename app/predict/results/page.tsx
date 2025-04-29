@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, useRef } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { ArrowLeft, AlertTriangle, Heart, Info, Share2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +13,7 @@ import DirectShareOptions from "@/components/direct-share-options"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { jsPDF } from "jspdf"
 import { saveToHistory } from "@/lib/history-storage"
+import { fetchWithAuth } from "@/lib/api-utils"
 import { useAuth } from "@/lib/auth-context"
 
 interface PredictionResult {
@@ -96,81 +98,158 @@ const openDesktopShareOptions = (pdfBlob: Blob, filename: string) => {
 
 export default function ResultsPage() {
   const router = useRouter()
-  const [result, setResult] = useState<PredictionResult | null>(null)
+  const searchParams = useSearchParams()
+  const { user, isAuthenticated } = useAuth()
+
+  const [predictionResult, setPredictionResult] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [showShareOptions, setShowShareOptions] = useState(false)
   const resultContentRef = useRef<HTMLDivElement>(null)
   const isMobile = useMediaQuery("(max-width: 640px)")
-  const { user } = useAuth()
   const [assessmentDate] = useState(new Date())
 
   useEffect(() => {
-    // Get result from localStorage
-    const storedResult = localStorage.getItem("predictionResult")
+    const loadPredictionResult = async () => {
+      setLoading(true)
+      setError(null)
 
-    if (!storedResult) {
-      router.push("/predict")
-      return
+      try {
+        // Check if we have an ID from the URL query params
+        const idFromQuery = searchParams?.get("id")
+
+        if (idFromQuery && isAuthenticated) {
+          // If we have an ID and user is authenticated, fetch from API
+          const response = await fetchWithAuth(`/api/user/predictions/${idFromQuery}`)
+
+          if (response.ok) {
+            const data = await response.json()
+            setPredictionResult(data)
+          } else {
+            // If API call fails, try to get from localStorage as fallback
+            const storedResult = localStorage.getItem("predictionResult")
+            if (storedResult) {
+              setPredictionResult(JSON.parse(storedResult))
+            } else {
+              throw new Error("Failed to load assessment result")
+            }
+          }
+        } else {
+          // No ID or not authenticated, try localStorage
+          const storedResult = localStorage.getItem("predictionResult")
+          if (storedResult) {
+            setPredictionResult(JSON.parse(storedResult))
+          } else {
+            throw new Error("No assessment result found")
+          }
+        }
+      } catch (error) {
+        console.error("Error loading prediction result:", error)
+        setError(error instanceof Error ? error.message : "Failed to load assessment result. Please try again.")
+      } finally {
+        setLoading(false)
+      }
     }
 
-    try {
-      setResult(JSON.parse(storedResult))
-    } catch (error) {
-      console.error("Error parsing result:", error)
-      router.push("/predict")
-    } finally {
-      setLoading(false)
-    }
-  }, [router])
+    loadPredictionResult()
+  }, [searchParams, isAuthenticated])
 
   // Modified useEffect to only save to history if it's a new assessment (not from history)
   useEffect(() => {
     // Save to history when result is loaded, but only if it's not already from history
-    if (result && !result.id && !result.date) {
-      saveToHistory(result)
+    if (predictionResult && !predictionResult.id && !predictionResult.date) {
+      saveToHistory(predictionResult)
     }
-  }, [result])
+  }, [predictionResult])
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-12 flex justify-center">
-        <div className="animate-pulse">Loading results...</div>
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center py-12">
+          <div className="animate-pulse">Loading assessment result...</div>
+        </div>
       </div>
     )
   }
 
-  if (!result) {
-    return null
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Card className="max-w-2xl mx-auto">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center text-center p-6">
+              <div className="rounded-full bg-red-100 p-3 mb-4">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+              <h2 className="text-xl font-semibold mb-2">Error Loading Results</h2>
+              <p className="text-gray-500 mb-6">{error}</p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button variant="outline" asChild>
+                  <Link href="/dashboard">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back to Dashboard
+                  </Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/predict">Take New Assessment</Link>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
-  const isHighRisk = result.result.risk === "high"
-  const isModerateRisk = result.result.risk === "moderate"
-  const riskScore = result.result.score
+  if (!predictionResult) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Card className="max-w-2xl mx-auto">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center text-center p-6">
+              <div className="rounded-full bg-yellow-100 p-3 mb-4">
+                <AlertTriangle className="h-6 w-6 text-yellow-600" />
+              </div>
+              <h2 className="text-xl font-semibold mb-2">No Results Found</h2>
+              <p className="text-gray-500 mb-6">We couldn't find any assessment results to display.</p>
+              <Button asChild>
+                <Link href="/predict">Take an Assessment</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  const isHighRisk = predictionResult.result.risk === "high"
+  const isModerateRisk = predictionResult.result.risk === "moderate"
+  const riskScore = predictionResult.result.score
 
   // Determine key risk factors
   const keyRiskFactors = []
 
-  if (Number.parseInt(result.age) > 55) {
+  if (Number.parseInt(predictionResult.age) > 55) {
     keyRiskFactors.push("Age above 55")
   }
 
-  if (result.sex === "1") {
+  if (predictionResult.sex === "1") {
     keyRiskFactors.push("Male gender")
   }
 
-  if (Number.parseInt(result.chol) > 240) {
+  if (Number.parseInt(predictionResult.chol) > 240) {
     keyRiskFactors.push("High cholesterol")
   }
 
-  if (Number.parseInt(result.trestbps) > 140) {
+  if (Number.parseInt(predictionResult.trestbps) > 140) {
     keyRiskFactors.push("High blood pressure")
   }
 
-  if (result.cp === "1" || result.cp === "2") {
+  if (predictionResult.cp === "1" || predictionResult.cp === "2") {
     keyRiskFactors.push("Chest pain")
   }
 
-  if (result.exang === "1") {
+  if (predictionResult.exang === "1") {
     keyRiskFactors.push("Exercise induced angina")
   }
 
@@ -187,7 +266,7 @@ export default function ResultsPage() {
   })
 
   // Generate a filename for the PDF based on date and risk level
-  const pdfFileName = `health-assessment-${result.result.risk}-risk-${assessmentDate.toISOString().split("T")[0]}`
+  const pdfFileName = `health-assessment-${predictionResult.result.risk}-risk-${assessmentDate.toISOString().split("T")[0]}`
 
   // Function to handle mobile PDF sharing
   const handleMobilePdfShare = async () => {
@@ -231,12 +310,12 @@ export default function ResultsPage() {
       // Add risk level
       pdf.setFontSize(16)
       pdf.setTextColor(0, 0, 0)
-      const riskLevel = result.result.risk.charAt(0).toUpperCase() + result.result.risk.slice(1)
+      const riskLevel = predictionResult.result.risk.charAt(0).toUpperCase() + predictionResult.result.risk.slice(1)
       pdf.text(`Risk Level: ${riskLevel}`, 20, user?.phone ? 50 : 45)
 
       // Add risk score
       pdf.setFontSize(14)
-      pdf.text(`Risk Score: ${result.result.score}%`, 20, user?.phone ? 60 : 55)
+      pdf.text(`Risk Score: ${predictionResult.result.score}%`, 20, user?.phone ? 60 : 55)
 
       // Add basic health metrics
       let yPos = user?.phone ? 70 : 65
@@ -244,13 +323,13 @@ export default function ResultsPage() {
       pdf.text("Basic Health Metrics:", 20, yPos)
       yPos += 10
       pdf.setFontSize(12)
-      pdf.text(`Age: ${result.age} years`, 25, yPos)
+      pdf.text(`Age: ${predictionResult.age} years`, 25, yPos)
       yPos += 6
-      pdf.text(`Gender: ${getReadableValue("sex", result.sex)}`, 25, yPos)
+      pdf.text(`Gender: ${getReadableValue("sex", predictionResult.sex)}`, 25, yPos)
       yPos += 6
-      pdf.text(`Blood Pressure: ${result.trestbps} mm Hg`, 25, yPos)
+      pdf.text(`Blood Pressure: ${predictionResult.trestbps} mm Hg`, 25, yPos)
       yPos += 6
-      pdf.text(`Cholesterol: ${result.chol} mg/dl`, 25, yPos)
+      pdf.text(`Cholesterol: ${predictionResult.chol} mg/dl`, 25, yPos)
 
       // Add advanced parameters
       yPos += 10
@@ -258,23 +337,23 @@ export default function ResultsPage() {
       pdf.text("Advanced Parameters:", 20, yPos)
       yPos += 10
       pdf.setFontSize(12)
-      pdf.text(`Chest Pain Type: ${getReadableValue("cp", result.cp)}`, 25, yPos)
+      pdf.text(`Chest Pain Type: ${getReadableValue("cp", predictionResult.cp)}`, 25, yPos)
       yPos += 6
-      pdf.text(`Fasting Blood Sugar: ${getReadableValue("fbs", result.fbs)}`, 25, yPos)
+      pdf.text(`Fasting Blood Sugar: ${getReadableValue("fbs", predictionResult.fbs)}`, 25, yPos)
       yPos += 6
-      pdf.text(`Resting ECG: ${getReadableValue("restecg", result.restecg)}`, 25, yPos)
+      pdf.text(`Resting ECG: ${getReadableValue("restecg", predictionResult.restecg)}`, 25, yPos)
       yPos += 6
-      pdf.text(`Max Heart Rate: ${result.thalach || "N/A"}`, 25, yPos)
+      pdf.text(`Max Heart Rate: ${predictionResult.thalach || "N/A"}`, 25, yPos)
       yPos += 6
-      pdf.text(`Exercise Induced Angina: ${getReadableValue("exang", result.exang)}`, 25, yPos)
+      pdf.text(`Exercise Induced Angina: ${getReadableValue("exang", predictionResult.exang)}`, 25, yPos)
       yPos += 6
-      pdf.text(`ST Depression: ${result.oldpeak || "N/A"}`, 25, yPos)
+      pdf.text(`ST Depression: ${predictionResult.oldpeak || "N/A"}`, 25, yPos)
       yPos += 6
-      pdf.text(`ST Slope: ${getReadableValue("slope", result.slope) || "N/A"}`, 25, yPos)
+      pdf.text(`ST Slope: ${getReadableValue("slope", predictionResult.slope) || "N/A"}`, 25, yPos)
       yPos += 6
-      pdf.text(`Number of Major Vessels: ${result.ca || "N/A"}`, 25, yPos)
+      pdf.text(`Number of Major Vessels: ${predictionResult.ca || "N/A"}`, 25, yPos)
       yPos += 6
-      pdf.text(`Thalassemia: ${getReadableValue("thal", result.thal) || "N/A"}`, 25, yPos)
+      pdf.text(`Thalassemia: ${getReadableValue("thal", predictionResult.thal) || "N/A"}`, 25, yPos)
 
       // Add lifestyle factors
       yPos += 10
@@ -285,17 +364,17 @@ export default function ResultsPage() {
 
       // Format food habits
       const foodHabits =
-        result.foodHabits === "vegetarian"
+        predictionResult.foodHabits === "vegetarian"
           ? "Vegetarian"
-          : result.foodHabits === "non-vegetarian"
+          : predictionResult.foodHabits === "non-vegetarian"
             ? "Non-Vegetarian"
             : "Mixed Diet"
 
       // Format junk food consumption
       const junkFood =
-        result.junkFoodConsumption === "low"
+        predictionResult.junkFoodConsumption === "low"
           ? "Low (rarely)"
-          : result.junkFoodConsumption === "moderate"
+          : predictionResult.junkFoodConsumption === "moderate"
             ? "Moderate (weekly)"
             : "High (daily)"
 
@@ -303,7 +382,7 @@ export default function ResultsPage() {
       yPos += 6
       pdf.text(`Junk Food Consumption: ${junkFood}`, 25, yPos)
       yPos += 6
-      pdf.text(`Sleeping Hours: ${result.sleepingHours || "N/A"} hours/day`, 25, yPos)
+      pdf.text(`Sleeping Hours: ${predictionResult.sleepingHours || "N/A"} hours/day`, 25, yPos)
 
       // Add disclaimer
       yPos += 15
@@ -429,7 +508,7 @@ Advanced Parameters:
 - ST Depression: ${assessmentData.oldpeak || "N/A"}
 - ST Slope: ${getReadableValue("slope", assessmentData.slope) || "N/A"}
 - Number of Major Vessels: ${assessmentData.ca || "N/A"}
-- Thalassemia: ${getReadableValue("thal", assessmentData.thal) || "N/A"}
+- Thalassemia: ${getReadableValue("thal", assessmentData.thal)}
 
 Lifestyle Factors:
 - Food Habits: ${foodHabits}
@@ -441,11 +520,12 @@ Assessment generated by HeartPredict on ${formattedDate} at ${formattedTime}
   }
 
   const data = {
-    ...result,
+    ...predictionResult,
     userName: user?.name || "Anonymous User",
     userPhone: user?.phone || "Not provided",
   }
 
+  // Return your existing results page UI here
   return (
     <div className="container mx-auto px-4 py-6 md:py-12">
       <div className="max-w-3xl mx-auto">
@@ -478,7 +558,7 @@ Assessment generated by HeartPredict on ${formattedDate} at ${formattedTime}
         {isMobile && showShareOptions && (
           <div className="mb-6 flex flex-wrap gap-2 justify-center">
             <EmailShareModal
-              assessmentData={result}
+              assessmentData={predictionResult}
               userName={user?.name}
               userPhone={user?.phone}
               assessmentDate={assessmentDate}
@@ -486,7 +566,7 @@ Assessment generated by HeartPredict on ${formattedDate} at ${formattedTime}
             <PdfGenerator
               contentRef={resultContentRef}
               fileName={pdfFileName}
-              assessmentData={result}
+              assessmentData={predictionResult}
               userName={user?.name}
               userPhone={user?.phone}
               assessmentDate={assessmentDate}
@@ -562,7 +642,7 @@ Assessment generated by HeartPredict on ${formattedDate} at ${formattedTime}
                     : "Lower Risk Detected"}
               </h2>
               <p className="text-gray-400 text-center mb-4 text-sm md:text-base">
-                Our model predicts a {result.result.risk} likelihood based on your health metrics.
+                Our model predicts a {predictionResult.result.risk} likelihood based on your health metrics.
               </p>
 
               <div className="w-full mt-2 mb-4">
@@ -605,19 +685,19 @@ Assessment generated by HeartPredict on ${formattedDate} at ${formattedTime}
             <div className="grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-4 mb-6">
               <div className="bg-gray-800 p-3 md:p-4 rounded-md">
                 <p className="text-gray-400 text-xs md:text-sm">Age</p>
-                <p className="text-base md:text-xl font-medium">{result.age} years</p>
+                <p className="text-base md:text-xl font-medium">{predictionResult.age} years</p>
               </div>
               <div className="bg-gray-800 p-3 md:p-4 rounded-md">
                 <p className="text-gray-400 text-xs md:text-sm">Gender</p>
-                <p className="text-base md:text-xl font-medium">{getReadableValue("sex", result.sex)}</p>
+                <p className="text-base md:text-xl font-medium">{getReadableValue("sex", predictionResult.sex)}</p>
               </div>
               <div className="bg-gray-800 p-3 md:p-4 rounded-md">
                 <p className="text-gray-400 text-xs md:text-sm">Cholesterol</p>
-                <p className="text-base md:text-xl font-medium">{result.chol} mg/dl</p>
+                <p className="text-base md:text-xl font-medium">{predictionResult.chol} mg/dl</p>
               </div>
               <div className="bg-gray-800 p-3 md:p-4 rounded-md">
                 <p className="text-gray-400 text-xs md:text-sm">Blood Pressure</p>
-                <p className="text-base md:text-xl font-medium">{result.trestbps} mm Hg</p>
+                <p className="text-base md:text-xl font-medium">{predictionResult.trestbps} mm Hg</p>
               </div>
             </div>
 
@@ -626,39 +706,47 @@ Assessment generated by HeartPredict on ${formattedDate} at ${formattedTime}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
                 <div className="bg-gray-800/50 p-2 md:p-3 rounded-md">
                   <p className="text-xs md:text-sm text-gray-400">Chest Pain Type</p>
-                  <p className="text-sm md:text-base font-medium">{getReadableValue("cp", result.cp)}</p>
+                  <p className="text-sm md:text-base font-medium">{getReadableValue("cp", predictionResult.cp)}</p>
                 </div>
                 <div className="bg-gray-800/50 p-2 md:p-3 rounded-md">
                   <p className="text-xs md:text-sm text-gray-400">Fasting Blood Sugar</p>
-                  <p className="text-sm md:text-base font-medium">{getReadableValue("fbs", result.fbs)}</p>
+                  <p className="text-sm md:text-base font-medium">{getReadableValue("fbs", predictionResult.fbs)}</p>
                 </div>
                 <div className="bg-gray-800/50 p-2 md:p-3 rounded-md">
                   <p className="text-xs md:text-sm text-gray-400">Resting ECG</p>
-                  <p className="text-sm md:text-base font-medium">{getReadableValue("restecg", result.restecg)}</p>
+                  <p className="text-sm md:text-base font-medium">
+                    {getReadableValue("restecg", predictionResult.restecg)}
+                  </p>
                 </div>
                 <div className="bg-gray-800/50 p-2 md:p-3 rounded-md">
                   <p className="text-xs md:text-sm text-gray-400">Max Heart Rate</p>
-                  <p className="text-sm md:text-base font-medium">{result.thalach || "N/A"}</p>
+                  <p className="text-sm md:text-base font-medium">{predictionResult.thalach || "N/A"}</p>
                 </div>
                 <div className="bg-gray-800/50 p-2 md:p-3 rounded-md">
                   <p className="text-xs md:text-sm text-gray-400">Exercise Induced Angina</p>
-                  <p className="text-sm md:text-base font-medium">{getReadableValue("exang", result.exang)}</p>
+                  <p className="text-sm md:text-base font-medium">
+                    {getReadableValue("exang", predictionResult.exang)}
+                  </p>
                 </div>
                 <div className="bg-gray-800/50 p-2 md:p-3 rounded-md">
                   <p className="text-xs md:text-sm text-gray-400">ST Depression</p>
-                  <p className="text-sm md:text-base font-medium">{result.oldpeak || "N/A"}</p>
+                  <p className="text-sm md:text-base font-medium">{predictionResult.oldpeak || "N/A"}</p>
                 </div>
                 <div className="bg-gray-800/50 p-2 md:p-3 rounded-md">
                   <p className="text-xs md:text-sm text-gray-400">ST Slope</p>
-                  <p className="text-sm md:text-base font-medium">{getReadableValue("slope", result.slope) || "N/A"}</p>
+                  <p className="text-sm md:text-base font-medium">
+                    {getReadableValue("slope", predictionResult.slope) || "N/A"}
+                  </p>
                 </div>
                 <div className="bg-gray-800/50 p-2 md:p-3 rounded-md">
                   <p className="text-xs md:text-sm text-gray-400">Major Vessels</p>
-                  <p className="text-sm md:text-base font-medium">{result.ca || "N/A"}</p>
+                  <p className="text-sm md:text-base font-medium">{predictionResult.ca || "N/A"}</p>
                 </div>
                 <div className="bg-gray-800/50 p-2 md:p-3 rounded-md">
                   <p className="text-xs md:text-sm text-gray-400">Thalassemia</p>
-                  <p className="text-sm md:text-base font-medium">{getReadableValue("thal", result.thal) || "N/A"}</p>
+                  <p className="text-sm md:text-base font-medium">
+                    {getReadableValue("thal", predictionResult.thal) || "N/A"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -670,9 +758,9 @@ Assessment generated by HeartPredict on ${formattedDate} at ${formattedTime}
                 <div className="bg-gray-800/50 p-2 md:p-3 rounded-md">
                   <p className="text-xs md:text-sm text-gray-400">Food Habits</p>
                   <p className="text-sm md:text-base font-medium">
-                    {result.foodHabits === "vegetarian"
+                    {predictionResult.foodHabits === "vegetarian"
                       ? "Vegetarian"
-                      : result.foodHabits === "non-vegetarian"
+                      : predictionResult.foodHabits === "non-vegetarian"
                         ? "Non-Vegetarian"
                         : "Mixed Diet"}
                   </p>
@@ -680,16 +768,16 @@ Assessment generated by HeartPredict on ${formattedDate} at ${formattedTime}
                 <div className="bg-gray-800/50 p-2 md:p-3 rounded-md">
                   <p className="text-xs md:text-sm text-gray-400">Junk Food Consumption</p>
                   <p className="text-sm md:text-base font-medium">
-                    {result.junkFoodConsumption === "low"
+                    {predictionResult.junkFoodConsumption === "low"
                       ? "Low (rarely)"
-                      : result.junkFoodConsumption === "moderate"
+                      : predictionResult.junkFoodConsumption === "moderate"
                         ? "Moderate (weekly)"
                         : "High (daily)"}
                   </p>
                 </div>
                 <div className="bg-gray-800/50 p-2 md:p-3 rounded-md">
                   <p className="text-xs md:text-sm text-gray-400">Sleeping Hours</p>
-                  <p className="text-sm md:text-base font-medium">{result.sleepingHours || "N/A"} hours</p>
+                  <p className="text-sm md:text-base font-medium">{predictionResult.sleepingHours || "N/A"} hours</p>
                 </div>
               </div>
             </div>
@@ -712,7 +800,7 @@ Assessment generated by HeartPredict on ${formattedDate} at ${formattedTime}
         {!isMobile && (
           <div className="mt-6 space-y-6">
             <DirectShareOptions
-              assessmentData={result}
+              assessmentData={predictionResult}
               userName={user?.name}
               userPhone={user?.phone}
               assessmentDate={assessmentDate}
@@ -727,7 +815,7 @@ Assessment generated by HeartPredict on ${formattedDate} at ${formattedTime}
 
               <div className="flex flex-wrap gap-4 justify-center mt-4">
                 <EmailShareModal
-                  assessmentData={result}
+                  assessmentData={predictionResult}
                   userName={user?.name}
                   userPhone={user?.phone}
                   assessmentDate={assessmentDate}
@@ -735,7 +823,7 @@ Assessment generated by HeartPredict on ${formattedDate} at ${formattedTime}
                 <PdfGenerator
                   contentRef={resultContentRef}
                   fileName={pdfFileName}
-                  assessmentData={result}
+                  assessmentData={predictionResult}
                   userName={user?.name}
                   userPhone={user?.phone}
                   assessmentDate={assessmentDate}

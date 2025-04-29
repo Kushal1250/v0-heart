@@ -1,8 +1,10 @@
+"use client"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useMediaQuery } from "@/hooks/use-media-query"
 
-export default function ModelExplanation() {
+export function ModelExplanation() {
   const isMobile = useMediaQuery("(max-width: 640px)")
 
   const features = [

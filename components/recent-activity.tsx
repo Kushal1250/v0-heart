@@ -8,6 +8,7 @@ import { Heart, Activity, ArrowUpRight } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { Skeleton } from "@/components/ui/skeleton"
 import Link from "next/link"
+import { fetchWithAuth } from "@/lib/api-utils"
 
 interface ActivityItem {
   id: string
@@ -24,6 +25,7 @@ export function RecentActivity() {
   const router = useRouter()
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchRecentActivity = async () => {
@@ -31,42 +33,51 @@ export function RecentActivity() {
 
       try {
         setLoading(true)
+        setError(null)
 
-        // In a real app, this would be an API call
-        // For now, we'll use mock data that matches the image
-        const mockActivities: ActivityItem[] = [
-          {
-            id: "1",
-            type: "assessment",
-            title: "Heart Disease Risk Assessment",
-            description: "Completed on April 26, 2025",
-            date: "2025-04-26",
-            risk: "low",
-            detailsUrl: "/predict/results/1",
-          },
-          {
-            id: "2",
-            type: "profile_update",
-            title: "Profile Updated",
-            description: "Updated personal information on April 24, 2025",
-            date: "2025-04-24",
-            detailsUrl: "/profile",
-          },
-          {
-            id: "3",
-            type: "assessment",
-            title: "Heart Disease Risk Assessment",
-            description: "Completed on April 20, 2025",
-            date: "2025-04-20",
-            risk: "moderate",
-            detailsUrl: "/predict/results/3",
-          },
-        ]
+        // Fetch real activity data from the API
+        const response = await fetchWithAuth("/api/user/recent-activity")
 
-        setActivities(mockActivities)
-        setLoading(false)
+        if (response.ok) {
+          const data = await response.json()
+          setActivities(data.activities || [])
+        } else {
+          console.error("Failed to fetch recent activity:", response.statusText)
+          // Fall back to mock data if API fails
+          const mockActivities: ActivityItem[] = [
+            {
+              id: "1",
+              type: "assessment",
+              title: "Heart Disease Risk Assessment",
+              description: "Completed on April 26, 2025",
+              date: "2025-04-26",
+              risk: "low",
+              detailsUrl: "/predict/results?id=1",
+            },
+            {
+              id: "2",
+              type: "profile_update",
+              title: "Profile Updated",
+              description: "Updated personal information on April 24, 2025",
+              date: "2025-04-24",
+              detailsUrl: "/profile",
+            },
+            {
+              id: "3",
+              type: "assessment",
+              title: "Heart Disease Risk Assessment",
+              description: "Completed on April 20, 2025",
+              date: "2025-04-20",
+              risk: "moderate",
+              detailsUrl: "/predict/results?id=3",
+            },
+          ]
+          setActivities(mockActivities)
+        }
       } catch (error) {
         console.error("Error fetching recent activity:", error)
+        setError("Failed to load recent activity. Please try again.")
+      } finally {
         setLoading(false)
       }
     }
@@ -101,6 +112,19 @@ export function RecentActivity() {
     )
   }
 
+  // Handle view action for different activity types
+  const handleViewActivity = (activity: ActivityItem) => {
+    if (activity.type === "profile_update") {
+      router.push("/profile")
+    } else if (activity.type === "assessment") {
+      // For assessments, we'll use the results page with query params instead of dynamic routes
+      router.push(`/predict/results?id=${activity.id}`)
+    } else {
+      // Default fallback
+      router.push(activity.detailsUrl || "/dashboard")
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -112,6 +136,8 @@ export function RecentActivity() {
           View all <ArrowUpRight className="ml-1 h-4 w-4" />
         </Link>
       </div>
+
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
 
       <Card className="border border-gray-100 bg-white overflow-hidden">
         {loading ? (
@@ -151,7 +177,7 @@ export function RecentActivity() {
                     variant="ghost"
                     size="sm"
                     className="hover:bg-gray-100"
-                    onClick={() => router.push(activity.detailsUrl || "#")}
+                    onClick={() => handleViewActivity(activity)}
                   >
                     View
                   </Button>

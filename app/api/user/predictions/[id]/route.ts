@@ -1,46 +1,69 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
+import { neon } from "@neondatabase/serverless"
 import { getUserFromRequest } from "@/lib/auth-utils"
-import { sql } from "@/lib/db"
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
+    const user = await getUserFromRequest(request)
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const predictionId = params.id
 
     if (!predictionId) {
       return NextResponse.json({ error: "Prediction ID is required" }, { status: 400 })
     }
 
-    // Get the authenticated user
-    const user = await getUserFromRequest(request)
+    const sql = neon(process.env.DATABASE_URL!)
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized - Please log in to delete predictions" }, { status: 401 })
-    }
-
-    // First verify the prediction belongs to this user
-    const verifyOwnership = await sql`
-      SELECT id FROM predictions 
-      WHERE id = ${predictionId} AND user_id = ${user.id}
+    // Fetch the prediction with the given ID that belongs to the authenticated user
+    const prediction = await sql`
+      SELECT 
+        p.id,
+        p.user_id,
+        p.created_at,
+        p.result,
+        p.prediction_data
+      FROM 
+        predictions p
+      WHERE 
+        p.id = ${predictionId} AND p.user_id = ${user.id}
+      LIMIT 1
     `
 
-    if (verifyOwnership.length === 0) {
-      // Either the prediction doesn't exist or it doesn't belong to this user
-      // We return the same error message either way to avoid information leakage
-      return NextResponse.json(
-        { error: "Prediction not found or you don't have permission to delete it" },
-        { status: 404 },
-      )
+    if (!prediction || prediction.length === 0) {
+      return NextResponse.json({ error: "Prediction not found" }, { status: 404 })
     }
 
-    // Now delete the prediction
-    await sql`DELETE FROM predictions WHERE id = ${predictionId} AND user_id = ${user.id}`
+    // Format the prediction data for the client
+    const predictionData = prediction[0]
 
-    // Log for security auditing
-    console.log(`User ${user.id} deleted prediction ${predictionId}`)
+    // Calculate risk level based on result score
+    const riskScore = predictionData.result * 100
+    let riskLevel = "low"
+    if (riskScore >= 70) {
+      riskLevel = "high"
+    } else if (riskScore >= 30) {
+      riskLevel = "moderate"
+    }
 
-    return NextResponse.json({ success: true })
+    // Format the response
+    const formattedPrediction = {
+      id: predictionData.id,
+      date: predictionData.created_at,
+      result: {
+        risk: riskLevel,
+        score: Math.round(riskScore),
+        hasDisease: predictionData.result >= 0.5,
+      },
+      ...predictionData.prediction_data,
+    }
+
+    return NextResponse.json(formattedPrediction)
   } catch (error) {
-    console.error("Error deleting prediction:", error)
-    return NextResponse.json({ error: "Failed to delete prediction" }, { status: 500 })
+    console.error("Error fetching prediction:", error)
+    return NextResponse.json({ error: "Failed to fetch prediction" }, { status: 500 })
   }
 }

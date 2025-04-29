@@ -27,6 +27,7 @@ import { formatDistanceToNow } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import Link from "next/link"
+import "./profile.css"
 
 export default function ProfilePage() {
   const { user, isLoading } = useAuth()
@@ -234,19 +235,24 @@ export default function ProfilePage() {
         throw new Error("No profile picture URL returned from server")
       }
 
-      // Update profile data with new image URL
+      // Update profile data with new image URL and force a refresh
       setProfileData((prev) => ({
         ...prev,
         profile_picture: data.profile_picture,
       }))
 
-      // Update avatar key to force re-render
+      // Update avatar key to force re-render and break cache
       setAvatarKey(Date.now())
 
       toast({
         title: "Success",
         description: "Profile picture updated successfully!",
       })
+
+      // Force a refresh of the profile data from the server
+      setTimeout(() => {
+        fetchUserProfile()
+      }, 500)
     } catch (error: any) {
       console.error("Error uploading profile picture:", error)
       toast({
@@ -324,7 +330,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex justify-center mb-6">
-            <div className="relative">
+            <div className="relative avatar-container">
               <div
                 className="h-24 w-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden cursor-pointer group relative"
                 onClick={handleProfilePictureClick}
@@ -372,7 +378,7 @@ export default function ProfilePage() {
               <Button
                 size="sm"
                 variant="outline"
-                className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 flex items-center gap-1 text-xs"
+                className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 flex items-center gap-1 text-xs avatar-button"
                 onClick={handleProfilePictureClick}
                 disabled={isUploading}
               >
