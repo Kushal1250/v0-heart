@@ -14,7 +14,7 @@ export default function OTPVerificationPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const identifier = searchParams.get("identifier") || ""
-  const method = (searchParams.get("method") as "email" | "sms") || "email"
+  const method = "email"
 
   const [otp, setOtp] = useState("")
   const [error, setError] = useState("")
@@ -187,10 +187,7 @@ export default function OTPVerificationPage() {
             {isVerified ? "Set New Password" : "Verification Code"}
           </CardTitle>
           <CardDescription className="text-center">
-            {!isVerified &&
-              (method === "email"
-                ? `We've sent a verification code to your email ${identifier}`
-                : `We've sent a verification code to your phone ${identifier}`)}
+            {!isVerified && `We've sent a verification code to your email ${identifier}`}
             {isVerified && "Please create a new secure password for your account"}
           </CardDescription>
         </CardHeader>
@@ -231,11 +228,7 @@ export default function OTPVerificationPage() {
               {resendSuccess && (
                 <Alert>
                   <AlertTitle>Success</AlertTitle>
-                  <AlertDescription>
-                    {method === "email"
-                      ? "A new verification code has been sent to your email."
-                      : "A new verification code has been sent to your phone."}
-                  </AlertDescription>
+                  <AlertDescription>A new verification code has been sent to your email.</AlertDescription>
                 </Alert>
               )}
 

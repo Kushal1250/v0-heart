@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
-import { getUserByEmail, getUserByPhone } from "@/lib/db"
+import { getUserByEmail } from "@/lib/db"
 import { sendEmail } from "@/lib/email-utils"
-import { sendSMS, isValidPhone } from "@/lib/sms-utils"
 import { v4 as uuidv4 } from "uuid"
 
 export async function POST(request: Request) {
@@ -10,37 +9,15 @@ export async function POST(request: Request) {
     const body = await request.json()
     console.log("Received verification code request:", body)
 
-    const { email, phone, isLoggedIn = false } = body
+    const { email, isLoggedIn = false } = body
 
-    // Validate input - ensure at least one contact method is provided
-    if ((!email || email.trim() === "") && (!phone || phone.trim() === "")) {
-      console.error("Missing required parameters: email or phone")
-      return NextResponse.json({ message: "Email or phone number is required" }, { status: 400 })
+    // Validate input - ensure email is provided
+    if (!email || email.trim() === "") {
+      console.error("Missing required parameter: email")
+      return NextResponse.json({ success: false, message: "Email address is required" }, { status: 400 })
     }
 
-    const identifier = email || phone
-    const method = email ? "email" : "sms"
-
-    if (!identifier) {
-      return NextResponse.json({ success: false, message: "Email or phone number is required" }, { status: 400 })
-    }
-
-    if (!method || (method !== "email" && method !== "sms")) {
-      return NextResponse.json({ success: false, message: "Valid verification method is required" }, { status: 400 })
-    }
-
-    console.log(`Sending verification code to ${identifier} via ${method}`)
-
-    // Validate phone number if method is SMS
-    if (method === "sms") {
-      const isValid = await isValidPhone(identifier)
-      if (!isValid) {
-        return NextResponse.json(
-          { success: false, message: "Invalid phone number format. Please enter a valid phone number." },
-          { status: 400 },
-        )
-      }
-    }
+    console.log(`Sending verification code to ${email} via email`)
 
     // Generate a 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString()
@@ -67,23 +44,19 @@ export async function POST(request: Request) {
       `
     }
 
-    // Get user ID if identifier is an email or phone
-    let userId = identifier
+    // Get user ID if identifier is an email
+    let userId = email
     let user = null
 
-    if (method === "email" && identifier.includes("@")) {
-      user = await getUserByEmail(identifier)
-    } else if (method === "sms") {
-      user = await getUserByPhone(identifier)
-    }
+    user = await getUserByEmail(email)
 
     if (user) {
       userId = user.id
-      console.log(`Found user ID ${userId} for identifier ${identifier}`)
+      console.log(`Found user ID ${userId} for email ${email}`)
     }
 
     // Delete any existing codes for this user/identifier
-    await sql`DELETE FROM verification_codes WHERE user_id = ${userId} OR user_id = ${identifier}`
+    await sql`DELETE FROM verification_codes WHERE user_id = ${userId} OR user_id = ${email}`
 
     // Store the new code
     const verificationId = uuidv4()
@@ -95,95 +68,39 @@ export async function POST(request: Request) {
     `
     console.log(`Stored verification code in database for ${userId}`)
 
-    // Send the code via the specified method
-    if (method === "email") {
-      const emailResult = await sendEmail({
-        to: identifier,
-        subject: "Your Verification Code",
-        text: `Your verification code is: ${code}. It will expire in 15 minutes.`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Your Verification Code</h2>
-            <p>Use the following code to verify your account:</p>
-            <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold;">
-              ${code}
-            </div>
-            <p>This code will expire in 15 minutes.</p>
-            <p>If you didn't request this code, please ignore this email.</p>
+    // Send the code via email
+    const emailResult = await sendEmail({
+      to: email,
+      subject: "Your Verification Code",
+      text: `Your verification code is: ${code}. It will expire in 15 minutes.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Your Verification Code</h2>
+          <p>Use the following code to verify your account:</p>
+          <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold;">
+            ${code}
           </div>
-        `,
-      })
+          <p>This code will expire in 15 minutes.</p>
+          <p>If you didn't request this code, please ignore this email.</p>
+        </div>
+      `,
+    })
 
-      if (!emailResult.success) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: emailResult.message || "Failed to send verification email",
-          },
-          { status: 500 },
-        )
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: "Verification code sent to your email",
-        previewUrl: emailResult.previewUrl,
-      })
-    } else if (method === "sms") {
-      // Use our improved SMS function
-      const smsResult = await sendSMS(identifier, `Your verification code is: ${code}. It will expire in 15 minutes.`)
-
-      if (!smsResult.success) {
-        console.error("SMS sending failed:", smsResult)
-
-        // If we have a user with an email, try email as fallback
-        if (user && user.email) {
-          console.log(`Attempting email fallback for user ${user.id}`)
-          const emailResult = await sendEmail({
-            to: user.email,
-            subject: "Your Verification Code",
-            text: `Your verification code is: ${code}. It will expire in 15 minutes.`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2>Your Verification Code</h2>
-                <p>Use the following code to verify your account:</p>
-                <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold;">
-                  ${code}
-                </div>
-                <p>This code will expire in 15 minutes.</p>
-                <p>If you didn't request this code, please ignore this email.</p>
-                <p><small>Note: We sent this code via email because SMS delivery failed.</small></p>
-              </div>
-            `,
-          })
-
-          if (emailResult.success) {
-            return NextResponse.json({
-              success: true,
-              message: "SMS delivery failed, but we sent your code via email instead",
-              method: "email",
-              fallbackUsed: true,
-            })
-          }
-        }
-
-        return NextResponse.json(
-          {
-            success: false,
-            message: smsResult.message || "Failed to send verification SMS",
-            errorDetails: smsResult.errorDetails,
-          },
-          { status: 500 },
-        )
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: "Verification code sent to your phone",
-      })
+    if (!emailResult.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: emailResult.message || "Failed to send verification email",
+        },
+        { status: 500 },
+      )
     }
 
-    return NextResponse.json({ success: false, message: "Invalid verification method" }, { status: 400 })
+    return NextResponse.json({
+      success: true,
+      message: "Verification code sent to your email",
+      previewUrl: emailResult.previewUrl,
+    })
   } catch (error) {
     console.error("Error sending verification code:", error)
     return NextResponse.json(
