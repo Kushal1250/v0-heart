@@ -7,8 +7,6 @@
  * Validates if an email address is in a valid format
  */
 export function isValidEmail(email: string): boolean {
-  if (!email) return false
-  // Basic email validation regex
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
 }
@@ -18,11 +16,9 @@ export function isValidEmail(email: string): boolean {
  * This is a basic validation that just checks for minimum length
  */
 export function isValidPhone(phone: string): boolean {
-  if (!phone) return false
-  // Remove all non-digit characters
-  const digits = phone.replace(/\D/g, "")
-  // Most phone numbers are at least 10 digits
-  return digits.length >= 10
+  // Basic phone validation - should have at least 10 digits and start with + for international format
+  const phoneDigits = phone.replace(/\D/g, "")
+  return phoneDigits.length >= 10 && phone.includes("+")
 }
 
 /**
@@ -46,4 +42,8 @@ export function formatPhoneForDisplay(phone: string): string {
 
   // Return as is if it doesn't match expected formats
   return phone
+}
+
+export function isStrongPassword(password: string): boolean {
+  return password.length >= 8
 }

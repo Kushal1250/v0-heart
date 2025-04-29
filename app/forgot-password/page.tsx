@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, Info, CheckCircle } from "lucide-react"
 import { isValidEmail, isValidPhone } from "@/lib/client-validation"
 
 export default function ForgotPasswordPage() {
@@ -19,12 +19,14 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<"email" | "sms">("email")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setSuccess(false)
+    setPreviewUrl(null)
     setLoading(true)
 
     try {
@@ -74,20 +76,34 @@ export default function ForgotPasswordPage() {
         }),
       })
 
-      const data = await response.json()
+      if (response.ok) {
+        const data = await response.json()
+        setLoading(false)
+        setSuccess(true)
+        setError(data.message)
 
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to send verification code")
+        // If there's a preview URL (development environment), show it
+        if (data.previewUrl) {
+          setError(`${data.message} Preview available at: ${data.previewUrl}`)
+          setPreviewUrl(data.previewUrl)
+        }
+
+        // Redirect after a short delay to show success message
+        setTimeout(() => {
+          const identifier = activeTab === "email" ? email : phone
+          router.push(`/otp-verification?identifier=${encodeURIComponent(identifier)}&method=${activeTab}`)
+        }, 2000)
+      } else {
+        const errorData = await response.json()
+        setLoading(false)
+        setError(errorData.message || "An error occurred. Please try again.")
+
+        // If there's still a preview URL despite the error, show it for debugging
+        if (errorData.previewUrl) {
+          setError(`${errorData.message} Preview: ${errorData.previewUrl}`)
+          setPreviewUrl(errorData.previewUrl)
+        }
       }
-
-      console.log("Verification code sent successfully:", data)
-      setSuccess(true)
-
-      // Redirect after a short delay to show success message
-      setTimeout(() => {
-        const identifier = activeTab === "email" ? email : phone
-        router.push(`/otp-verification?identifier=${encodeURIComponent(identifier)}&method=${activeTab}`)
-      }, 1000)
     } catch (err: any) {
       console.error("Error sending verification code:", err)
       setError(err.message || "An error occurred while sending the verification code. Please try again.")
@@ -150,8 +166,27 @@ export default function ForgotPasswordPage() {
 
                 {success && (
                   <Alert className="bg-green-900 border-green-800 text-green-200">
+                    <CheckCircle className="h-4 w-4" />
                     <AlertTitle>Success</AlertTitle>
                     <AlertDescription>Verification code sent! Redirecting...</AlertDescription>
+                  </Alert>
+                )}
+
+                {previewUrl && (
+                  <Alert className="bg-blue-900 border-blue-800 text-blue-200">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>Development Mode</AlertTitle>
+                    <AlertDescription>
+                      <p>Email preview available:</p>
+                      <a
+                        href={previewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline text-blue-300 hover:text-blue-200"
+                      >
+                        View Email
+                      </a>
+                    </AlertDescription>
                   </Alert>
                 )}
 
@@ -190,6 +225,7 @@ export default function ForgotPasswordPage() {
 
                 {success && (
                   <Alert className="bg-green-900 border-green-800 text-green-200">
+                    <CheckCircle className="h-4 w-4" />
                     <AlertTitle>Success</AlertTitle>
                     <AlertDescription>Verification code sent! Redirecting...</AlertDescription>
                   </Alert>
@@ -203,7 +239,7 @@ export default function ForgotPasswordPage() {
           </Tabs>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <Button variant="link" className="text-blue-400 hover:text-blue-300">
+          <Button variant="link" className="text-blue-400 hover:text-blue-300" asChild>
             <Link href="/login">Back to Login</Link>
           </Button>
         </CardFooter>

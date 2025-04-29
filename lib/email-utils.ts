@@ -11,35 +11,83 @@ interface EmailOptions {
   attachments?: any[]
 }
 
+// Create a development test account for email testing when in development
+async function createTestAccount() {
+  try {
+    const testAccount = await nodemailer.createTestAccount()
+    console.log("Created test email account:", testAccount)
+    return {
+      host: "smtp.ethereal.email",
+      port: 587,
+      secure: false,
+      auth: {
+        user: testAccount.user,
+        pass: testAccount.pass,
+      },
+    }
+  } catch (error) {
+    console.error("Failed to create test account:", error)
+    return null
+  }
+}
+
 export async function sendEmail(options: EmailOptions): Promise<{
   success: boolean
   message: string
+  previewUrl?: string
 }> {
   try {
     // Log that we're attempting to send an email
     console.log(`Attempting to send email to ${options.to} with subject: ${options.subject}`)
-    console.log(`Using EMAIL_SERVER: ${process.env.EMAIL_SERVER}`)
-    console.log(`Using EMAIL_PORT: ${process.env.EMAIL_PORT}`)
-    console.log(`Using EMAIL_USER: ${process.env.EMAIL_USER}`)
+
+    let transportConfig
+    let isTestMode = false
+
+    // Check if email configuration exists
+    if (
+      !process.env.EMAIL_SERVER ||
+      !process.env.EMAIL_PORT ||
+      !process.env.EMAIL_USER ||
+      !process.env.EMAIL_PASSWORD
+    ) {
+      console.warn("Email configuration is incomplete. Attempting to use test account.")
+
+      // Only in development, create a test account
+      if (process.env.NODE_ENV !== "production") {
+        const testConfig = await createTestAccount()
+        if (testConfig) {
+          transportConfig = testConfig
+          isTestMode = true
+          console.log("Using ethereal test account for email")
+        } else {
+          throw new Error("Failed to create test email account and no email configuration exists")
+        }
+      } else {
+        throw new Error("Email configuration is missing in production environment")
+      }
+    } else {
+      // Use the configured email settings
+      transportConfig = {
+        host: process.env.EMAIL_SERVER,
+        port: Number(process.env.EMAIL_PORT) || 587,
+        secure: process.env.EMAIL_SECURE === "true",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD,
+        },
+        tls: {
+          // Do not fail on invalid certificates
+          rejectUnauthorized: false,
+        },
+      }
+    }
 
     // Create a nodemailer transporter
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_SERVER,
-      port: Number(process.env.EMAIL_PORT) || 587,
-      secure: process.env.EMAIL_SECURE === "true",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
-      },
-      tls: {
-        // Do not fail on invalid certificates
-        rejectUnauthorized: false,
-      },
-    })
+    const transporter = nodemailer.createTransport(transportConfig)
 
     // Add the from field
     const mailOptions = {
-      from: process.env.EMAIL_FROM || `"Heart Health Predictor" <${process.env.EMAIL_USER}>`,
+      from: process.env.EMAIL_FROM || `"Heart Health Predictor" <${transportConfig.auth.user}>`,
       ...options,
     }
 
@@ -56,13 +104,33 @@ export async function sendEmail(options: EmailOptions): Promise<{
     const info = await transporter.sendMail(mailOptions)
 
     console.log("Email sent successfully:", info.messageId)
-    return { success: true, message: "Email sent successfully" }
+
+    // If using test account, provide preview URL
+    let previewUrl
+    if (isTestMode) {
+      previewUrl = nodemailer.getTestMessageUrl(info)
+      console.log("Preview URL:", previewUrl)
+    }
+
+    // For development environments, return a preview URL
+    if (process.env.NODE_ENV === "development" && info.messageId) {
+      return {
+        success: true,
+        message: "Email sent successfully (development mode)",
+        previewUrl: nodemailer.getTestMessageUrl(info),
+      }
+    }
+
+    return {
+      success: true,
+      message: "Email sent successfully",
+    }
   } catch (error) {
     console.error("Failed to send email:", error)
     await logError("sendEmail", error, { to: options.to, subject: options.subject })
     return {
       success: false,
-      message: error instanceof Error ? error.message : "Failed to send email",
+      message: error instanceof Error ? error.message : "Unknown error occurred while sending email",
     }
   }
 }
@@ -71,8 +139,28 @@ export async function sendEmail(options: EmailOptions): Promise<{
 export async function verifyEmailConfig(): Promise<{
   success: boolean
   message: string
+  details?: any
 }> {
   try {
+    // Check if email configuration exists
+    if (
+      !process.env.EMAIL_SERVER ||
+      !process.env.EMAIL_PORT ||
+      !process.env.EMAIL_USER ||
+      !process.env.EMAIL_PASSWORD
+    ) {
+      return {
+        success: false,
+        message: "Email configuration is incomplete",
+        details: {
+          server: !!process.env.EMAIL_SERVER,
+          port: !!process.env.EMAIL_PORT,
+          user: !!process.env.EMAIL_USER,
+          password: !!process.env.EMAIL_PASSWORD,
+        },
+      }
+    }
+
     const transporter = nodemailer.createTransport({
       host: process.env.EMAIL_SERVER,
       port: Number(process.env.EMAIL_PORT) || 587,

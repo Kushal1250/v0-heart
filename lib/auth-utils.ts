@@ -201,7 +201,14 @@ function generateVerificationCode(): string {
 /**
  * Sends a verification code via email
  */
-async function sendEmailVerification(email: string, code: string): Promise<boolean> {
+async function sendEmailVerification(
+  email: string,
+  code: string,
+): Promise<{
+  success: boolean
+  message: string
+  previewUrl?: string
+}> {
   try {
     console.log(`Sending email verification to ${email} with code ${code}`)
 
@@ -225,14 +232,25 @@ async function sendEmailVerification(email: string, code: string): Promise<boole
 
     if (!result.success) {
       console.error("Failed to send email verification:", result.message)
-      return false
+      return {
+        success: false,
+        message: result.message || "Failed to send email verification",
+        previewUrl: result.previewUrl,
+      }
     }
 
     console.log("Email verification sent successfully")
-    return true
+    return {
+      success: true,
+      message: "Email verification sent successfully",
+      previewUrl: result.previewUrl,
+    }
   } catch (error) {
     await logError("sendEmailVerification", error, { email })
-    return false
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to send email verification",
+    }
   }
 }
 
@@ -247,6 +265,7 @@ export async function sendVerificationCode(
 ): Promise<{
   success: boolean
   message: string
+  previewUrl?: string
 }> {
   try {
     console.log(`Sending verification code to ${identifier} via ${method}`)
@@ -256,39 +275,58 @@ export async function sendVerificationCode(
     console.log(`Generated verification code: ${code}`)
 
     // Store the code in the database with a 15-minute expiration
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
-    await createVerificationCode(identifier, code)
-    console.log(`Stored verification code in database for ${identifier}`)
+    try {
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
+      await createVerificationCode(identifier, code)
+      console.log(`Stored verification code in database for ${identifier}`)
+    } catch (dbError) {
+      console.error(`Failed to store verification code: ${dbError}`)
+      await logError("createVerificationCode", dbError, { identifier })
+      return {
+        success: false,
+        message: "Database error: Failed to store verification code",
+      }
+    }
 
     // Send the code via the specified method
     if (method === "email") {
       console.log(`Sending verification code via email to ${identifier}`)
       const sent = await sendEmailVerification(identifier, code)
-      if (!sent) {
-        console.error(`Failed to send verification code via email to ${identifier}`)
+      if (!sent.success) {
+        console.error(`Failed to send verification code via email: ${sent.message}`)
         return {
           success: false,
-          message: "Failed to send verification code via email. Please try again.",
+          message: `Email sending failed: ${sent.message}`,
+          previewUrl: sent.previewUrl,
         }
       }
       console.log(`Successfully sent verification code via email to ${identifier}`)
+      return {
+        success: true,
+        message: `Verification code sent via email.`,
+        previewUrl: sent.previewUrl,
+      }
     } else if (method === "sms") {
       console.log(`Sending verification code via SMS to ${identifier}`)
       const message = `Your verification code is: ${code}. It will expire in 15 minutes.`
       const sent = await sendSMS(identifier, message)
       if (!sent.success) {
-        console.error(`Failed to send verification code via SMS to ${identifier}: ${sent.message}`)
+        console.error(`Failed to send verification code via SMS: ${sent.message}`)
         return {
           success: false,
-          message: "Failed to send verification code via SMS. Please try again.",
+          message: `SMS sending failed: ${sent.message}`,
         }
       }
       console.log(`Successfully sent verification code via SMS to ${identifier}`)
+      return {
+        success: true,
+        message: `Verification code sent via SMS.`,
+      }
     }
 
     return {
-      success: true,
-      message: `Verification code sent via ${method}.`,
+      success: false,
+      message: `Unsupported verification method: ${method}`,
     }
   } catch (error) {
     await logError("sendVerificationCode", error, { identifier, method })
@@ -367,6 +405,7 @@ export async function resendVerificationCode(
 ): Promise<{
   success: boolean
   message: string
+  previewUrl?: string
 }> {
   try {
     // Delete any existing verification code

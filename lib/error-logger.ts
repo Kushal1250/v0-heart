@@ -7,23 +7,25 @@ function generateErrorId(): string {
   return `err_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
 }
 
-// Log an error and return an error ID
-export async function logError(context: string, error: unknown, metadata: Record<string, any> = {}): Promise<string> {
-  const errorId = generateErrorId()
+/**
+ * Logs an error to the console and potentially to a monitoring service
+ * @param context The context where the error occurred
+ * @param error The error object
+ * @param additionalData Any additional data to log
+ */
+export async function logError(context: string, error: unknown, additionalData?: Record<string, any>): Promise<void> {
+  console.error(`ERROR in ${context}:`, error)
 
-  const errorInfo = {
-    id: errorId,
-    timestamp: new Date().toISOString(),
-    context,
-    message: error instanceof Error ? error.message : String(error),
-    stack: error instanceof Error ? error.stack : undefined,
-    metadata,
+  if (additionalData) {
+    console.error("Additional data:", additionalData)
   }
 
-  // In production, you might want to send this to a logging service
-  console.error("ERROR:", JSON.stringify(errorInfo, null, 2))
+  // Here you would add calls to your error monitoring service
+  // Like Sentry, LogRocket, etc.
 
-  return errorId
+  // Example: if (process.env.NODE_ENV === 'production') {
+  //   sentryCapture(error, { extra: { context, ...additionalData } });
+  // }
 }
 
 // Create a standardized error response
