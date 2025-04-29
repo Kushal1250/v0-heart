@@ -8,16 +8,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, Info, CheckCircle } from "lucide-react"
-import { isValidEmail } from "@/lib/client-validation"
+import { AlertCircle, Info, CheckCircle, Mail, Phone } from "lucide-react"
+import { isValidEmail, isValidPhone } from "@/lib/client-validation"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<"email" | "phone">("email")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,63 +30,76 @@ export default function ForgotPasswordPage() {
     setLoading(true)
 
     try {
-      // Basic client-side validation
-      if (!email.trim()) {
-        setError("Please enter your email address")
-        setLoading(false)
-        return
+      if (activeTab === "email") {
+        // Email validation
+        if (!email.trim()) {
+          setError("Please enter your email address")
+          setLoading(false)
+          return
+        }
+
+        if (!isValidEmail(email.trim())) {
+          setError("Please enter a valid email address")
+          setLoading(false)
+          return
+        }
+      } else {
+        // Phone validation
+        if (!phone.trim()) {
+          setError("Please enter your phone number")
+          setLoading(false)
+          return
+        }
+
+        if (!isValidPhone(phone.trim())) {
+          setError("Please enter a valid phone number with country code (e.g., +1234567890)")
+          setLoading(false)
+          return
+        }
       }
 
-      if (!isValidEmail(email)) {
-        setError("Please enter a valid email address")
-        setLoading(false)
-        return
-      }
+      const identifier = activeTab === "email" ? email.trim() : phone.trim()
+      console.log(`Attempting to send verification code via ${activeTab}`, { identifier })
 
-      console.log(`Attempting to send password reset email`, { email })
-
-      // Change this to use the forgot-password endpoint instead of send-verification-code
-      const response = await fetch("/api/auth/forgot-password", {
+      const response = await fetch("/api/auth/send-verification-code", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email,
+          [activeTab]: identifier,
+          method: activeTab,
+          isLoggedIn: false,
         }),
       })
 
+      const data = await response.json()
+
       if (response.ok) {
-        const data = await response.json()
         setLoading(false)
         setSuccess(true)
-        setError(data.message)
 
         // If there's a preview URL (development environment), show it
         if (data.previewUrl) {
-          setError(`${data.message} Preview available at: ${data.previewUrl}`)
           setPreviewUrl(data.previewUrl)
         }
 
         // Redirect after a short delay to show success message
         setTimeout(() => {
-          router.push(`/otp-verification?identifier=${encodeURIComponent(email)}&method=email`)
+          router.push(`/otp-verification?identifier=${encodeURIComponent(identifier)}&method=${activeTab}`)
         }, 2000)
       } else {
-        const errorData = await response.json()
         setLoading(false)
-        setError(errorData.message || "An error occurred. Please try again.")
+        setError(data.message || "An error occurred. Please try again.")
 
         // If there's still a preview URL despite the error, show it for debugging
-        if (errorData.previewUrl) {
-          setError(`${errorData.message} Preview: ${errorData.previewUrl}`)
-          setPreviewUrl(errorData.previewUrl)
+        if (data.previewUrl) {
+          setPreviewUrl(data.previewUrl)
         }
       }
     } catch (err: any) {
-      console.error("Error sending password reset request:", err)
-      setError(err.message || "An error occurred while sending the password reset request. Please try again.")
-    } finally {
+      console.error("Error sending verification code:", err)
+      setError(err.message || "An error occurred while sending the verification code. Please try again.")
       setLoading(false)
     }
   }
@@ -98,60 +114,111 @@ export default function ForgotPasswordPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300">
-                Email Address
-              </label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="block w-full bg-gray-700 border-gray-600 text-white"
-                required
-              />
-            </div>
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as "email" | "phone")}
+            className="w-full"
+          >
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="email" className="flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Email
+              </TabsTrigger>
+              <TabsTrigger value="phone" className="flex items-center gap-2">
+                <Phone className="h-4 w-4" />
+                Phone
+              </TabsTrigger>
+            </TabsList>
 
-            {error && (
-              <Alert variant="destructive" className="bg-red-900 border-red-800 text-red-200">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+            <TabsContent value="email">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-300">
+                    Email Address
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="block w-full bg-gray-700 border-gray-600 text-white"
+                    required
+                  />
+                </div>
 
-            {success && (
-              <Alert className="bg-green-900 border-green-800 text-green-200">
-                <CheckCircle className="h-4 w-4" />
-                <AlertTitle>Success</AlertTitle>
-                <AlertDescription>Verification code sent! Redirecting...</AlertDescription>
-              </Alert>
-            )}
+                {error && activeTab === "email" && (
+                  <Alert variant="destructive" className="bg-red-900 border-red-800 text-red-200">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
 
-            {previewUrl && (
-              <Alert className="bg-blue-900 border-blue-800 text-blue-200">
-                <Info className="h-4 w-4" />
-                <AlertTitle>Development Mode</AlertTitle>
-                <AlertDescription>
-                  <p>Email preview available:</p>
-                  <a
-                    href={previewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline text-blue-300 hover:text-blue-200"
-                  >
-                    View Email
-                  </a>
-                </AlertDescription>
-              </Alert>
-            )}
+                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading || !email}>
+                  {loading ? "Sending..." : "Send Verification Code"}
+                </Button>
+              </form>
+            </TabsContent>
 
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading || !email}>
-              {loading ? "Sending..." : "Send Verification Code"}
-            </Button>
-          </form>
+            <TabsContent value="phone">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-300">
+                    Phone Number
+                  </label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="Enter your phone number with country code (e.g., +1234567890)"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="block w-full bg-gray-700 border-gray-600 text-white"
+                    required
+                  />
+                  <p className="text-xs text-gray-400">Include country code (e.g., +1 for US)</p>
+                </div>
+
+                {error && activeTab === "phone" && (
+                  <Alert variant="destructive" className="bg-red-900 border-red-800 text-red-200">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading || !phone}>
+                  {loading ? "Sending..." : "Send Verification Code"}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
+
+          {success && (
+            <Alert className="bg-green-900 border-green-800 text-green-200 mt-4">
+              <CheckCircle className="h-4 w-4" />
+              <AlertTitle>Success</AlertTitle>
+              <AlertDescription>Verification code sent! Redirecting...</AlertDescription>
+            </Alert>
+          )}
+
+          {previewUrl && (
+            <Alert className="bg-blue-900 border-blue-800 text-blue-200 mt-4">
+              <Info className="h-4 w-4" />
+              <AlertTitle>Development Mode</AlertTitle>
+              <AlertDescription>
+                <p>Email preview available:</p>
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline text-blue-300 hover:text-blue-200"
+                >
+                  View Email
+                </a>
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
         <CardFooter className="flex justify-center">
           <Button variant="link" className="text-blue-400 hover:text-blue-300" asChild>
