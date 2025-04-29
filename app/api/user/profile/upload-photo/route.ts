@@ -1,141 +1,136 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getCurrentUser } from "@/lib/auth-utils"
-import { updateUserProfile } from "@/lib/db"
+import { neon } from "@neondatabase/serverless"
+import { cookies } from "next/headers"
+import jwt from "jsonwebtoken"
+import sharp from "sharp"
 
-// Increase the body size limit for this route
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "10mb",
-    },
-  },
+// Connect to the database
+const sql = neon(process.env.DATABASE_URL!)
+
+// Maximum file size (5MB)
+const MAX_FILE_SIZE = 5 * 1024 * 1024
+
+// Verify the JWT token and get the user ID
+function getUserIdFromToken(request: NextRequest): number | null {
+  try {
+    const cookieStore = cookies()
+    const token = cookieStore.get("token")?.value
+
+    if (!token) {
+      return null
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY!) as { userId: number }
+    return decoded.userId
+  } catch (error) {
+    console.error("Error verifying token:", error)
+    return null
+  }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("Profile photo upload: Starting upload process")
+    // Get user ID from token
+    const userId = getUserIdFromToken(request)
 
-    const currentUser = await getCurrentUser()
-
-    if (!currentUser) {
-      console.log("Profile photo upload: Unauthorized - No current user")
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    if (!userId) {
+      return NextResponse.json({ success: false, message: "Authentication required" }, { status: 401 })
     }
 
-    console.log(`Profile photo upload: Processing upload for user ${currentUser.id}`)
+    // Parse the form data
+    const formData = await request.formData()
+    const file = formData.get("file") as File | null
 
-    // Process the form data
-    let formData
-    try {
-      formData = await request.formData()
-    } catch (error) {
-      console.error("Profile photo upload: Error parsing form data", error)
-      return NextResponse.json(
-        {
-          message: "Failed to parse upload data. The file may be too large or corrupted.",
-        },
-        { status: 400 },
-      )
+    if (!file) {
+      return NextResponse.json({ success: false, message: "No file provided" }, { status: 400 })
     }
 
-    const profilePicture = formData.get("profile_picture") as File | null
-
-    if (!profilePicture) {
-      console.log("Profile photo upload: No file uploaded")
-      return NextResponse.json({ message: "No file uploaded" }, { status: 400 })
+    // Check file size
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ success: false, message: "File size exceeds the 5MB limit" }, { status: 400 })
     }
 
-    console.log(
-      `Profile photo upload: File received - Type: ${profilePicture.type}, Size: ${profilePicture.size} bytes`,
-    )
-
-    // Validate file type
+    // Check file type
     const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
-    if (!validTypes.includes(profilePicture.type)) {
-      console.log(`Profile photo upload: Invalid file type - ${profilePicture.type}`)
+    if (!validTypes.includes(file.type)) {
       return NextResponse.json(
-        { message: "Invalid file type. Please upload a JPEG, PNG, GIF, or WebP image." },
+        { success: false, message: "Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed" },
         { status: 400 },
       )
     }
 
-    // Validate file size (max 10MB)
-    if (profilePicture.size > 10 * 1024 * 1024) {
-      console.log(`Profile photo upload: File too large - ${profilePicture.size} bytes`)
-      return NextResponse.json(
-        { message: "File too large. Please upload an image smaller than 10MB." },
-        { status: 400 },
-      )
-    }
+    // Convert the file to a buffer
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
 
-    // Generate a unique timestamp for cache busting
-    const timestamp = Date.now()
-    console.log(`Profile photo upload: Processing with timestamp ${timestamp}`)
-
-    // Convert the file to a data URL
-    let dataUrl
-    try {
-      console.log("Profile photo upload: Converting file to data URL")
-      const arrayBuffer = await profilePicture.arrayBuffer()
-      const buffer = Buffer.from(arrayBuffer)
-      const base64Image = buffer.toString("base64")
-      dataUrl = `data:${profilePicture.type};base64,${base64Image}`
-      console.log(`Profile photo upload: Data URL created, length: ${dataUrl.length} characters`)
-
-      if (dataUrl.length > 2 * 1024 * 1024) {
-        // 2MB limit for data URL
-        console.log(
-          `Profile photo upload: Data URL too large (${dataUrl.length} bytes), will compress further on server`,
-        )
-        // Here we could implement server-side compression, but for now just warn
-      }
-    } catch (error) {
-      console.error("Profile photo upload: Error converting file to data URL", error)
-      return NextResponse.json(
-        {
-          message: "Failed to process the image. Please try again with a different image.",
-        },
-        { status: 500 },
-      )
-    }
-
-    // Store the data URL in the database
-    try {
-      console.log("Profile photo upload: Updating user profile in database")
-
-      const updatedUser = await updateUserProfile(currentUser.id, {
-        profile_picture: dataUrl,
+    // Process the image with sharp
+    const processedImageBuffer = await sharp(buffer)
+      .resize({
+        width: 400,
+        height: 400,
+        fit: "cover",
+        position: "center",
       })
+      .toFormat("webp", { quality: 85 })
+      .toBuffer()
 
-      if (!updatedUser) {
-        console.log("Profile photo upload: Failed to update user profile")
-        return NextResponse.json({ message: "Failed to update profile picture" }, { status: 500 })
-      }
+    // Convert to base64 for storage
+    const base64Image = `data:image/webp;base64,${processedImageBuffer.toString("base64")}`
 
-      console.log("Profile photo upload: Profile successfully updated")
-    } catch (error) {
-      console.error("Profile photo upload: Database error", error)
-      return NextResponse.json(
-        {
-          message: "Database error. Failed to save profile picture.",
-        },
-        { status: 500 },
-      )
-    }
+    // Update the user's profile picture in the database
+    await sql`
+      UPDATE users 
+      SET profile_picture = ${base64Image}, updated_at = NOW() 
+      WHERE id = ${userId}
+    `
 
-    // Return success with the data URL
-    console.log("Profile photo upload: Returning success response")
     return NextResponse.json({
-      profile_picture: dataUrl,
       success: true,
       message: "Profile picture updated successfully",
-      timestamp: timestamp,
+      imageUrl: base64Image,
     })
-  } catch (error) {
-    console.error("Profile photo upload: Unexpected error", error)
+  } catch (error: any) {
+    console.error("Error uploading profile picture:", error)
+
     return NextResponse.json(
       {
-        message: "An unexpected error occurred. Please try again later.",
+        success: false,
+        message: "Failed to upload profile picture",
+        error: error.message,
+      },
+      { status: 500 },
+    )
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    // Get user ID from token
+    const userId = getUserIdFromToken(request)
+
+    if (!userId) {
+      return NextResponse.json({ success: false, message: "Authentication required" }, { status: 401 })
+    }
+
+    // Remove the profile picture from the database
+    await sql`
+      UPDATE users 
+      SET profile_picture = NULL, updated_at = NOW() 
+      WHERE id = ${userId}
+    `
+
+    return NextResponse.json({
+      success: true,
+      message: "Profile picture removed successfully",
+    })
+  } catch (error: any) {
+    console.error("Error removing profile picture:", error)
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to remove profile picture",
+        error: error.message,
       },
       { status: 500 },
     )
