@@ -8,17 +8,13 @@ export async function GET(request: NextRequest) {
     const user = await getUserFromRequest(request)
 
     if (!user) {
-      // Return 401 for non-authenticated users
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+      // Return empty array for non-authenticated users
+      // They will use local storage instead
+      return NextResponse.json([])
     }
-
-    console.log(`Fetching predictions for user ID: ${user.id}`)
 
     // Fetch predictions for this user only
     const predictions = await getPredictionsByUserId(user.id)
-
-    // Log for debugging
-    console.log(`Found ${predictions.length} predictions for user ${user.id}`)
 
     // Log for security auditing (without exposing sensitive data)
     console.log(`User ${user.id} accessed their predictions (${predictions.length} records)`)

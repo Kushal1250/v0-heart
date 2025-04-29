@@ -158,7 +158,7 @@ export default function HistoryPage() {
       case "risk-lowest":
         result.sort((a, b) => {
           const riskOrder = { high: 3, moderate: 2, low: 1 }
-          return riskOrder[a.result.risk as keyof typeof riskOrder] - riskOrder[b.result.risk as keyof typeof riskOrder]
+          return riskOrder[a.result.risk as keyof typeof riskOrder] - riskOrder[a.result.risk as keyof typeof riskOrder]
         })
         break
       case "age-highest":
@@ -314,88 +314,6 @@ export default function HistoryPage() {
     )
   }
 
-  // If not authenticated, show login prompt with redirect back to history
-  if (!isAuthenticated && !authLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8 md:py-12">
-        <div className="flex items-center mb-6">
-          <Link href="/" className="flex items-center gap-2 text-xl font-bold">
-            <Button variant="ghost" className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Home
-            </Button>
-          </Link>
-        </div>
-
-        <Card className="max-w-4xl mx-auto bg-gray-900 border-gray-800">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5 text-blue-400" />
-              Local Assessment History
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-center py-6">
-            <div className="mb-6">
-              <p className="text-gray-400 mb-4">
-                You're viewing your local assessment history, which is only stored on this device.
-              </p>
-              <p className="text-gray-400 mb-6">
-                To access your history from any device and keep it secure, please log in or create an account.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button asChild className="bg-red-600 hover:bg-red-700">
-                  <Link href={`/login?redirect=${encodeURIComponent("/history")}`}>Log In</Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link href="/signup">Create Account</Link>
-                </Button>
-              </div>
-            </div>
-
-            {history.length > 0 ? (
-              <div className="mt-8 border-t border-gray-800 pt-6">
-                <p className="text-gray-400 mb-4">Your local history contains {history.length} assessments:</p>
-                <div className="space-y-4">
-                  {history.slice(0, 3).map((item) => (
-                    <Card key={item.id} className="bg-gray-800 border-gray-700">
-                      <CardContent className="p-4">
-                        <div className="flex justify-between items-center mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className={`font-semibold ${getRiskColor(item.result.risk)}`}>
-                              {item.result.risk.charAt(0).toUpperCase() + item.result.risk.slice(1)} Risk
-                            </span>
-                            <span className="text-sm text-gray-400">({item.result.score}%)</span>
-                          </div>
-                          <span className="text-sm text-gray-400">{formatDate(item.date)}</span>
-                        </div>
-                        <Button
-                          onClick={() => handleViewDetails(item)}
-                          className="w-full mt-2 bg-gray-700 hover:bg-gray-600"
-                        >
-                          View Details
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                  {history.length > 3 && (
-                    <p className="text-center text-gray-400 text-sm">+ {history.length - 3} more assessments</p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="mt-8 border-t border-gray-800 pt-6">
-                <p className="text-gray-400 mb-4">You haven't completed any assessments yet.</p>
-                <Button asChild className="bg-red-600 hover:bg-red-700">
-                  <Link href="/predict">Take Your First Assessment</Link>
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 relative">
       <div className="history-bg-animation">
@@ -466,7 +384,7 @@ export default function HistoryPage() {
                   </div>
                 </div>
                 <Button asChild variant="outline" size="sm" className="text-xs">
-                  <Link href={`/login?redirect=${encodeURIComponent("/history")}`} className="flex items-center gap-1">
+                  <Link href="/login" className="flex items-center gap-1">
                     <LogIn className="h-3 w-3" />
                     Log in to save history
                   </Link>
@@ -801,7 +719,7 @@ export default function HistoryPage() {
                 </div>
 
                 <div>
-                  <h3 className="text-xl font-semibold mb-2 text-white">Your Data Privacy</h3>
+                  <h3 className="text-xl font-semibold mb-2 text-white">Your Data Storage</h3>
                   <p className="text-gray-300 mb-4">
                     How your assessment data is stored depends on whether you're logged in:
                   </p>
@@ -811,8 +729,7 @@ export default function HistoryPage() {
                       <div>
                         <p className="font-medium text-white">When logged in</p>
                         <p className="text-sm text-gray-300">
-                          Your assessments are securely stored in your account and accessible from any device. Your data
-                          is private and only visible to you.
+                          Your assessments are securely stored in your account and accessible from any device
                         </p>
                       </div>
                     </div>

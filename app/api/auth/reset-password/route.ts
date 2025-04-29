@@ -1,65 +1,44 @@
 import { NextResponse } from "next/server"
-import { sql } from "@/lib/db"
-import { hash } from "bcrypt-ts"
-import { getUserByEmail, getUserByPhone } from "@/lib/db"
+import { verifyPasswordResetToken } from "@/lib/token"
+import { updateUserPassword } from "@/lib/db"
 
 export async function POST(request: Request) {
   try {
-    const { identifier, newPassword } = await request.json()
-
-    if (!identifier || !newPassword) {
-      return NextResponse.json({ success: false, message: "Identifier and new password are required" }, { status: 400 })
-    }
-
-    // Validate password strength
-    if (newPassword.length < 8) {
+    // Check if DATABASE_URL is set
+    if (!process.env.DATABASE_URL) {
+      console.error("DATABASE_URL environment variable is not set")
       return NextResponse.json(
-        { success: false, message: "Password must be at least 8 characters long" },
-        { status: 400 },
+        { message: "Database connection error: No database connection string was provided" },
+        { status: 500 },
       )
     }
 
-    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Password must contain at least one uppercase letter, one lowercase letter, and one number",
-        },
-        { status: 400 },
-      )
+    const { token, newPassword } = await request.json()
+
+    if (!token || !newPassword) {
+      return NextResponse.json({ message: "Token and new password are required" }, { status: 400 })
     }
 
-    // Get user by identifier (email or phone)
-    let user = null
+    // Verify the token
+    const userId = await verifyPasswordResetToken(token)
 
-    if (identifier.includes("@")) {
-      user = await getUserByEmail(identifier)
-    } else {
-      user = await getUserByPhone(identifier)
+    if (!userId) {
+      return NextResponse.json({ message: "Invalid or expired token" }, { status: 400 })
     }
 
-    if (!user) {
-      return NextResponse.json({ success: false, message: "User not found" }, { status: 404 })
-    }
+    // Update the password
+    await updateUserPassword(userId, newPassword)
 
-    // Hash the new password
-    const hashedPassword = await hash(newPassword, 10)
-
-    // Update the user's password
-    await sql`UPDATE users SET password = ${hashedPassword} WHERE id = ${user.id}`
-
-    return NextResponse.json({
-      success: true,
-      message: "Password updated successfully",
-    })
+    return NextResponse.json({ message: "Password reset successfully" })
   } catch (error) {
     console.error("Error resetting password:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        message: "An error occurred while resetting the password",
-      },
-      { status: 500 },
-    )
+
+    // Check if the error is related to database connection
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    if (errorMessage.includes("database connection") || errorMessage.includes("neon")) {
+      return NextResponse.json({ message: "Database connection error: Please try again later" }, { status: 503 })
+    }
+
+    return NextResponse.json({ message: "An error occurred while resetting your password" }, { status: 500 })
   }
 }
