@@ -128,45 +128,52 @@ export default function Navbar() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                            <Avatar className="h-10 w-10 transition-transform hover:scale-110">
+                            <Avatar className="h-10 w-10 transition-transform hover:scale-110 bg-blue-100">
                               {user.profile_picture ? (
                                 <AvatarImage
                                   src={user.profile_picture || "/placeholder.svg"}
                                   alt={user.name || "User"}
                                 />
-                              ) : null}
-                              <AvatarFallback className="bg-primary/10 text-primary">
-                                {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
-                              </AvatarFallback>
+                              ) : (
+                                <AvatarFallback className="bg-blue-100 text-blue-600 font-medium">
+                                  {user.name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || "A"}
+                                </AvatarFallback>
+                              )}
                             </Avatar>
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
-                          className="w-56 bg-gray-900 text-white border-gray-800"
+                          className="w-56 bg-[#1a1f2e] text-white border-[#2a2f3e]"
                           align="end"
                           forceMount
                         >
-                          <DropdownMenuLabel className="font-normal px-4 py-3 border-b border-gray-800">
+                          <DropdownMenuLabel className="font-normal px-4 py-3 border-b border-[#2a2f3e]">
                             <div className="flex flex-col space-y-1">
                               <div className="flex items-center">
-                                <p className="text-sm font-medium leading-none">{user.name || "User"}</p>
+                                <p className="text-sm font-medium leading-none">{user.name || "Admin"}</p>
                                 {isAdmin && (
                                   <span className="ml-2 px-1.5 py-0.5 text-xs bg-red-500 text-white rounded-md">
                                     Admin
                                   </span>
                                 )}
                               </div>
-                              <p className="text-xs leading-none text-gray-400">{user.email}</p>
+                              <p className="text-xs leading-none text-gray-400">{user.email || "admin@example.com"}</p>
                             </div>
                           </DropdownMenuLabel>
                           <div className="px-2 py-2">
-                            <DropdownMenuItem asChild className="px-2 py-2 hover:bg-gray-800 rounded-md cursor-pointer">
+                            <DropdownMenuItem
+                              asChild
+                              className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
+                            >
                               <Link href="/profile" className="flex items-center">
                                 <User className="mr-2 h-4 w-4" />
                                 <span>Profile</span>
                               </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem asChild className="px-2 py-2 hover:bg-gray-800 rounded-md cursor-pointer">
+                            <DropdownMenuItem
+                              asChild
+                              className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
+                            >
                               <Link href="/dashboard" className="flex items-center">
                                 <LayoutDashboard className="mr-2 h-4 w-4" />
                                 <span>Dashboard</span>
@@ -175,7 +182,7 @@ export default function Navbar() {
                             {isAdmin && (
                               <DropdownMenuItem
                                 asChild
-                                className="px-2 py-2 hover:bg-gray-800 rounded-md cursor-pointer"
+                                className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
                               >
                                 <Link href="/admin" className="flex items-center">
                                   <Shield className="mr-2 h-4 w-4" />
@@ -183,18 +190,21 @@ export default function Navbar() {
                                 </Link>
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem asChild className="px-2 py-2 hover:bg-gray-800 rounded-md cursor-pointer">
+                            <DropdownMenuItem
+                              asChild
+                              className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
+                            >
                               <Link href="/settings" className="flex items-center">
                                 <Settings className="mr-2 h-4 w-4" />
                                 <span>Settings</span>
                               </Link>
                             </DropdownMenuItem>
                           </div>
-                          <DropdownMenuSeparator className="bg-gray-800" />
+                          <DropdownMenuSeparator className="bg-[#2a2f3e]" />
                           <div className="px-2 py-2">
                             <DropdownMenuItem
                               onClick={handleLogout}
-                              className="px-2 py-2 text-red-500 hover:bg-gray-800 rounded-md cursor-pointer"
+                              className="px-2 py-2 text-red-500 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
                             >
                               <LogOut className="mr-2 h-4 w-4" />
                               <span>Log out</span>

@@ -26,6 +26,7 @@ interface AuthContextType {
   ) => Promise<{ success: boolean; message: string }>
   logout: () => Promise<void>
   updateUserProfile: (data: Partial<User>) => void
+  updateUserDetails: (details: { name?: string; email?: string }) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -61,6 +62,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (response.ok) {
           try {
             const data = await response.json()
+
+            // Load saved user details from localStorage if available
+            if (data.user) {
+              try {
+                const savedDetails = localStorage.getItem("userDetails")
+                if (savedDetails) {
+                  const details = JSON.parse(savedDetails)
+                  if (details.name) data.user.name = details.name
+                  if (details.email) data.user.email = details.email
+                }
+              } catch (error) {
+                console.error("Error loading saved user details:", error)
+              }
+            }
+
             setUser(data.user)
             setIsAdmin(data.user.role === "admin")
           } catch (jsonError) {
@@ -220,6 +236,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const updateUserDetails = (details: { name?: string; email?: string }) => {
+    if (user) {
+      const updatedUser = { ...user }
+      if (details.name) updatedUser.name = details.name
+      if (details.email) updatedUser.email = details.email
+      setUser(updatedUser)
+
+      // Save to localStorage for persistence
+      localStorage.setItem(
+        "userDetails",
+        JSON.stringify({
+          name: updatedUser.name,
+          email: updatedUser.email,
+        }),
+      )
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -231,6 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signup,
         logout,
         updateUserProfile,
+        updateUserDetails,
       }}
     >
       {children}
