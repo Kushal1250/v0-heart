@@ -27,7 +27,6 @@ import { formatDistanceToNow } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import Link from "next/link"
-import "./profile.css"
 
 export default function ProfilePage() {
   const { user, isLoading } = useAuth()
@@ -77,7 +76,9 @@ export default function ProfilePage() {
         method: "GET",
         headers: {
           "Cache-Control": "no-cache",
+          Pragma: "no-cache",
         },
+        cache: "no-store",
       })
 
       console.log("Profile response status:", response.status)
@@ -235,24 +236,19 @@ export default function ProfilePage() {
         throw new Error("No profile picture URL returned from server")
       }
 
-      // Update profile data with new image URL and force a refresh
+      // Update profile data with new image URL
       setProfileData((prev) => ({
         ...prev,
         profile_picture: data.profile_picture,
       }))
 
-      // Update avatar key to force re-render and break cache
+      // Update avatar key to force re-render
       setAvatarKey(Date.now())
 
       toast({
         title: "Success",
         description: "Profile picture updated successfully!",
       })
-
-      // Force a refresh of the profile data from the server
-      setTimeout(() => {
-        fetchUserProfile()
-      }, 500)
     } catch (error: any) {
       console.error("Error uploading profile picture:", error)
       toast({
@@ -330,26 +326,39 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex justify-center mb-6">
-            <div className="relative avatar-container">
+            <div className="relative">
               <div
                 className="h-24 w-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden cursor-pointer group relative"
                 onClick={handleProfilePictureClick}
               >
                 {profileData.profile_picture ? (
                   <>
-                    <Avatar className="h-24 w-24">
-                      <AvatarImage
-                        src={`${profileData.profile_picture}${profileData.profile_picture.includes("?") ? "&" : "?"}v=${avatarKey}`}
-                        alt="Profile"
-                        className="h-full w-full object-cover"
-                      />
-                      <AvatarFallback className="bg-primary/10 text-primary text-2xl">
-                        {profileData.name?.[0]?.toUpperCase() ||
-                          user?.name?.[0]?.toUpperCase() ||
-                          user?.email?.[0]?.toUpperCase() ||
-                          "U"}
-                      </AvatarFallback>
-                    </Avatar>
+                    {profileData.profile_picture.startsWith("data:") ? (
+                      // For data URLs
+                      <div className="h-full w-full">
+                        <img
+                          src={`${profileData.profile_picture}`}
+                          alt="Profile"
+                          className="h-full w-full object-cover"
+                          key={`profile-img-${avatarKey}`}
+                        />
+                      </div>
+                    ) : (
+                      // For regular URLs
+                      <Avatar className="h-24 w-24">
+                        <AvatarImage
+                          src={`${profileData.profile_picture}${profileData.profile_picture.includes("?") ? "&" : "?"}v=${avatarKey}`}
+                          alt="Profile"
+                          className="h-full w-full object-cover"
+                        />
+                        <AvatarFallback className="bg-primary/10 text-primary text-2xl">
+                          {profileData.name?.[0]?.toUpperCase() ||
+                            user?.name?.[0]?.toUpperCase() ||
+                            user?.email?.[0]?.toUpperCase() ||
+                            "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
                     <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <Camera className="h-8 w-8 text-white" />
                     </div>
@@ -378,7 +387,7 @@ export default function ProfilePage() {
               <Button
                 size="sm"
                 variant="outline"
-                className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 flex items-center gap-1 text-xs avatar-button"
+                className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 flex items-center gap-1 text-xs"
                 onClick={handleProfilePictureClick}
                 disabled={isUploading}
               >

@@ -32,30 +32,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "File too large. Please upload an image smaller than 5MB." }, { status: 400 })
     }
 
-    // Create a real image URL with a unique identifier to prevent caching issues
+    // Generate a unique timestamp for cache busting
     const timestamp = Date.now()
-    const randomId = Math.random().toString(36).substring(2, 15)
 
-    // For this example, we'll use a more realistic avatar with the user's initials
-    const initials = (currentUser.name || currentUser.email || "U")[0].toUpperCase()
-    const imageUrl = `/placeholder.svg?height=200&width=200&query=avatar-${initials}-${timestamp}-${randomId}`
+    // For this implementation, we'll use a more reliable approach with a data URL
+    // In a production environment, you would use a proper storage service like AWS S3 or Vercel Blob
+    const arrayBuffer = await profilePicture.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const base64Image = buffer.toString("base64")
+    const dataUrl = `data:${profilePicture.type};base64,${base64Image}`
 
-    console.log("Setting profile picture URL:", imageUrl)
-
-    // Update user profile with the new image URL
+    // Store the data URL in the database
     const updatedUser = await updateUserProfile(currentUser.id, {
-      profile_picture: imageUrl,
+      profile_picture: dataUrl,
     })
 
     if (!updatedUser) {
       return NextResponse.json({ message: "Failed to update profile picture" }, { status: 500 })
     }
 
-    // Return the updated profile picture URL with cache-busting parameter
+    // Return success with the data URL
     return NextResponse.json({
-      profile_picture: `${imageUrl}&v=${timestamp}`,
+      profile_picture: dataUrl,
       success: true,
       message: "Profile picture updated successfully",
+      timestamp: timestamp,
     })
   } catch (error) {
     console.error("Error uploading profile picture:", error)

@@ -23,15 +23,24 @@ export async function GET() {
     console.log(`GET /api/user/profile - Successfully retrieved user data for ID: ${currentUser.id}`)
 
     // Return user data without sensitive information
-    return NextResponse.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      role: user.role,
-      createdAt: user.created_at,
-      profile_picture: user.profile_picture,
-    })
+    return NextResponse.json(
+      {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        createdAt: user.created_at,
+        profile_picture: user.profile_picture,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
+    )
   } catch (error) {
     console.error("Error fetching user profile:", error)
     return NextResponse.json({ message: "Failed to fetch user profile" }, { status: 500 })
