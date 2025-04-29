@@ -2,36 +2,14 @@ import { neon } from "@neondatabase/serverless"
 import { hash, compare } from "bcrypt-ts"
 import { v4 as uuidv4 } from "uuid"
 
-// Create a SQL query executor using the Neon serverless driver with proper error handling
-const createSqlClient = () => {
-  const connectionString = process.env.DATABASE_URL
-
-  if (!connectionString) {
-    console.error("DATABASE_URL environment variable is not set")
-    throw new Error("Database connection string is missing. Please check your environment variables.")
-  }
-
-  try {
-    return neon(connectionString)
-  } catch (error) {
-    console.error("Failed to initialize database connection:", error)
-    throw new Error("Failed to connect to database. Please check your connection string.")
-  }
-}
-
-// Export the SQL client with proper error handling
-export const sql = createSqlClient()
+// Create a SQL query executor using the Neon serverless driver
+export const sql = neon(process.env.DATABASE_URL!)
 // Export db as an alias for sql for backward compatibility
 export const db = sql
 
 // Initialize database tables
 export async function initDatabase() {
   try {
-    console.log(
-      "Initializing database with connection:",
-      process.env.DATABASE_URL ? "Connection string exists" : "No connection string",
-    )
-
     // Create users table if it doesn't exist
     await sql`
       CREATE TABLE IF NOT EXISTS users (
