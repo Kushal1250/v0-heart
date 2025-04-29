@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Camera, Loader2 } from "lucide-react"
+import { Camera, Loader2, User } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 
 interface SimpleProfileUploadProps {
@@ -17,7 +17,7 @@ export function SimpleProfileUpload({ currentImage, onImageUpdate }: SimpleProfi
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -32,11 +32,11 @@ export function SimpleProfileUpload({ currentImage, onImageUpdate }: SimpleProfi
       return
     }
 
-    // Validate file size (max 50MB)
-    if (file.size > 50 * 1024 * 1024) {
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
       toast({
         title: "File too large",
-        description: "Please upload an image smaller than 50MB.",
+        description: "Please upload an image smaller than 5MB.",
         variant: "destructive",
       })
       return
@@ -45,21 +45,29 @@ export function SimpleProfileUpload({ currentImage, onImageUpdate }: SimpleProfi
     setIsUploading(true)
 
     try {
+      // Create a FormData object
       const formData = new FormData()
       formData.append("profile_picture", file)
 
+      // Send the file to the server
       const response = await fetch("/api/user/profile/upload-photo", {
         method: "POST",
         body: formData,
-        credentials: "same-origin",
+        credentials: "include",
       })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || "Failed to upload profile picture")
+      }
 
       const data = await response.json()
 
-      if (!response.ok) {
-        throw new Error(data.message || "Upload failed")
+      if (!data.profile_picture) {
+        throw new Error("No profile picture URL returned from server")
       }
 
+      // Update the parent component with the new image URL
       onImageUpdate(data.profile_picture)
 
       toast({
@@ -67,7 +75,7 @@ export function SimpleProfileUpload({ currentImage, onImageUpdate }: SimpleProfi
         description: "Profile picture updated successfully!",
       })
     } catch (error: any) {
-      console.error("Upload error:", error)
+      console.error("Error uploading profile picture:", error)
       toast({
         title: "Error",
         description: error.message || "Failed to upload profile picture",
@@ -75,6 +83,7 @@ export function SimpleProfileUpload({ currentImage, onImageUpdate }: SimpleProfi
       })
     } finally {
       setIsUploading(false)
+      // Clear the file input
       if (fileInputRef.current) {
         fileInputRef.current.value = ""
       }
@@ -83,31 +92,33 @@ export function SimpleProfileUpload({ currentImage, onImageUpdate }: SimpleProfi
 
   return (
     <div className="flex flex-col items-center gap-4">
-      {currentImage && (
-        <div className="w-32 h-32 rounded-full overflow-hidden">
-          <img src={currentImage || "/placeholder.svg"} alt="Profile" className="w-full h-full object-cover" />
+      <div className="relative">
+        <div className="h-24 w-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+          {currentImage ? (
+            <img src={currentImage || "/placeholder.svg"} alt="Profile" className="h-full w-full object-cover" />
+          ) : (
+            <User className="h-12 w-12 text-gray-400" />
+          )}
         </div>
-      )}
+      </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2">
         <input
           type="file"
           ref={fileInputRef}
-          accept="image/jpeg,image/png,image/gif"
-          onChange={handleFileChange}
           className="hidden"
+          accept="image/jpeg,image/png,image/gif"
+          onChange={handleFileSelect}
         />
 
-        <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} variant="outline">
+        <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} variant="outline" size="sm">
           {isUploading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Uploading...
+              <Loader2 className="h-4 w-4 animate-spin mr-2" /> Uploading...
             </>
           ) : (
             <>
-              <Camera className="mr-2 h-4 w-4" />
-              Upload Profile Picture
+              <Camera className="h-4 w-4 mr-2" /> Change Profile Picture
             </>
           )}
         </Button>

@@ -43,19 +43,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Maximum file size (50MB)
-    const MAX_FILE_SIZE = 50 * 1024 * 1024
-
-    // Validate file size (max 50MB)
-    if (profilePicture.size > MAX_FILE_SIZE) {
-      console.log("File too large:", profilePicture.size)
-      return NextResponse.json({ success: false, message: "File size exceeds the 50MB limit" }, { status: 400 })
-    }
-
-    // Generate a unique timestamp for cache busting
-    const timestamp = Date.now()
-    console.log("Converting file to data URL")
-
     // Convert the file to a data URL
     try {
       const arrayBuffer = await profilePicture.arrayBuffer()
@@ -81,7 +68,6 @@ export async function POST(request: NextRequest) {
         profile_picture: dataUrl,
         success: true,
         message: "Profile picture updated successfully",
-        timestamp: timestamp,
       })
     } catch (error) {
       console.error("Error processing image:", error)

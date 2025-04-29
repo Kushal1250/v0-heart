@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react"
 import { useRouter } from "next/navigation"
 
 interface User {
@@ -37,61 +37,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
-  useEffect(() => {
-    // Check if user is logged in
-    const checkAuth = async () => {
-      try {
-        // Check for admin cookie first
-        const cookies = document.cookie.split(";")
-        const isAdminCookie = cookies.find((cookie) => cookie.trim().startsWith("is_admin="))
-        const isAdmin = isAdminCookie ? isAdminCookie.split("=")[1] === "true" : false
+  const checkAuthStatus = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      // First check localStorage for cached user data
+      const cachedUser = localStorage.getItem("user")
+      if (cachedUser) {
+        const userData = JSON.parse(cachedUser)
+        const expiryTime = localStorage.getItem("userExpiry")
 
-        if (isAdmin) {
-          setUser({
-            id: "admin",
-            name: "Admin",
-            email: "admin@example.com",
-            role: "admin",
-          })
-          setIsAdmin(true)
+        // If we have valid cached data that hasn't expired
+        if (expiryTime && new Date().getTime() < Number.parseInt(expiryTime)) {
+          setUser(userData)
           setIsLoading(false)
           return
         }
-
-        const response = await fetch("/api/auth/user")
-        if (response.ok) {
-          try {
-            const data = await response.json()
-
-            // Load saved user details from localStorage if available
-            if (data.user) {
-              try {
-                const savedDetails = localStorage.getItem("userDetails")
-                if (savedDetails) {
-                  const details = JSON.parse(savedDetails)
-                  if (details.name) data.user.name = details.name
-                  if (details.email) data.user.email = details.email
-                }
-              } catch (error) {
-                console.error("Error loading saved user details:", error)
-              }
-            }
-
-            setUser(data.user)
-            setIsAdmin(data.user.role === "admin")
-          } catch (jsonError) {
-            console.error("Error parsing user data:", jsonError)
-          }
-        }
-      } catch (error) {
-        console.error("Auth check error:", error)
-      } finally {
-        setIsLoading(false)
       }
-    }
 
-    checkAuth()
+      // If no valid cached data, check with the server
+      const response = await fetch("/api/auth/user", {
+        credentials: "include",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      })
+
+      if (response.ok) {
+        const userData = await response.json()
+        setUser(userData)
+
+        // Cache the user data with a 30-minute expiry
+        localStorage.setItem("user", JSON.stringify(userData))
+        localStorage.setItem("userExpiry", (new Date().getTime() + 30 * 60 * 1000).toString())
+      } else {
+        setUser(null)
+        // Clear any stale data
+        localStorage.removeItem("user")
+        localStorage.removeItem("userExpiry")
+      }
+    } catch (error) {
+      console.error("Error checking auth status:", error)
+      setUser(null)
+    } finally {
+      setIsLoading(false)
+    }
   }, [])
+
+  useEffect(() => {
+    checkAuthStatus()
+  }, [checkAuthStatus])
 
   const login = async (email: string, password: string, phone: string) => {
     try {

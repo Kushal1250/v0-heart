@@ -63,6 +63,7 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
     try {
       console.log("Starting profile picture upload:", selectedFile.name, selectedFile.size, selectedFile.type)
 
+      // Create a FormData object to send the file
       const formData = new FormData()
       formData.append("profile_picture", selectedFile)
 
@@ -70,18 +71,18 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
       const response = await fetch("/api/user/profile/upload-photo", {
         method: "POST",
         body: formData,
-        // Ensure we don't set Content-Type header as the browser will set it with the boundary
-        // Add credentials to ensure cookies are sent
-        credentials: "same-origin",
+        credentials: "include", // Ensure cookies are sent for authentication
       })
 
       console.log("Upload response status:", response.status)
-      const data = await response.json()
-      console.log("Upload response data:", data)
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to upload profile picture")
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || "Failed to upload profile picture")
       }
+
+      const data = await response.json()
+      console.log("Upload response data:", data)
 
       if (!data.profile_picture) {
         throw new Error("No profile picture URL returned from server")

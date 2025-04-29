@@ -15,6 +15,7 @@ import { formatDistanceToNow } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
 import { ProfileImageUpload } from "@/components/profile-image-upload"
+import { SimpleProfileUpload } from "@/components/simple-profile-upload"
 
 export default function ProfilePage() {
   const { user, isLoading } = useAuth()
@@ -39,6 +40,8 @@ export default function ProfilePage() {
     type: "success" | "error" | null
     message: string
   }>({ type: null, message: "" })
+
+  const [useSimpleUploader, setUseSimpleUploader] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -169,6 +172,14 @@ export default function ProfilePage() {
     }))
   }
 
+  const handleAdvancedUploaderError = () => {
+    setUseSimpleUploader(true)
+    toast({
+      title: "Using simple uploader",
+      description: "We've switched to a simpler upload method that may work better.",
+    })
+  }
+
   if (isLoading) {
     return (
       <div className="container mx-auto py-10">
@@ -230,10 +241,22 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex justify-center mb-6">
-            <ProfileImageUpload
-              currentImage={profileData.profile_picture || null}
-              onImageUpdate={handleProfileImageUpdate}
-            />
+            {useSimpleUploader ? (
+              <SimpleProfileUpload
+                currentImage={profileData.profile_picture || null}
+                onImageUpdate={handleProfileImageUpdate}
+              />
+            ) : (
+              <div>
+                <ProfileImageUpload
+                  currentImage={profileData.profile_picture || null}
+                  onImageUpdate={handleProfileImageUpdate}
+                />
+                <Button variant="link" size="sm" onClick={handleAdvancedUploaderError} className="text-xs mt-2">
+                  Having trouble? Try simple uploader
+                </Button>
+              </div>
+            )}
           </div>
 
           {isFetchingProfile && !alert.type ? (
