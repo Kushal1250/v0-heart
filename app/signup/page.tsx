@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { User, Mail, Lock, Phone, ArrowRight, AlertCircle, CheckCircle } from "lucide-react"
+import { User, Mail, Lock, Phone, ArrowRight, AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react"
 
 export default function SignupPage() {
   const [name, setName] = useState("")
@@ -21,6 +21,8 @@ export default function SignupPage() {
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({})
   const [success, setSuccess] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -110,6 +112,19 @@ export default function SignupPage() {
     }
   }
 
+  const handleSocialLogin = async (provider: string) => {
+    try {
+      // Track the login attempt
+      sessionStorage.setItem("socialLoginAttempt", provider)
+
+      // Redirect to the appropriate auth endpoint
+      window.location.href = `/api/auth/${provider.toLowerCase()}`
+    } catch (error) {
+      console.error(`Error during ${provider} login:`, error)
+      setError(`Failed to login with ${provider}. Please try again.`)
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 animate-fade-in">
@@ -169,7 +184,7 @@ export default function SignupPage() {
                   autoComplete="name"
                   required
                   className={`form-input pl-10 ${fieldErrors.name ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
-                  placeholder="John Doe"
+                  placeholder="  John Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
@@ -192,7 +207,7 @@ export default function SignupPage() {
                   autoComplete="email"
                   required
                   className={`form-input pl-10 ${fieldErrors.email ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
-                  placeholder="you@example.com"
+                  placeholder="  you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -215,7 +230,7 @@ export default function SignupPage() {
                   autoComplete="tel"
                   required
                   className={`form-input pl-10 ${fieldErrors.phone ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
-                  placeholder="+1 (555) 123-4567"
+                  placeholder="  +1 (555) 123-4567"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                 />
@@ -234,14 +249,24 @@ export default function SignupPage() {
                 <Input
                   id="password"
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   autoComplete="new-password"
                   required
-                  className={`form-input pl-10 ${fieldErrors.password ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
-                  placeholder="••••••••"
+                  className={`form-input pl-10 pr-10 ${fieldErrors.password ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
+                  placeholder="  ••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                <div
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                  )}
+                </div>
               </div>
               {fieldErrors.password ? (
                 <p className="mt-1 text-xs text-red-500">{fieldErrors.password}</p>
@@ -261,14 +286,24 @@ export default function SignupPage() {
                 <Input
                   id="confirmPassword"
                   name="confirmPassword"
-                  type="password"
+                  type={showConfirmPassword ? "text" : "password"}
                   autoComplete="new-password"
                   required
-                  className={`form-input pl-10 ${fieldErrors.confirmPassword ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
-                  placeholder="••••••••"
+                  className={`form-input pl-10 pr-10 ${fieldErrors.confirmPassword ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
+                  placeholder="  ••••••••"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
+                <div
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                  )}
+                </div>
               </div>
               {fieldErrors.confirmPassword && (
                 <p className="mt-1 text-xs text-red-500">{fieldErrors.confirmPassword}</p>
@@ -320,20 +355,22 @@ export default function SignupPage() {
 
             <div className="mt-6 grid grid-cols-3 gap-3">
               <div>
-                <Link
-                  href="/api/auth/google"
+                <Button
+                  type="button"
+                  onClick={() => handleSocialLogin("Google")}
                   className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 btn-hover-effect"
                 >
                   <span className="sr-only">Sign up with Google</span>
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z" />
                   </svg>
-                </Link>
+                </Button>
               </div>
 
               <div>
-                <Link
-                  href="/api/auth/facebook"
+                <Button
+                  type="button"
+                  onClick={() => handleSocialLogin("Facebook")}
                   className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 btn-hover-effect"
                 >
                   <span className="sr-only">Sign up with Facebook</span>
@@ -344,12 +381,13 @@ export default function SignupPage() {
                       clipRule="evenodd"
                     />
                   </svg>
-                </Link>
+                </Button>
               </div>
 
               <div>
-                <Link
-                  href="/api/auth/github"
+                <Button
+                  type="button"
+                  onClick={() => handleSocialLogin("Github")}
                   className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 btn-hover-effect"
                 >
                   <span className="sr-only">Sign up with GitHub</span>
@@ -360,7 +398,7 @@ export default function SignupPage() {
                       clipRule="evenodd"
                     />
                   </svg>
-                </Link>
+                </Button>
               </div>
             </div>
           </div>
