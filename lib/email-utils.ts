@@ -11,6 +11,8 @@ interface EmailOptions {
 
 export async function sendEmail(options: EmailOptions): Promise<{ success: boolean; message: string }> {
   try {
+    console.log("Attempting to send email to:", options.to)
+
     // Check if email is configured
     if (
       !process.env.EMAIL_SERVER ||
@@ -18,7 +20,26 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
       !process.env.EMAIL_USER ||
       !process.env.EMAIL_PASSWORD
     ) {
-      console.warn("Email is not configured. Email will not be sent.")
+      console.warn("Email is not configured. Email will not be sent.", {
+        server: !!process.env.EMAIL_SERVER,
+        port: !!process.env.EMAIL_PORT,
+        user: !!process.env.EMAIL_USER,
+        password: !!process.env.EMAIL_PASSWORD,
+      })
+
+      // For development environment, log the email content
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Email would have been sent with the following content:")
+        console.log("To:", options.to)
+        console.log("Subject:", options.subject)
+        console.log("Text:", options.text)
+
+        return {
+          success: true,
+          message: "Email simulated in development mode",
+        }
+      }
+
       return {
         success: false,
         message: "Email service is not configured",
@@ -34,6 +55,13 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
       },
+    })
+
+    console.log("Email transporter created with config:", {
+      host: process.env.EMAIL_SERVER,
+      port: process.env.EMAIL_PORT,
+      secure: process.env.EMAIL_SECURE === "true",
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
     })
 
     // Send the email

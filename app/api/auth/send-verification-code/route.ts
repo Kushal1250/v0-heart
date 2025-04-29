@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getUserByEmail, getUserByPhone, createVerificationCode } from "@/lib/db"
 import { isValidEmail, getUserFromRequest } from "@/lib/auth-utils"
 import { sendSMS, isValidPhone } from "@/lib/sms-utils"
+import { sendEmail } from "@/lib/email-utils"
 
 export async function POST(request: Request) {
   try {
@@ -71,9 +72,33 @@ export async function POST(request: Request) {
           )
         }
       } else {
-        // In a real application, send the code via email
-        // For now, just log it
-        console.log(`Would send email verification code to ${currentUser.email}: ${code}`)
+        // Send email verification
+        const emailResult = await sendEmail({
+          to: currentUser.email,
+          subject: "Your Password Reset Code",
+          text: `Your HeartPredict verification code is: ${code}. Valid for 15 minutes.`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>Your Verification Code</h2>
+              <p>Use the following code to verify your account:</p>
+              <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold;">
+                ${code}
+              </div>
+              <p>This code will expire in 15 minutes.</p>
+              <p>If you didn't request this code, please ignore this email.</p>
+            </div>
+          `,
+        })
+
+        if (!emailResult.success) {
+          console.error("Email sending failed:", emailResult.message)
+          return NextResponse.json(
+            {
+              message: "Failed to send verification code via email. Please try again.",
+            },
+            { status: 500 },
+          )
+        }
       }
 
       return NextResponse.json({
@@ -147,10 +172,35 @@ export async function POST(request: Request) {
           { status: 500 },
         )
       }
-    } else {
-      // In a real application, send the code via email
-      // For now, just log it
-      console.log(`Would send email verification code to ${email}: ${code}`)
+    } else if (email) {
+      // Send email verification
+      console.log(`Sending email verification to ${email}`)
+      const emailResult = await sendEmail({
+        to: email,
+        subject: "Your Password Reset Code",
+        text: `Your HeartPredict verification code is: ${code}. Valid for 15 minutes.`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Your Verification Code</h2>
+            <p>Use the following code to verify your account:</p>
+            <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold;">
+              ${code}
+            </div>
+            <p>This code will expire in 15 minutes.</p>
+            <p>If you didn't request this code, please ignore this email.</p>
+          </div>
+        `,
+      })
+
+      if (!emailResult.success) {
+        console.error("Email sending failed:", emailResult.message)
+        return NextResponse.json(
+          {
+            message: "Failed to send verification code via email. Please try again.",
+          },
+          { status: 500 },
+        )
+      }
     }
 
     return NextResponse.json({

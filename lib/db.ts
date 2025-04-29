@@ -519,17 +519,19 @@ export async function getPredictionById(id: string) {
 
 /**
  * Create a verification code for a user
- * @param userId User ID
+ * @param identifier User ID, email, or phone
  * @param code Verification code
  * @returns The created verification code record
  */
 export async function createVerificationCode(identifier: string, code: string) {
   try {
     if (!identifier || !code) {
-      throw new Error("User ID and code are required to create a verification code")
+      throw new Error("Identifier and code are required to create a verification code")
     }
 
-    // Delete any existing codes for this user
+    console.log(`Creating verification code for identifier: ${identifier}`)
+
+    // Delete any existing codes for this identifier
     await sql`DELETE FROM verification_codes WHERE user_id = ${identifier}`
 
     // Create a new code
@@ -542,6 +544,7 @@ export async function createVerificationCode(identifier: string, code: string) {
       RETURNING id, user_id, code, created_at, expires_at
     `
 
+    console.log(`Verification code created successfully for ${identifier}`)
     return result[0]
   } catch (error) {
     console.error("Database error in createVerificationCode:", error)
@@ -574,7 +577,7 @@ export async function getVerificationCodeByUserIdAndCode(userId: string, code: s
 
 /**
  * Get a verification code by identifier (email or phone)
- * @param identifier User ID
+ * @param identifier User ID, email, or phone
  * @returns The verification code record or null
  */
 export async function getVerificationCode(identifier: string) {
@@ -583,11 +586,20 @@ export async function getVerificationCode(identifier: string) {
       throw new Error("Identifier is required to get verification code")
     }
 
+    console.log(`Getting verification code for identifier: ${identifier}`)
+
     const codes = await sql`
       SELECT * FROM verification_codes
       WHERE user_id = ${identifier} AND expires_at > NOW()
     `
-    return codes[0] || null
+
+    if (codes.length === 0) {
+      console.log(`No valid verification code found for ${identifier}`)
+      return null
+    }
+
+    console.log(`Found verification code for ${identifier}`)
+    return codes[0]
   } catch (error) {
     console.error("Database error in getVerificationCode:", error)
     throw new Error(`Failed to get verification code: ${error instanceof Error ? error.message : "Unknown error"}`)

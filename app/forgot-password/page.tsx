@@ -49,6 +49,11 @@ export default function ForgotPasswordPage() {
         }
       }
 
+      console.log(`Attempting to send verification code via ${activeTab}`, {
+        email: activeTab === "email" ? email : undefined,
+        phone: activeTab === "sms" ? phone : undefined,
+      })
+
       const response = await fetch("/api/auth/send-verification-code", {
         method: "POST",
         headers: {
@@ -57,14 +62,18 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({
           email: activeTab === "email" ? email : undefined,
           phone: activeTab === "sms" ? phone : undefined,
+          isLoggedIn: false,
         }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
+        console.error("Error response from server:", data)
         throw new Error(data.message || "Failed to send verification code")
       }
+
+      console.log("Verification code sent successfully:", data)
 
       // Redirect to OTP verification page
       const identifier = activeTab === "email" ? email : phone

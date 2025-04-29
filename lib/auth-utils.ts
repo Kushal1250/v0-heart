@@ -10,7 +10,7 @@ import {
 import type { NextRequest } from "next/server"
 import { sendSMS } from "@/lib/sms-utils"
 import { logError } from "@/lib/error-logger"
-import nodemailer from "nodemailer"
+import { sendEmail } from "@/lib/email-utils"
 
 export function getSessionToken(): string | undefined {
   return cookies().get("session")?.value
@@ -203,20 +203,10 @@ function generateVerificationCode(): string {
  */
 async function sendEmailVerification(email: string, code: string): Promise<boolean> {
   try {
-    // Create a transporter
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_SERVER,
-      port: Number.parseInt(process.env.EMAIL_PORT || "587"),
-      secure: process.env.EMAIL_SECURE === "true",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
-      },
-    })
+    console.log(`Sending email verification to ${email} with code ${code}`)
 
-    // Send the email
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
+    // Use the sendEmail function from email-utils.ts
+    const result = await sendEmail({
       to: email,
       subject: "Your Verification Code",
       text: `Your verification code is: ${code}. It will expire in 15 minutes.`,
@@ -233,6 +223,12 @@ async function sendEmailVerification(email: string, code: string): Promise<boole
       `,
     })
 
+    if (!result.success) {
+      console.error("Failed to send email verification:", result.message)
+      return false
+    }
+
+    console.log("Email verification sent successfully")
     return true
   } catch (error) {
     await logError("sendEmailVerification", error, { email })
@@ -253,31 +249,41 @@ export async function sendVerificationCode(
   message: string
 }> {
   try {
+    console.log(`Sending verification code to ${identifier} via ${method}`)
+
     // Generate a verification code
     const code = generateVerificationCode()
+    console.log(`Generated verification code: ${code}`)
 
     // Store the code in the database with a 15-minute expiration
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
-    await createVerificationCode(identifier, code, expiresAt)
+    await createVerificationCode(identifier, code)
+    console.log(`Stored verification code in database for ${identifier}`)
 
     // Send the code via the specified method
     if (method === "email") {
+      console.log(`Sending verification code via email to ${identifier}`)
       const sent = await sendEmailVerification(identifier, code)
       if (!sent) {
+        console.error(`Failed to send verification code via email to ${identifier}`)
         return {
           success: false,
           message: "Failed to send verification code via email. Please try again.",
         }
       }
+      console.log(`Successfully sent verification code via email to ${identifier}`)
     } else if (method === "sms") {
+      console.log(`Sending verification code via SMS to ${identifier}`)
       const message = `Your verification code is: ${code}. It will expire in 15 minutes.`
       const sent = await sendSMS(identifier, message)
       if (!sent.success) {
+        console.error(`Failed to send verification code via SMS to ${identifier}: ${sent.message}`)
         return {
           success: false,
           message: "Failed to send verification code via SMS. Please try again.",
         }
       }
+      console.log(`Successfully sent verification code via SMS to ${identifier}`)
     }
 
     return {
