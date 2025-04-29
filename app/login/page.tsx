@@ -89,104 +89,97 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow-md">
+    <div className="min-h-screen flex items-center justify-center bg-white py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-6">
         <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Login</h2>
-          <p className="mt-2 text-sm text-gray-600">Enter your credentials to access your account</p>
-          {redirectPath && redirectPath !== "/dashboard" && (
-            <p className="mt-2 text-sm text-blue-600">
-              You'll be redirected back to {redirectPath.replace(/^\//, "")} after login
-            </p>
-          )}
+          <h2 className="text-3xl font-bold text-gray-900">Login</h2>
+          <p className="mt-2 text-gray-600">Enter your credentials to access your account</p>
         </div>
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">{error}</div>
         )}
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email
-              </label>
-              <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-gray-400" />
-                </div>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  className={`pl-10 ${emailError ? "border-red-500" : ""}`}
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+        <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              Email
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <User className="h-5 w-5 text-gray-400" />
               </div>
-              {emailError && <p className="mt-1 text-sm text-red-600">{emailError}</p>}
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                className={`pl-10 py-3 bg-gray-50 ${emailError ? "border-red-500" : ""}`}
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
+            {emailError && <p className="mt-1 text-sm text-red-600">{emailError}</p>}
+          </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
-                </div>
-                <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  required
-                  className={`pl-10 ${passwordError ? "border-red-500" : ""}`}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={togglePasswordVisibility}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-gray-400" />
-                  )}
-                </button>
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              Password
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Lock className="h-5 w-5 text-gray-400" />
               </div>
-              {passwordError && <p className="mt-1 text-sm text-red-600">{passwordError}</p>}
+              <Input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                required
+                className={`pl-10 py-3 bg-gray-50 ${passwordError ? "border-red-500" : ""}`}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                onClick={togglePasswordVisibility}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <Eye className="h-5 w-5 text-gray-400" />
+                )}
+              </button>
             </div>
+            {passwordError && <p className="mt-1 text-sm text-red-600">{passwordError}</p>}
+          </div>
 
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                Phone Number (Optional)
-              </label>
-              <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Phone className="h-5 w-5 text-gray-400" />
-                </div>
-                <Input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  autoComplete="tel"
-                  className="pl-10"
-                  placeholder="+1 (555) 123-4567"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
+          <div>
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+              Phone Number (Optional)
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Phone className="h-5 w-5 text-gray-400" />
               </div>
+              <Input
+                id="phone"
+                name="phone"
+                type="tel"
+                autoComplete="tel"
+                className="pl-10 py-3 bg-gray-50"
+                placeholder="+1 (555) 123-4567"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-start">
             <div className="text-sm">
               <Link href="/forgot-password" className="font-medium text-blue-600 hover:text-blue-500">
                 Forgot your password?
@@ -197,36 +190,14 @@ export default function LoginPage() {
           <div>
             <Button
               type="submit"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               disabled={isLoading}
             >
               {isLoading ? "Logging in..." : "Login"}
-              {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+              {!isLoading && <ArrowRight className="ml-2 h-5 w-5" />}
             </Button>
           </div>
         </form>
-
-        <div className="mt-6">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Don't have an account?</span>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <Link href="/signup">
-              <Button
-                type="button"
-                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Create an account
-              </Button>
-            </Link>
-          </div>
-        </div>
       </div>
     </div>
   )
