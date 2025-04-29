@@ -27,6 +27,7 @@ interface AuthContextType {
   logout: () => Promise<void>
   updateUserProfile: (data: Partial<User>) => void
   updateUserDetails: (details: { name?: string; email?: string }) => void
+  refreshUserData: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -37,24 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
-  const checkAuthStatus = useCallback(async () => {
-    setIsLoading(true)
+  const refreshUserData = useCallback(async () => {
     try {
-      // First check localStorage for cached user data
-      const cachedUser = localStorage.getItem("user")
-      if (cachedUser) {
-        const userData = JSON.parse(cachedUser)
-        const expiryTime = localStorage.getItem("userExpiry")
-
-        // If we have valid cached data that hasn't expired
-        if (expiryTime && new Date().getTime() < Number.parseInt(expiryTime)) {
-          setUser(userData)
-          setIsLoading(false)
-          return
-        }
-      }
-
-      // If no valid cached data, check with the server
       const response = await fetch("/api/auth/user", {
         credentials: "include",
         headers: {
@@ -65,25 +50,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
       if (response.ok) {
-        const userData = await response.json()
-        setUser(userData)
+        const data = await response.json()
+        setUser(data.user)
+        setIsAdmin(data.user.role === "admin")
 
         // Cache the user data with a 30-minute expiry
-        localStorage.setItem("user", JSON.stringify(userData))
-        localStorage.setItem("userExpiry", (new Date().getTime() + 30 * 60 * 1000).toString())
+        localStorage.setItem("cachedUser", JSON.stringify(data.user))
+        localStorage.setItem("userCacheExpiry", (new Date().getTime() + 30 * 60 * 1000).toString())
+
+        return data.user
       } else {
         setUser(null)
-        // Clear any stale data
-        localStorage.removeItem("user")
-        localStorage.removeItem("userExpiry")
+        setIsAdmin(false)
+        localStorage.removeItem("cachedUser")
+        localStorage.removeItem("userCacheExpiry")
+        return null
       }
     } catch (error) {
-      console.error("Error checking auth status:", error)
+      console.error("Error refreshing user data:", error)
+      return null
+    }
+  }, [])
+
+  const checkAuthStatus = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      // First check localStorage for cached user data
+      const cachedUserStr = localStorage.getItem("cachedUser")
+      const expiryTime = localStorage.getItem("userCacheExpiry")
+
+      if (cachedUserStr && expiryTime && new Date().getTime() < Number.parseInt(expiryTime)) {
+        try {
+          const cachedUser = JSON.parse(cachedUserStr)
+          setUser(cachedUser)
+          setIsAdmin(cachedUser.role === "admin")
+          setIsLoading(false)
+
+          // Refresh in background
+          refreshUserData().catch(console.error)
+          return
+        } catch (e) {
+          console.error("Error parsing cached user:", e)
+        }
+      }
+
+      // If no valid cached data or parsing failed, check with the server
+      await refreshUserData()
+    } catch (error) {
+      console.error("Auth check error:", error)
       setUser(null)
+      setIsAdmin(false)
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [refreshUserData])
 
   useEffect(() => {
     checkAuthStatus()
@@ -97,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password, phone }),
+        credentials: "include",
       })
 
       if (!response.ok) {
@@ -120,8 +141,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data.user)
       setIsAdmin(data.user.role === "admin")
 
-      // Set flag for successful login
-      sessionStorage.setItem("loginSuccess", "true")
+      // Cache the user data
+      localStorage.setItem("cachedUser", JSON.stringify(data.user))
+      localStorage.setItem("userCacheExpiry", (new Date().getTime() + 30 * 60 * 1000).toString())
 
       return { success: true, message: "Login successful" }
     } catch (error: any) {
@@ -137,7 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password }),
-        credentials: "include", // Important to include credentials
+        credentials: "include",
       })
 
       if (!response.ok) {
@@ -159,16 +181,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Set admin user
-      setUser({
+      const adminUser = {
         id: "admin",
         name: "Admin",
         email: email,
         role: "admin",
-      })
+      }
+
+      setUser(adminUser)
       setIsAdmin(true)
 
-      // Set flag for successful login
-      sessionStorage.setItem("loginSuccess", "true")
+      // Cache the admin user data
+      localStorage.setItem("cachedUser", JSON.stringify(adminUser))
+      localStorage.setItem("userCacheExpiry", (new Date().getTime() + 30 * 60 * 1000).toString())
 
       return { success: true, message: "Admin login successful" }
     } catch (error: any) {
@@ -184,6 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ name, email, password, phone }),
+        credentials: "include",
       })
 
       if (!response.ok) {
@@ -206,6 +232,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(data.user)
       setIsAdmin(data.user.role === "admin")
+
+      // Cache the user data
+      localStorage.setItem("cachedUser", JSON.stringify(data.user))
+      localStorage.setItem("userCacheExpiry", (new Date().getTime() + 30 * 60 * 1000).toString())
+
       return { success: true, message: "Signup successful" }
     } catch (error: any) {
       return { success: false, message: error.message || "An unexpected error occurred" }
@@ -214,9 +245,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" })
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      })
       setUser(null)
       setIsAdmin(false)
+
+      // Clear cached user data
+      localStorage.removeItem("cachedUser")
+      localStorage.removeItem("userCacheExpiry")
 
       // Clear admin cookie
       document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
@@ -228,7 +266,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Function to update user profile data in context
   const updateUserProfile = (data: Partial<User>) => {
     if (user) {
-      setUser({ ...user, ...data })
+      const updatedUser = { ...user, ...data }
+      setUser(updatedUser)
+
+      // Update cached user data
+      localStorage.setItem("cachedUser", JSON.stringify(updatedUser))
+      localStorage.setItem("userCacheExpiry", (new Date().getTime() + 30 * 60 * 1000).toString())
     }
   }
 
@@ -239,14 +282,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (details.email) updatedUser.email = details.email
       setUser(updatedUser)
 
-      // Save to localStorage for persistence
-      localStorage.setItem(
-        "userDetails",
-        JSON.stringify({
-          name: updatedUser.name,
-          email: updatedUser.email,
-        }),
-      )
+      // Update cached user data
+      localStorage.setItem("cachedUser", JSON.stringify(updatedUser))
+      localStorage.setItem("userCacheExpiry", (new Date().getTime() + 30 * 60 * 1000).toString())
     }
   }
 
@@ -262,6 +300,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         updateUserProfile,
         updateUserDetails,
+        refreshUserData,
       }}
     >
       {children}

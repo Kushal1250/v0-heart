@@ -14,11 +14,10 @@ import { AlertCircle, CheckCircle2, User, Mail, Phone, Calendar, RefreshCw, KeyR
 import { formatDistanceToNow } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
-import { ProfileImageUpload } from "@/components/profile-image-upload"
-import { SimpleProfileUpload } from "@/components/simple-profile-upload"
+import { DirectImageUpload } from "@/components/direct-image-upload"
 
 export default function ProfilePage() {
-  const { user, isLoading } = useAuth()
+  const { user, isLoading, updateUserProfile: updateAuthUserProfile } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
@@ -41,19 +40,36 @@ export default function ProfilePage() {
     message: string
   }>({ type: null, message: "" })
 
-  const [useSimpleUploader, setUseSimpleUploader] = useState(false)
-
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login")
-    } else if (user) {
-      // Fetch user profile data
+    // Check if user is logged in
+    if (!isLoading) {
+      if (!user) {
+        // Redirect to login if not logged in
+        router.push("/login?redirect=/profile")
+        return
+      }
+
+      // Initialize profile data with user data from auth context
+      setProfileData((prev) => ({
+        ...prev,
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        profile_picture: user.profile_picture || "",
+      }))
+
+      setFormData({
+        name: user.name || "",
+        phone: user.phone || "",
+      })
+
+      // Fetch additional profile data
       fetchUserProfile()
     }
   }, [user, isLoading, router])
 
   const fetchUserProfile = async () => {
-    if (isFetchingProfile) return
+    if (isFetchingProfile || !user) return
 
     setIsFetchingProfile(true)
     try {
@@ -64,12 +80,18 @@ export default function ProfilePage() {
           "Cache-Control": "no-cache",
           Pragma: "no-cache",
         },
-        cache: "no-store",
+        credentials: "include",
       })
 
       console.log("Profile response status:", response.status)
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // Handle unauthorized - redirect to login
+          router.push("/login?redirect=/profile")
+          return
+        }
+
         const errorData = await response.json().catch(() => ({}))
         console.error("Profile fetch error:", errorData)
         throw new Error(errorData.message || "Failed to fetch profile data")
@@ -78,10 +100,19 @@ export default function ProfilePage() {
       const data = await response.json()
       console.log("Profile data received:", data)
 
-      setProfileData(data)
+      setProfileData((prev) => ({
+        ...prev,
+        ...data,
+        // Keep auth context data if API doesn't return these
+        name: data.name || user.name || prev.name,
+        email: data.email || user.email || prev.email,
+        phone: data.phone || user.phone || prev.phone,
+        profile_picture: data.profile_picture || user.profile_picture || prev.profile_picture,
+      }))
+
       setFormData({
-        name: data.name || "",
-        phone: data.phone || "",
+        name: data.name || user.name || "",
+        phone: data.phone || user.phone || "",
       })
 
       // Clear any existing error
@@ -118,11 +149,18 @@ export default function ProfilePage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
+        credentials: "include",
       })
 
       console.log("Update response status:", response.status)
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // Handle unauthorized - redirect to login
+          router.push("/login?redirect=/profile")
+          return
+        }
+
         const errorData = await response.json().catch(() => ({}))
         console.error("Profile update error:", errorData)
         throw new Error(errorData.message || "Failed to update profile")
@@ -131,11 +169,19 @@ export default function ProfilePage() {
       const updatedProfile = await response.json()
       console.log("Updated profile data:", updatedProfile)
 
+      // Update both local state and auth context
       setProfileData((prev) => ({
         ...prev,
+        name: updatedProfile.name || prev.name,
+        phone: updatedProfile.phone || prev.phone,
+      }))
+
+      // Update auth context
+      updateAuthUserProfile({
         name: updatedProfile.name,
         phone: updatedProfile.phone,
-      }))
+      })
+
       setIsEditing(false)
       setAlert({
         type: "success",
@@ -166,17 +212,15 @@ export default function ProfilePage() {
   }
 
   const handleProfileImageUpdate = (imageUrl: string) => {
+    // Update local state
     setProfileData((prev) => ({
       ...prev,
       profile_picture: imageUrl,
     }))
-  }
 
-  const handleAdvancedUploaderError = () => {
-    setUseSimpleUploader(true)
-    toast({
-      title: "Using simple uploader",
-      description: "We've switched to a simpler upload method that may work better.",
+    // Update auth context
+    updateAuthUserProfile({
+      profile_picture: imageUrl,
     })
   }
 
@@ -188,6 +232,26 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center justify-center space-y-4 py-8">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
               <p className="text-sm text-muted-foreground">Loading profile...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // If not logged in and not loading, show login message
+  if (!user && !isLoading) {
+    return (
+      <div className="container mx-auto py-10">
+        <Card className="w-full max-w-3xl mx-auto">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center justify-center space-y-4 py-8">
+              <AlertCircle className="h-12 w-12 text-yellow-500" />
+              <h3 className="text-lg font-semibold">Authentication Required</h3>
+              <p className="text-sm text-muted-foreground text-center">
+                You need to be logged in to view your profile.
+              </p>
+              <Button onClick={() => router.push("/login?redirect=/profile")}>Go to Login</Button>
             </div>
           </CardContent>
         </Card>
@@ -241,22 +305,10 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex justify-center mb-6">
-            {useSimpleUploader ? (
-              <SimpleProfileUpload
-                currentImage={profileData.profile_picture || null}
-                onImageUpdate={handleProfileImageUpdate}
-              />
-            ) : (
-              <div>
-                <ProfileImageUpload
-                  currentImage={profileData.profile_picture || null}
-                  onImageUpdate={handleProfileImageUpdate}
-                />
-                <Button variant="link" size="sm" onClick={handleAdvancedUploaderError} className="text-xs mt-2">
-                  Having trouble? Try simple uploader
-                </Button>
-              </div>
-            )}
+            <DirectImageUpload
+              currentImage={profileData.profile_picture || null}
+              onImageUpdate={handleProfileImageUpdate}
+            />
           </div>
 
           {isFetchingProfile && !alert.type ? (
