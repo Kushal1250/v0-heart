@@ -1,347 +1,232 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Trash2, Bug, RefreshCw } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import {
-  getCurrentEmail,
-  saveCurrentEmail,
-  getHistory,
-  deleteHistoryItem,
-  debugHistory,
-  migrateOldHistory,
-} from "@/lib/simplified-history"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useRouter } from "next/navigation"
+import { ArrowLeft, Calendar, Clock, Heart, Trash2 } from "lucide-react"
+import { getCurrentEmail, getAssessmentHistory, clearAssessmentHistory } from "@/lib/simplified-history"
 
 export default function HistoryPage() {
-  const [history, setHistory] = useState([])
-  const [email, setEmail] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [isSubmitted, setIsSubmitted] = useState(false)
-  const [showDebugTools, setShowDebugTools] = useState(false)
-  const [debugMessage, setDebugMessage] = useState("")
   const router = useRouter()
+  const [assessments, setAssessments] = useState([])
+  const [userEmail, setUserEmail] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState("all")
 
-  // Load history on mount
   useEffect(() => {
-    const storedEmail = getCurrentEmail()
-    if (storedEmail) {
-      setEmail(storedEmail)
-      loadHistory(storedEmail)
-    }
-    setIsLoading(false)
+    // Get current user email
+    const email = getCurrentEmail()
+    setUserEmail(email)
 
-    // Try to migrate old history data
-    try {
-      const migrated = migrateOldHistory()
-      if (migrated && storedEmail) {
-        // Reload history after migration
-        loadHistory(storedEmail)
-      }
-    } catch (e) {
-      console.error("Migration error:", e)
-    }
+    // Load assessment history
+    loadAssessmentHistory(email)
   }, [])
 
-  // Load history for a specific email
-  const loadHistory = (emailToLoad) => {
-    if (!emailToLoad) return
-
+  const loadAssessmentHistory = (email) => {
+    setLoading(true)
     try {
-      console.log(`Loading history for email: ${emailToLoad}`)
-      const userHistory = getHistory(emailToLoad)
-      console.log("Retrieved history:", userHistory)
-      setHistory(userHistory)
-      setIsSubmitted(true)
-
-      if (userHistory.length === 0) {
-        setDebugMessage("No history found. Try the 'Migrate Old Data' button if you've taken assessments before.")
-      } else {
-        setDebugMessage("")
-      }
-    } catch (err) {
-      console.error("Error loading history:", err)
-      setError("Failed to load history. Please try again.")
-      setDebugMessage("Error loading history. Check console for details.")
+      const history = getAssessmentHistory(email)
+      console.log(`Loaded ${history.length} assessments for ${email}`)
+      setAssessments(history)
+    } catch (error) {
+      console.error("Error loading assessment history:", error)
+      setAssessments([])
+    } finally {
+      setLoading(false)
     }
   }
 
-  // Handle email submission
-  const handleSubmitEmail = (e) => {
-    e.preventDefault()
-    if (!email) return
-
-    console.log(`Submitting email: ${email}`)
-    saveCurrentEmail(email)
-    loadHistory(email)
+  const handleClearHistory = () => {
+    if (confirm("Are you sure you want to clear your assessment history?")) {
+      clearAssessmentHistory(userEmail)
+      setAssessments([])
+    }
   }
 
-  // Handle deleting a history item
-  const handleDelete = (id) => {
-    deleteHistoryItem(email, id)
-    loadHistory(email)
+  const handleViewAssessment = (assessment) => {
+    // Store the assessment in localStorage for the results page to access
+    localStorage.setItem("predictionResult", JSON.stringify(assessment))
+
+    // Navigate to results page
+    router.push("/predict/results")
   }
 
-  // Format date from timestamp
-  const formatDate = (timestamp) => {
-    if (!timestamp) return "Unknown date"
+  const handleChangeEmail = () => {
+    const newEmail = prompt("Enter your email address:", userEmail)
+    if (newEmail && newEmail !== userEmail) {
+      setUserEmail(newEmail)
+      localStorage.setItem("currentUserEmail", newEmail)
+      loadAssessmentHistory(newEmail)
+    }
+  }
 
+  // Filter assessments based on active tab
+  const filteredAssessments = assessments.filter((assessment) => {
+    if (activeTab === "all") return true
+    if (activeTab === "high" && assessment.result?.risk === "high") return true
+    if (activeTab === "moderate" && assessment.result?.risk === "moderate") return true
+    if (activeTab === "low" && assessment.result?.risk === "low") return true
+    return false
+  })
+
+  // Format date for display
+  const formatDate = (dateString) => {
     try {
-      return new Date(timestamp).toLocaleString()
+      const date = new Date(dateString)
+      return date.toLocaleDateString() + " " + date.toLocaleTimeString()
     } catch (e) {
-      return "Invalid date"
+      return "Unknown date"
     }
-  }
-
-  // Get risk level class
-  const getRiskClass = (risk) => {
-    switch (risk) {
-      case "high":
-        return "text-red-600 font-bold"
-      case "moderate":
-        return "text-amber-600 font-bold"
-      case "low":
-        return "text-green-600 font-bold"
-      default:
-        return "text-gray-600 font-bold"
-    }
-  }
-
-  // Render risk level with percentage
-  const renderRiskLevel = (item) => {
-    if (!item || !item.result) {
-      return <span className="text-gray-600 font-bold">Unknown Risk</span>
-    }
-
-    const riskClass = getRiskClass(item.result.risk)
-    const percentage = item.result.score || 0
-    const riskText = `${item.result.risk?.charAt(0).toUpperCase() + item.result.risk?.slice(1) || "Unknown"} Risk (${percentage}%)`
-
-    return <span className={riskClass}>{riskText}</span>
-  }
-
-  // Navigate to predict page
-  const goToPredict = () => {
-    router.push("/predict")
-  }
-
-  // Toggle debug tools
-  const toggleDebugTools = () => {
-    setShowDebugTools(!showDebugTools)
-  }
-
-  // Debug history
-  const handleDebugHistory = () => {
-    debugHistory()
-    setDebugMessage("Debug information logged to console. Press F12 to view.")
-  }
-
-  // Migrate old data
-  const handleMigrateOldData = () => {
-    try {
-      const migrated = migrateOldHistory()
-      if (migrated) {
-        setDebugMessage("Successfully migrated old history data!")
-        // Reload history
-        loadHistory(email)
-      } else {
-        setDebugMessage("No old history data found to migrate.")
-      }
-    } catch (e) {
-      console.error("Migration error:", e)
-      setDebugMessage(`Error migrating data: ${e.message}`)
-    }
-  }
-
-  // Refresh history
-  const handleRefreshHistory = () => {
-    loadHistory(email)
-    setDebugMessage("History refreshed.")
-  }
-
-  // If loading, show loading state
-  if (isLoading) {
-    return (
-      <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-4">Assessment History</h1>
-        <p>Loading...</p>
-      </div>
-    )
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Assessment History</h1>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-6">
+        <Button variant="ghost" onClick={() => router.push("/dashboard")} className="flex items-center">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Dashboard
+        </Button>
+      </div>
 
-      {/* Email input form */}
-      {!isSubmitted && (
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <form onSubmit={handleSubmitEmail} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="email" className="block text-sm font-medium">
-                  Enter your email to view your assessment history
-                </label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your.email@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <Button type="submit">View My History</Button>
-            </form>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Error message */}
-      {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
-
-      {/* Current email display */}
-      {isSubmitted && (
-        <div className="mb-6 flex justify-between items-center">
-          <p className="text-sm text-gray-600">
-            Viewing history for: <strong>{email}</strong>
-            <Button
-              variant="link"
-              className="text-sm p-0 ml-2"
-              onClick={() => {
-                setEmail("")
-                setHistory([])
-                setIsSubmitted(false)
-                setDebugMessage("")
-              }}
-            >
-              Change Email
-            </Button>
-          </p>
-
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleRefreshHistory} className="flex items-center gap-1">
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </Button>
-            <Button variant="ghost" size="sm" onClick={toggleDebugTools} className="flex items-center gap-1">
-              <Bug className="h-4 w-4" />
-              {showDebugTools ? "Hide Tools" : "Troubleshoot"}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Debug message */}
-      {debugMessage && <div className="mb-4 p-3 bg-blue-50 text-blue-800 rounded-md text-sm">{debugMessage}</div>}
-
-      {/* Debug tools */}
-      {isSubmitted && showDebugTools && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-sm">Troubleshooting Tools</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={handleDebugHistory}>
-                Debug History
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleMigrateOldData}>
-                Migrate Old Data
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => {
-                  if (confirm("This will clear ALL local storage data. This action cannot be undone. Continue?")) {
-                    localStorage.clear()
-                    setDebugMessage("All local storage data has been cleared. Please refresh the page.")
-                  }
-                }}
-              >
-                Clear All Data
-              </Button>
+      <Card className="bg-gray-900 border-gray-800">
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle className="text-2xl">Assessment History</CardTitle>
+              <CardDescription>
+                Viewing history for: {userEmail}{" "}
+                <Button variant="link" className="p-0 h-auto text-blue-400" onClick={handleChangeEmail}>
+                  Change Email
+                </Button>
+              </CardDescription>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              These tools can help troubleshoot issues with your assessment history. Use the browser console (F12) to
-              view debug information.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* History list */}
-      {isSubmitted && (
-        <>
-          {history.length > 0 ? (
-            <div className="space-y-4">
-              {history.map((item) => (
-                <Card key={item.id} className="overflow-hidden">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="text-lg font-semibold">{renderRiskLevel(item)}</h3>
-                        <p className="text-sm text-gray-500">{formatDate(item.timestamp)}</p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(item.id)}
-                        aria-label="Delete assessment"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="text-gray-500">Age:</span> {item.age || "N/A"}
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Gender:</span>{" "}
-                        {item.sex === 1 || item.sex === "1" ? "Male" : "Female"}
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Blood Pressure:</span> {item.trestbps || "N/A"}
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Cholesterol:</span> {item.chol || "N/A"}
-                      </div>
-                    </div>
-
-                    <div className="mt-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          // Store the item in localStorage for the results page to use
-                          localStorage.setItem("predictionResult", JSON.stringify(item))
-                          // Navigate to results page
-                          router.push("/predict/results")
-                        }}
-                      >
-                        View Full Details
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            {assessments.length > 0 && (
+              <Button variant="destructive" size="sm" onClick={handleClearHistory}>
+                <Trash2 className="h-4 w-4 mr-1" /> Clear History
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-pulse">Loading assessment history...</div>
+            </div>
+          ) : assessments.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-800 mb-4">
+                <Calendar className="h-8 w-8 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-medium mb-2">No assessment history found</h3>
+              <p className="text-gray-400 mb-6">You haven't taken any assessments yet.</p>
+              <Button onClick={() => router.push("/predict")}>Take an Assessment</Button>
             </div>
           ) : (
-            <div className="text-center p-8 bg-gray-50 rounded-lg">
-              <p className="text-gray-600">No assessment history found for {email}.</p>
-              <p className="mt-2">
-                <Button variant="link" onClick={goToPredict}>
-                  Take an assessment
-                </Button>
-              </p>
-            </div>
+            <>
+              <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="mb-6">
+                <TabsList className="grid grid-cols-4">
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="high">High Risk</TabsTrigger>
+                  <TabsTrigger value="moderate">Moderate Risk</TabsTrigger>
+                  <TabsTrigger value="low">Low Risk</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              <div className="space-y-4">
+                {filteredAssessments.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-400">No assessments found for this filter.</p>
+                  </div>
+                ) : (
+                  filteredAssessments.map((assessment, index) => (
+                    <Card key={index} className="bg-gray-800 border-gray-700 overflow-hidden">
+                      <div className="flex">
+                        <div
+                          className={`w-2 ${
+                            assessment.result?.risk === "high"
+                              ? "bg-red-500"
+                              : assessment.result?.risk === "moderate"
+                                ? "bg-yellow-500"
+                                : "bg-green-500"
+                          }`}
+                        ></div>
+                        <div className="p-4 flex-1">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-medium mb-1">
+                                {assessment.result?.risk === "high"
+                                  ? "High Risk Assessment"
+                                  : assessment.result?.risk === "moderate"
+                                    ? "Moderate Risk Assessment"
+                                    : "Low Risk Assessment"}
+                              </h3>
+                              <div className="flex items-center text-sm text-gray-400 mb-2">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {formatDate(assessment.timestamp)}
+                              </div>
+                            </div>
+                            <div className="flex items-center">
+                              <div
+                                className={`flex items-center justify-center rounded-full w-10 h-10 ${
+                                  assessment.result?.risk === "high"
+                                    ? "bg-red-900/30"
+                                    : assessment.result?.risk === "moderate"
+                                      ? "bg-yellow-900/30"
+                                      : "bg-green-900/30"
+                                }`}
+                              >
+                                <Heart
+                                  className={`h-5 w-5 ${
+                                    assessment.result?.risk === "high"
+                                      ? "text-red-500"
+                                      : assessment.result?.risk === "moderate"
+                                        ? "text-yellow-500"
+                                        : "text-green-500"
+                                  }`}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                            <div>
+                              <p className="text-xs text-gray-500">Age</p>
+                              <p className="text-sm">{assessment.age} years</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Gender</p>
+                              <p className="text-sm">{assessment.sex === "1" ? "Male" : "Female"}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Blood Pressure</p>
+                              <p className="text-sm">{assessment.trestbps} mm Hg</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Cholesterol</p>
+                              <p className="text-sm">{assessment.chol} mg/dl</p>
+                            </div>
+                          </div>
+                          <div className="flex justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewAssessment(assessment)}
+                              className="text-xs"
+                            >
+                              View Details
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </>
           )}
-        </>
-      )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

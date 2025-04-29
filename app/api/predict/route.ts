@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { runPrediction, fallbackPrediction, type PredictionInput } from "@/lib/prediction"
-import { saveAssessment, saveCurrentEmail } from "@/lib/simplified-history"
 
 export type PredictionResult = {
   prediction: number
@@ -70,24 +69,6 @@ export async function POST(request: NextRequest) {
       risk,
       score: Math.round(probability * 100),
       hasDisease: result.prediction === 1,
-    }
-
-    // If we have an email, save the assessment to history
-    if (userEmail) {
-      try {
-        // Save current email for future reference
-        saveCurrentEmail(userEmail)
-
-        // Save assessment to history
-        saveAssessment(userEmail, {
-          ...body,
-          result: predictionResult,
-        })
-
-        console.log(`Prediction saved for email ${userEmail} with result ${JSON.stringify(predictionResult)}`)
-      } catch (storageError) {
-        console.error("Error saving to history:", storageError)
-      }
     }
 
     return NextResponse.json({
