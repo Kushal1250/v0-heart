@@ -140,6 +140,29 @@ export function deleteHistoryItem(email: string, id: string): void {
 }
 
 /**
+ * Delete a specific assessment by index
+ */
+export function deleteAssessmentByIndex(email: string, index: number): void {
+  if (!email || index < 0) return
+
+  try {
+    const history = getAssessmentHistory(email)
+    if (index >= history.length) return
+
+    // Remove the item at the specified index
+    history.splice(index, 1)
+
+    // Save the updated history
+    const historyKey = `assessmentHistory_${email}`
+    localStorage.setItem(historyKey, JSON.stringify(history))
+
+    console.log(`Deleted assessment at index ${index} for ${email}`)
+  } catch (error) {
+    console.error("Error deleting assessment by index:", error)
+  }
+}
+
+/**
  * Clear all history for a specific email
  */
 export function clearHistory(email: string): void {

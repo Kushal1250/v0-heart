@@ -96,7 +96,7 @@ export default function HistoryPage() {
             <div>
               <CardTitle className="text-2xl">Assessment History</CardTitle>
               <CardDescription>
-                Viewing history for: {userEmail}{" "}
+                Viewing history for: {userEmail || "Default User"}{" "}
                 <Button variant="link" className="p-0 h-auto text-blue-400" onClick={handleChangeEmail}>
                   Change Email
                 </Button>
@@ -167,7 +167,7 @@ export default function HistoryPage() {
                                 {formatDate(assessment.timestamp)}
                               </div>
                             </div>
-                            <div className="flex items-center">
+                            <div className="flex items-center space-x-2">
                               <div
                                 className={`flex items-center justify-center rounded-full w-10 h-10 ${
                                   assessment.result?.risk === "high"
@@ -187,6 +187,23 @@ export default function HistoryPage() {
                                   }`}
                                 />
                               </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (confirm("Are you sure you want to delete this assessment?")) {
+                                    const updatedAssessments = assessments.filter((a, i) => i !== index)
+                                    setAssessments(updatedAssessments)
+                                    localStorage.setItem(
+                                      `assessmentHistory_${userEmail}`,
+                                      JSON.stringify(updatedAssessments),
+                                    )
+                                  }
+                                }}
+                                className="p-2 rounded-full hover:bg-gray-700 transition-colors"
+                                aria-label="Delete assessment"
+                              >
+                                <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-400" />
+                              </button>
                             </div>
                           </div>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
