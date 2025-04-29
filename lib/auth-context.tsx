@@ -37,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
+  // Update the checkAuthStatus function to be more resilient
   const checkAuthStatus = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -49,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // If we have valid cached data that hasn't expired
         if (expiryTime && new Date().getTime() < Number.parseInt(expiryTime)) {
           setUser(userData)
+          setIsAdmin(userData.role === "admin")
           setIsLoading(false)
           return
         }
@@ -67,12 +69,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const userData = await response.json()
         setUser(userData)
+        setIsAdmin(userData.role === "admin")
 
-        // Cache the user data with a 30-minute expiry
+        // Cache the user data with a 2-hour expiry (increased from 30 minutes)
         localStorage.setItem("user", JSON.stringify(userData))
-        localStorage.setItem("userExpiry", (new Date().getTime() + 30 * 60 * 1000).toString())
+        localStorage.setItem("userExpiry", (new Date().getTime() + 2 * 60 * 60 * 1000).toString())
       } else {
         setUser(null)
+        setIsAdmin(false)
         // Clear any stale data
         localStorage.removeItem("user")
         localStorage.removeItem("userExpiry")
@@ -80,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Error checking auth status:", error)
       setUser(null)
+      setIsAdmin(false)
     } finally {
       setIsLoading(false)
     }
@@ -212,14 +217,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Update the logout function to handle redirection properly
   const logout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" })
       setUser(null)
       setIsAdmin(false)
 
+      // Clear cached user data
+      localStorage.removeItem("user")
+      localStorage.removeItem("userExpiry")
+
       // Clear admin cookie
       document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+
+      // Redirect to home page after logout
+      window.location.href = "/"
     } catch (error) {
       console.error("Logout error:", error)
     }

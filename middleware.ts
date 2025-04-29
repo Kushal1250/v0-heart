@@ -15,8 +15,19 @@ const authRequiredPaths = [
 // Define which paths require admin role
 const adminRequiredPaths = ["/admin"]
 
+// Define paths that should be accessible whether logged in or not
+const publicAccessPaths = ["/home", "/predict", "/history", "/about", "/how-it-works"]
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  // Check if the path is in the public access list
+  const isPublicAccessPath = publicAccessPaths.some((path) => pathname.startsWith(path))
+
+  // If it's a public access path, allow access without authentication check
+  if (isPublicAccessPath) {
+    return NextResponse.next()
+  }
 
   // Check if the path requires authentication
   const isAuthRequired = authRequiredPaths.some((path) => pathname.startsWith(path))
@@ -85,5 +96,11 @@ export const config = {
     "/admin/:path*",
     "/predict/results/:path*",
     // "/history/:path*" - Removed from matcher
+    // Include the public access paths in the matcher
+    "/home/:path*",
+    "/predict/:path*",
+    "/history/:path*",
+    "/about/:path*",
+    "/how-it-works/:path*",
   ],
 }
