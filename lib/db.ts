@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from "uuid"
 
 // Create a SQL query executor using the Neon serverless driver
 export const sql = neon(process.env.DATABASE_URL!)
+// Export db as an alias for sql for backward compatibility
+export const db = sql
 
 // Initialize database tables
 export async function initDatabase() {

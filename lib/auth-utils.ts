@@ -424,3 +424,20 @@ export async function resendVerificationCode(
     }
   }
 }
+
+/**
+ * Checks if a user has admin privileges
+ * @param user User object or user role string
+ * @returns Boolean indicating if the user is an admin
+ */
+export function isAdmin(user: { role?: string } | string | null | undefined): boolean {
+  if (!user) return false
+
+  // If user is a string, assume it's the role
+  if (typeof user === "string") {
+    return user === "admin"
+  }
+
+  // Otherwise, check the role property
+  return user.role === "admin"
+}

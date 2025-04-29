@@ -4,14 +4,14 @@ This guide will help you diagnose and fix common issues with the SMS verificatio
 
 ## Common Issues and Solutions
 
-### "An error occurred" message
-
-This generic error usually means there's an issue with the server-side code. Check the server logs for more details.
+### "Failed to send verification code via SMS" message
 
 #### Possible causes:
-- Missing environment variables
-- Invalid Twilio credentials
-- Server-side code errors
+- Missing or incorrect Twilio credentials
+- Network connectivity issues
+- Invalid phone number format
+- Insufficient Twilio credits
+- Trial account limitations
 
 #### Solutions:
 1. Check that all required environment variables are set:
@@ -19,47 +19,42 @@ This generic error usually means there's an issue with the server-side code. Che
    - `TWILIO_AUTH_TOKEN`
    - `TWILIO_PHONE_NUMBER`
 2. Verify your Twilio credentials in the Twilio dashboard
-3. Check server logs for detailed error messages
+3. Ensure your Twilio account has sufficient credits
+4. For trial accounts, verify the recipient's phone number in the Twilio console
+5. Check that your Twilio phone number is capable of sending SMS
 
-### SMS not being sent
-
-#### Possible causes:
-- Insufficient Twilio credits
-- Phone number not verified (in trial accounts)
-- Invalid phone number format
-- Network connectivity issues
-
-#### Solutions:
-1. Check your Twilio account balance
-2. In trial accounts, verify the recipient's phone number in the Twilio console
-3. Ensure phone numbers are in E.164 format (+1XXXXXXXXXX)
-4. Check network connectivity to Twilio's API
-
-### "Module not found" errors
+### Invalid phone number format errors
 
 #### Possible causes:
-- Server-only modules being imported in client components
-- Missing 'use server' directive
-- Incorrect import paths
+- Phone number missing country code
+- Phone number contains invalid characters
+- Phone number too short or too long
 
 #### Solutions:
-1. Ensure all server-side code is properly marked with 'use server'
-2. Use dynamic imports for server-only modules
-3. Create client-safe versions of validation functions
-4. Check import paths for typos
+1. Ensure phone numbers are in E.164 format (+1XXXXXXXXXX)
+2. Remove any special characters (except the leading +)
+3. Include the country code (e.g., +1 for US numbers)
+
+### Twilio-specific error codes
+
+| Error Code | Description | Solution |
+|------------|-------------|----------|
+| 21211 | Invalid phone number | Check the phone number format |
+| 21214 | Not a mobile number | Use a mobile phone number |
+| 21608 | Cannot receive SMS | Try a different phone number |
+| 21610 | Blocked number | Contact Twilio support |
+| 21612 | Number not reachable | Try a different phone number |
+| 21614 | Unverified number (trial accounts) | Verify the number in Twilio console |
+| 20003 | Authentication error | Check your Twilio credentials |
 
 ## Diagnostic Tools
 
-### Admin Diagnostics Page
+### Admin SMS Diagnostics Page
 
-Visit `/admin/diagnostics` to access the diagnostics page. This page provides tools to:
-- Check environment variables
+Visit `/admin/sms-diagnostics` to access the SMS diagnostics page. This page provides tools to:
+- Check SMS configuration
 - Test SMS functionality
 - View detailed error information
-
-### Environment Variable Check
-
-The diagnostics page can verify if all required environment variables are set correctly without exposing their values.
 
 ### SMS Test Tool
 
@@ -72,7 +67,6 @@ The SMS test tool allows you to send a test message to any phone number. It prov
 When deploying to Vercel:
 1. Ensure all environment variables are set in the Vercel project settings
 2. Use the "Preview Environment Variables" feature to set variables for preview deployments
-3. Check build logs for any errors related to server-only modules
 
 ### Local Development
 
@@ -83,6 +77,6 @@ In development mode, SMS messages are simulated and logged to the console. To te
 ## Getting Help
 
 If you're still experiencing issues after following this guide:
-1. Check the error ID from the diagnostics page
-2. Look for the corresponding error details in the server logs
-3. Contact support with the error ID and any relevant information
+1. Check the error details from the diagnostics page
+2. Look for the corresponding error code in the Twilio documentation
+3. Contact support with the error details and any relevant information

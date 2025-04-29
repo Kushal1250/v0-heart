@@ -10,7 +10,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { isValidEmail, isValidPhone } from "@/lib/client-validation"
-import { sendVerificationAction } from "@/app/auth/actions"
 
 export default function ForgotPasswordProfilePage() {
   const router = useRouter()
@@ -26,6 +25,7 @@ export default function ForgotPasswordProfilePage() {
     setLoading(true)
 
     const identifier = activeTab === "email" ? email : phone
+    const isEmail = activeTab === "email"
 
     // Client-side validation
     if (activeTab === "email" && !isValidEmail(email)) {
@@ -40,17 +40,37 @@ export default function ForgotPasswordProfilePage() {
       return
     }
 
-    try {
-      const result = await sendVerificationAction(identifier, activeTab)
+    if (!identifier) {
+      setError("Email or phone number is required")
+      setLoading(false)
+      return
+    }
 
-      if (result.success) {
-        router.push(`/otp-verification?identifier=${encodeURIComponent(identifier)}&method=${activeTab}`)
-      } else {
-        setError(result.message || "Failed to send verification code. Please try again.")
+    try {
+      const response = await fetch("/api/auth/send-verification-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          identifier,
+          method: isEmail ? "email" : "sms",
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.message || "Failed to send verification code")
+        setLoading(false)
+        return
       }
+
+      // Redirect to OTP verification page
+      router.push(`/otp-verification?identifier=${encodeURIComponent(identifier)}&method=${isEmail ? "email" : "sms"}`)
     } catch (err) {
       setError("An error occurred. Please try again.")
-      console.error(err)
+      setLoading(false)
     } finally {
       setLoading(false)
     }

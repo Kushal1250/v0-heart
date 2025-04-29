@@ -1,6 +1,8 @@
 "use server"
 
 import { sendVerificationCode, verifyOTP } from "@/lib/auth-utils"
+import { getUserByEmail, getUserByPhone } from "@/lib/data"
+import { createPasswordResetToken, generateToken } from "@/lib/token"
 
 export async function sendVerificationAction(
   identifier: string,
@@ -29,22 +31,41 @@ export async function sendVerificationAction(
   }
 }
 
-export async function verifyOTPAction(
-  identifier: string,
-  code: string,
-): Promise<{
-  success: boolean
-  message: string
-}> {
+export async function verifyOTPAction(identifier: string, otp: string) {
   try {
-    // Verify OTP
-    const result = await verifyOTP(identifier, code)
-    return result
+    // Verify the OTP
+    const verifyResult = await verifyOTP(identifier, otp)
+
+    if (!verifyResult.success) {
+      return verifyResult
+    }
+
+    // If verification is successful, generate a password reset token
+    const user = (await getUserByEmail(identifier)) || (await getUserByPhone(identifier))
+
+    if (!user) {
+      return {
+        success: false,
+        message: "User not found",
+      }
+    }
+
+    // Generate a reset token
+    const token = generateToken()
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
+
+    await createPasswordResetToken(user.id, token, expiresAt)
+
+    return {
+      success: true,
+      message: "Verification successful",
+      token,
+    }
   } catch (error) {
     console.error("Error in verifyOTPAction:", error)
     return {
       success: false,
-      message: error instanceof Error ? error.message : "An error occurred while verifying the code",
+      message: "An error occurred during verification",
     }
   }
 }

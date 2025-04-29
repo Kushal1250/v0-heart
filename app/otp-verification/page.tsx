@@ -54,7 +54,7 @@ export default function OTPVerificationPage() {
       if (result.success) {
         setSuccess(true)
         setTimeout(() => {
-          router.push(`${redirectUrl}?token=${result.token}`)
+          router.push(`/change-password?token=${result.token}`)
         }, 1500)
       } else {
         setError(result.message || "Invalid verification code. Please try again.")
