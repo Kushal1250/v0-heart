@@ -25,8 +25,9 @@ export async function POST(request: Request) {
       const contactMethod = phone ? "sms" : "email"
 
       if (contactMethod === "sms" && currentUser.phone) {
-        // Send via SMS if phone is provided and valid
-        if (!isValidPhone(currentUser.phone)) {
+        // Use the server-side validation
+        const isValid = await isValidPhone(currentUser.phone)
+        if (!isValid) {
           return NextResponse.json({ message: "Invalid phone number format" }, { status: 400 })
         }
 
@@ -61,8 +62,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Valid email is required" }, { status: 400 })
     }
 
-    if (phone && !isValidPhone(phone)) {
-      return NextResponse.json({ message: "Valid phone number is required" }, { status: 400 })
+    if (phone) {
+      // Use the server-side validation
+      const isValid = await isValidPhone(phone)
+      if (!isValid) {
+        return NextResponse.json({ message: "Valid phone number is required" }, { status: 400 })
+      }
     }
 
     // Check if user exists

@@ -9,44 +9,33 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    // Get the verification type from query params
-    const { searchParams } = new URL(request.url)
-    const type = searchParams.get("type")
+    // Check SMS configuration
+    const smsConfigured = !!(
+      process.env.TWILIO_ACCOUNT_SID &&
+      process.env.TWILIO_AUTH_TOKEN &&
+      process.env.TWILIO_PHONE_NUMBER
+    )
 
-    if (!type || (type !== "sms" && type !== "email")) {
-      return NextResponse.json({ message: "Invalid verification type" }, { status: 400 })
-    }
+    // Check email configuration
+    const emailConfigured = !!(
+      process.env.EMAIL_SERVER &&
+      process.env.EMAIL_PORT &&
+      process.env.EMAIL_USER &&
+      process.env.EMAIL_PASSWORD
+    )
 
-    // Check if the verification method is configured
-    if (type === "sms") {
-      const twilioConfigured = !!(
-        process.env.TWILIO_ACCOUNT_SID &&
-        process.env.TWILIO_AUTH_TOKEN &&
-        process.env.TWILIO_PHONE_NUMBER
-      )
-
-      return NextResponse.json({
-        configured: twilioConfigured,
-        message: twilioConfigured
-          ? "SMS verification is configured"
-          : "SMS verification is not configured. Please add Twilio credentials to your environment variables.",
-      })
-    } else {
-      // Email verification
-      const emailConfigured = !!(
-        process.env.EMAIL_SERVER &&
-        process.env.EMAIL_PORT &&
-        process.env.EMAIL_USER &&
-        process.env.EMAIL_PASSWORD
-      )
-
-      return NextResponse.json({
+    return NextResponse.json({
+      sms: {
+        configured: smsConfigured,
+        message: smsConfigured ? "Twilio is properly configured" : "Twilio credentials are missing or incomplete",
+      },
+      email: {
         configured: emailConfigured,
         message: emailConfigured
-          ? "Email verification is configured"
-          : "Email verification is not configured. Please add email server credentials to your environment variables.",
-      })
-    }
+          ? "Email service is properly configured"
+          : "Email configuration is missing or incomplete",
+      },
+    })
   } catch (error) {
     console.error("Error checking verification status:", error)
     return NextResponse.json(

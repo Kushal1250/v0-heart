@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getUserFromRequest } from "@/lib/auth-utils"
 import { sendSMS, isValidPhone } from "@/lib/sms-utils"
+import { isValidPhone as clientIsValidPhone } from "@/lib/client-validation"
 
 export async function POST(request: Request) {
   try {
@@ -16,7 +17,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Phone number is required" }, { status: 400 })
     }
 
-    if (!isValidPhone(phone)) {
+    // Use the client-side validation first for quick checks
+    if (!clientIsValidPhone(phone)) {
+      return NextResponse.json({ message: "Invalid phone number format" }, { status: 400 })
+    }
+
+    // Double-check with server-side validation
+    const isValid = await isValidPhone(phone)
+    if (!isValid) {
       return NextResponse.json({ message: "Invalid phone number format" }, { status: 400 })
     }
 

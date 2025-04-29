@@ -1,39 +1,23 @@
 # SMS Verification Feature
 
-This document provides an overview of the SMS verification feature in HeartPredict.
+This document provides information about the SMS verification feature in the HeartPredict application.
 
 ## Overview
 
-The SMS verification feature allows users to receive verification codes via SMS for:
+The SMS verification feature allows users to receive verification codes via SMS for account-related actions such as:
 
 - Password reset
-- Account verification
 - Two-factor authentication
+- Account verification
 
 ## Technical Implementation
 
-### Components
+### Dependencies
 
-1. **Twilio Integration**: We use Twilio as our SMS service provider.
-2. **Verification Codes Table**: Stores temporary verification codes in the database.
-3. **SMS Utility Functions**: Handles sending SMS messages and phone number validation.
-4. **API Endpoints**: For sending, verifying, and resending verification codes.
+- **Twilio**: Used for sending SMS messages
+- **Next.js Server Actions**: Used for server-side SMS sending logic
 
-### Database Schema
-
-The `verification_codes` table has the following structure:
-
-\`\`\`sql
-CREATE TABLE verification_codes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  code TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '15 minutes')
-)
-\`\`\`
-
-### Environment Variables
+### Configuration
 
 The following environment variables are required:
 
@@ -43,37 +27,57 @@ TWILIO_AUTH_TOKEN=your_twilio_auth_token
 TWILIO_PHONE_NUMBER=your_twilio_phone_number
 \`\`\`
 
-## User Flow
+### Server-Side Implementation
 
-1. User initiates a password reset or account verification
-2. User chooses SMS as the verification method
-3. System generates a 6-digit code and sends it via SMS
-4. User enters the code on the verification page
-5. System verifies the code and allows the user to proceed
+The SMS functionality is implemented as server-side code to prevent exposing API keys and to handle Node.js-specific modules properly. The main components are:
 
-## Testing
+1. **SMS Utility Functions**: Located in `lib/sms-utils.ts`
+2. **Verification API Endpoints**: Located in `app/api/verification/`
+3. **Database Functions**: For storing and validating verification codes
 
-You can test the SMS verification feature using the admin verification settings page:
+### Client-Side Implementation
 
-1. Go to `/admin/verification-settings`
-2. Check if SMS verification is properly configured
-3. Send a test SMS to verify the configuration
+The client-side code only handles:
 
-## Troubleshooting
-
-If SMS verification is not working:
-
-1. Check if Twilio environment variables are correctly set
-2. Verify that the phone number is in E.164 format (+1XXXXXXXXXX)
-3. Check Twilio logs for any delivery issues
-4. Ensure the verification_codes table exists in the database
+1. User interface for entering phone numbers and verification codes
+2. Form validation
+3. API calls to the server-side endpoints
 
 ## Security Considerations
 
 - Verification codes expire after 15 minutes
-- Codes are single-use and are deleted after verification
-- The system uses rate limiting to prevent abuse
+- Rate limiting is implemented to prevent abuse
 - Phone numbers are validated before sending SMS
-\`\`\`
+- All sensitive operations require authentication
 
-Let's update the user profile page to allow adding a phone number:
+## Troubleshooting
+
+### Common Issues
+
+1. **SMS not being sent**:
+   - Check that Twilio credentials are correctly configured
+   - Verify the phone number is in a valid format (E.164)
+   - Check Twilio console for error messages
+
+2. **Invalid phone number errors**:
+   - Ensure phone numbers include country code
+   - Format should be: +1XXXXXXXXXX (for US numbers)
+
+3. **Rate limiting**:
+   - There's a limit to how many SMS can be sent to the same number
+   - Wait before trying again
+
+## Testing
+
+You can test the SMS functionality using the admin verification settings page:
+
+1. Navigate to `/admin/verification-settings`
+2. Enter a test phone number
+3. Click "Send Test SMS"
+4. You should receive an SMS with a verification code
+
+## Future Improvements
+
+- Add support for international phone numbers
+- Implement SMS templates for different scenarios
+- Add analytics for SMS usage and delivery rates

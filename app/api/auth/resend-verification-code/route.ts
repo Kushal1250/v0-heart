@@ -34,7 +34,9 @@ export async function POST(request: Request) {
 
     // Send the code via SMS or email
     if (phone) {
-      if (!isValidPhone(phone)) {
+      // Use the server-side validation
+      const isValid = await isValidPhone(phone)
+      if (!isValid) {
         return NextResponse.json({ message: "Valid phone number is required" }, { status: 400 })
       }
 

@@ -1,69 +1,110 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle2, XCircle, AlertCircle } from "lucide-react"
+import { CheckCircle, XCircle, AlertCircle } from "lucide-react"
 
-interface VerificationMethodStatusProps {
-  type: "sms" | "email"
+// Define a server action to check verification status
+async function checkVerificationStatus() {
+  try {
+    const response = await fetch("/api/verification/check-status")
+    if (!response.ok) {
+      throw new Error("Failed to fetch verification status")
+    }
+    return await response.json()
+  } catch (error) {
+    console.error("Error checking verification status:", error)
+    return {
+      sms: { configured: false, message: "Error checking status" },
+      email: { configured: false, message: "Error checking status" },
+    }
+  }
 }
 
-export function VerificationMethodStatus({ type }: VerificationMethodStatusProps) {
-  const [status, setStatus] = useState<"checking" | "configured" | "not-configured">("checking")
-  const [message, setMessage] = useState<string>("")
+export function VerificationMethodStatus() {
+  const [status, setStatus] = useState({
+    sms: { configured: false, message: "Checking..." },
+    email: { configured: false, message: "Checking..." },
+    loading: true,
+  })
 
   useEffect(() => {
-    const checkStatus = async () => {
+    const fetchStatus = async () => {
       try {
-        const response = await fetch(`/api/verification/check-status?type=${type}`)
-        const data = await response.json()
-
-        if (response.ok && data.configured) {
-          setStatus("configured")
-          setMessage(data.message || `${type.toUpperCase()} verification is configured`)
-        } else {
-          setStatus("not-configured")
-          setMessage(data.message || `${type.toUpperCase()} verification is not configured`)
-        }
+        const result = await checkVerificationStatus()
+        setStatus({
+          ...result,
+          loading: false,
+        })
       } catch (error) {
-        setStatus("not-configured")
-        setMessage("Could not check verification status")
+        console.error("Error fetching verification status:", error)
+        setStatus((prev) => ({
+          ...prev,
+          loading: false,
+        }))
       }
     }
 
-    checkStatus()
-  }, [type])
+    fetchStatus()
+  }, [])
 
   return (
-    <div className="flex items-center gap-2">
-      {status === "checking" && (
-        <>
-          <Badge variant="outline" className="bg-gray-100 text-gray-800">
-            Checking...
-          </Badge>
-          <AlertCircle className="h-4 w-4 text-gray-400" />
-        </>
-      )}
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Verification Methods Status</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="font-medium">SMS Verification:</span>
+                {status.loading ? (
+                  <Badge variant="outline" className="animate-pulse">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    Checking...
+                  </Badge>
+                ) : status.sms.configured ? (
+                  <Badge variant="success">
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Configured
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive">
+                    <XCircle className="h-4 w-4 mr-1" />
+                    Not Configured
+                  </Badge>
+                )}
+              </div>
+              <span className="text-sm text-muted-foreground">{!status.loading && status.sms.message}</span>
+            </div>
 
-      {status === "configured" && (
-        <>
-          <Badge variant="outline" className="bg-green-100 text-green-800">
-            Configured
-          </Badge>
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-        </>
-      )}
-
-      {status === "not-configured" && (
-        <>
-          <Badge variant="outline" className="bg-red-100 text-red-800">
-            Not Configured
-          </Badge>
-          <XCircle className="h-4 w-4 text-red-600" />
-        </>
-      )}
-
-      <span className="text-sm text-gray-600">{message}</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="font-medium">Email Verification:</span>
+                {status.loading ? (
+                  <Badge variant="outline" className="animate-pulse">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    Checking...
+                  </Badge>
+                ) : status.email.configured ? (
+                  <Badge variant="success">
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Configured
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive">
+                    <XCircle className="h-4 w-4 mr-1" />
+                    Not Configured
+                  </Badge>
+                )}
+              </div>
+              <span className="text-sm text-muted-foreground">{!status.loading && status.email.message}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

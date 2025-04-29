@@ -1,45 +1,50 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { VerificationMethodStatus } from "@/components/verification-method-status"
-import { Separator } from "@/components/ui/separator"
+import { isValidPhone, isValidEmail } from "@/lib/client-validation"
+import { CheckCircle, AlertTriangle, Send } from "lucide-react"
 
 export default function VerificationSettingsPage() {
-  const [testPhone, setTestPhone] = useState("")
-  const [testEmail, setTestEmail] = useState("")
+  const [activeTab, setActiveTab] = useState("sms")
+  const [phone, setPhone] = useState("")
+  const [email, setEmail] = useState("")
+  const [smsResult, setSmsResult] = useState<{ success?: boolean; message?: string; code?: string } | null>(null)
+  const [emailResult, setEmailResult] = useState<{ success?: boolean; message?: string; code?: string } | null>(null)
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
 
-  const handleTestSMS = async () => {
-    if (!testPhone) return
+  const handleTestSms = async () => {
+    if (!isValidPhone(phone)) {
+      setSmsResult({ success: false, message: "Please enter a valid phone number" })
+      return
+    }
 
     setLoading(true)
-    setResult(null)
+    setSmsResult(null)
 
     try {
       const response = await fetch("/api/verification/test-sms", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ phone: testPhone }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
       })
 
       const data = await response.json()
 
-      setResult({
-        success: response.ok,
-        message: data.message || (response.ok ? "SMS sent successfully" : "Failed to send SMS"),
-      })
+      if (response.ok) {
+        setSmsResult({ success: true, message: data.message, code: data.code })
+      } else {
+        setSmsResult({ success: false, message: data.message })
+      }
     } catch (error) {
-      setResult({
+      setSmsResult({
         success: false,
-        message: "An error occurred while testing SMS",
+        message: error instanceof Error ? error.message : "An unknown error occurred",
       })
     } finally {
       setLoading(false)
@@ -47,30 +52,32 @@ export default function VerificationSettingsPage() {
   }
 
   const handleTestEmail = async () => {
-    if (!testEmail) return
+    if (!isValidEmail(email)) {
+      setEmailResult({ success: false, message: "Please enter a valid email address" })
+      return
+    }
 
     setLoading(true)
-    setResult(null)
+    setEmailResult(null)
 
     try {
       const response = await fetch("/api/verification/test-email", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email: testEmail }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
       })
 
       const data = await response.json()
 
-      setResult({
-        success: response.ok,
-        message: data.message || (response.ok ? "Email sent successfully" : "Failed to send email"),
-      })
+      if (response.ok) {
+        setEmailResult({ success: true, message: data.message, code: data.code })
+      } else {
+        setEmailResult({ success: false, message: data.message })
+      }
     } catch (error) {
-      setResult({
+      setEmailResult({
         success: false,
-        message: "An error occurred while testing email",
+        message: error instanceof Error ? error.message : "An unknown error occurred",
       })
     } finally {
       setLoading(false)
@@ -78,108 +85,102 @@ export default function VerificationSettingsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6">Verification Settings</h1>
+    <div className="container mx-auto py-8 space-y-8">
+      <h1 className="text-3xl font-bold">Verification Settings</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>SMS Verification Status</CardTitle>
-            <CardDescription>Check if SMS verification is properly configured</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <VerificationMethodStatus type="sms" />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Email Verification Status</CardTitle>
-            <CardDescription>Check if email verification is properly configured</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <VerificationMethodStatus type="email" />
-          </CardContent>
-        </Card>
-      </div>
+      <VerificationMethodStatus />
 
       <Card>
         <CardHeader>
           <CardTitle>Test Verification Methods</CardTitle>
-          <CardDescription>Send a test verification code to verify your configuration</CardDescription>
+          <CardDescription>Send test messages to verify your configuration is working correctly</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="sms" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="sms">Test SMS</TabsTrigger>
-              <TabsTrigger value="email">Test Email</TabsTrigger>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="sms">SMS Verification</TabsTrigger>
+              <TabsTrigger value="email">Email Verification</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="sms">
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="testPhone" className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number
-                  </label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="testPhone"
-                      type="tel"
-                      value={testPhone}
-                      onChange={(e) => setTestPhone(e.target.value)}
-                      placeholder="+1 (555) 123-4567"
-                      disabled={loading}
-                      className="flex-1"
-                    />
-                    <Button onClick={handleTestSMS} disabled={loading || !testPhone}>
-                      {loading ? "Sending..." : "Send Test SMS"}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">Format: +1 (555) 123-4567 or 5551234567</p>
+            <TabsContent value="sms" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <label htmlFor="phone" className="text-sm font-medium">
+                  Phone Number (for testing)
+                </label>
+                <div className="flex space-x-2">
+                  <Input
+                    id="phone"
+                    placeholder="+1 (555) 123-4567"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
+                  <Button onClick={handleTestSms} disabled={loading || !phone}>
+                    {loading ? "Sending..." : "Send Test SMS"}
+                    {!loading && <Send className="ml-2 h-4 w-4" />}
+                  </Button>
                 </div>
               </div>
+
+              {smsResult && (
+                <Alert variant={smsResult.success ? "success" : "destructive"}>
+                  {smsResult.success ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                  <AlertTitle>{smsResult.success ? "Success" : "Error"}</AlertTitle>
+                  <AlertDescription>
+                    {smsResult.message}
+                    {smsResult.code && (
+                      <div className="mt-2">
+                        <span className="font-semibold">Test code: </span>
+                        <code className="bg-muted px-2 py-1 rounded">{smsResult.code}</code>
+                      </div>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
             </TabsContent>
 
-            <TabsContent value="email">
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="testEmail" className="block text-sm font-medium text-gray-700 mb-1">
-                    Email Address
-                  </label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="testEmail"
-                      type="email"
-                      value={testEmail}
-                      onChange={(e) => setTestEmail(e.target.value)}
-                      placeholder="user@example.com"
-                      disabled={loading}
-                      className="flex-1"
-                    />
-                    <Button onClick={handleTestEmail} disabled={loading || !testEmail}>
-                      {loading ? "Sending..." : "Send Test Email"}
-                    </Button>
-                  </div>
+            <TabsContent value="email" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <label htmlFor="email" className="text-sm font-medium">
+                  Email Address (for testing)
+                </label>
+                <div className="flex space-x-2">
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="test@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                  <Button onClick={handleTestEmail} disabled={loading || !email}>
+                    {loading ? "Sending..." : "Send Test Email"}
+                    {!loading && <Send className="ml-2 h-4 w-4" />}
+                  </Button>
                 </div>
               </div>
+
+              {emailResult && (
+                <Alert variant={emailResult.success ? "success" : "destructive"}>
+                  {emailResult.success ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                  <AlertTitle>{emailResult.success ? "Success" : "Error"}</AlertTitle>
+                  <AlertDescription>
+                    {emailResult.message}
+                    {emailResult.code && (
+                      <div className="mt-2">
+                        <span className="font-semibold">Test code: </span>
+                        <code className="bg-muted px-2 py-1 rounded">{emailResult.code}</code>
+                      </div>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
             </TabsContent>
           </Tabs>
-
-          {result && (
-            <>
-              <Separator className="my-4" />
-              <Alert
-                className={
-                  result.success
-                    ? "bg-green-50 text-green-800 border-green-200"
-                    : "bg-red-50 text-red-800 border-red-200"
-                }
-              >
-                <AlertDescription>{result.message}</AlertDescription>
-              </Alert>
-            </>
-          )}
         </CardContent>
+        <CardFooter className="flex justify-between">
+          <p className="text-sm text-muted-foreground">
+            These tests will send actual messages to the provided contact information.
+          </p>
+        </CardFooter>
       </Card>
     </div>
   )

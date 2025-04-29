@@ -1,3 +1,5 @@
+"use server"
+
 import { Twilio } from "twilio"
 
 // Initialize Twilio client with environment variables
@@ -24,7 +26,7 @@ export async function sendSMS(to: string, body: string): Promise<{ success: bool
     }
 
     // Format phone number to E.164 format if not already
-    const formattedPhone = formatPhoneToE164(to)
+    const formattedPhone = await formatPhoneToE164(to)
 
     // Send the SMS
     const message = await twilioClient.messages.create({
@@ -52,7 +54,7 @@ export async function sendSMS(to: string, body: string): Promise<{ success: bool
  * @param phone Phone number to format
  * @returns Formatted phone number
  */
-export function formatPhoneToE164(phone: string): string {
+export async function formatPhoneToE164(phone: string): Promise<string> {
   // Remove all non-digit characters
   const digits = phone.replace(/\D/g, "")
 
@@ -74,7 +76,7 @@ export function formatPhoneToE164(phone: string): string {
  * @param phone Phone number to validate
  * @returns Boolean indicating if the phone is valid
  */
-export function isValidPhone(phone: string): boolean {
+export async function isValidPhone(phone: string): Promise<boolean> {
   // Basic validation - should have at least 10 digits
   const digits = phone.replace(/\D/g, "")
   return digits.length >= 10

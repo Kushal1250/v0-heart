@@ -616,3 +616,22 @@ export async function deleteVerificationCode(id: string) {
     throw new Error(`Failed to delete verification code: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
+
+/**
+ * Updates a user's phone number
+ * @param userId User ID
+ * @param phone New phone number
+ */
+export async function updateUserPhone(userId: string, phone: string) {
+  try {
+    if (!userId || !phone) {
+      throw new Error("User ID and phone number are required to update phone number")
+    }
+
+    await sql`UPDATE users SET phone = ${phone} WHERE id = ${userId}`
+    return true
+  } catch (error) {
+    console.error("Database error in updateUserPhone:", error)
+    throw new Error(`Failed to update phone number: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}

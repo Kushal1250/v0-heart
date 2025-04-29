@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getUserFromRequest } from "@/lib/auth-utils"
-import { isValidEmail } from "@/lib/auth-utils"
 import { sendEmail } from "@/lib/email-utils"
+import { isValidEmail } from "@/lib/client-validation"
 
 export async function POST(request: Request) {
   try {
@@ -25,8 +25,6 @@ export async function POST(request: Request) {
     const testCode = Math.floor(100000 + Math.random() * 900000).toString()
 
     // Send the email
-    // Note: This assumes you have a sendEmail function in your email-utils
-    // If you don't, you'll need to implement it or use your existing email sending logic
     const result = await sendEmail({
       to: email,
       subject: "[TEST] HeartPredict Verification Code",
