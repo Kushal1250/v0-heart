@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Heart, Info, Trash2 } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { EmailChangeForm } from "@/components/email-change-form"
 
 // Define the assessment type
 interface Assessment {
@@ -49,6 +48,22 @@ export default function HistoryPage() {
       localStorage.setItem(key, JSON.stringify(newAssessments))
     } catch (e) {
       console.error("Error saving assessments:", e)
+    }
+  }
+
+  // Function to handle email change
+  const handleChangeEmail = () => {
+    const newEmail = prompt("Enter your email address:", currentEmail)
+    if (newEmail && newEmail !== currentEmail) {
+      setCurrentEmail(newEmail)
+      try {
+        localStorage.setItem("currentUserEmail", newEmail)
+        // Load assessments for the new email
+        const newAssessments = getAssessments()
+        setAssessments(newAssessments)
+      } catch (e) {
+        console.error("Error changing email:", e)
+      }
     }
   }
 
@@ -112,17 +127,12 @@ export default function HistoryPage() {
           <div className="mb-6 flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold mb-1">Assessment History</h2>
-              <div className="text-gray-500">
-                Viewing history for:
-                <EmailChangeForm
-                  currentEmail={currentEmail}
-                  onEmailChange={(newEmail) => {
-                    setCurrentEmail(newEmail)
-                    const newAssessments = getAssessments()
-                    setAssessments(newAssessments)
-                  }}
-                />
-              </div>
+              <p className="text-gray-500">
+                Viewing history for: {currentEmail}
+                <Button variant="link" className="p-0 h-auto text-primary ml-2" onClick={handleChangeEmail}>
+                  Change Email
+                </Button>
+              </p>
             </div>
           </div>
 

@@ -134,23 +134,13 @@ export const clearHistory = (): void => {
 }
 
 // Change the current user email
-export const changeUserEmail = (newEmail: string): boolean => {
-  if (!isBrowser() || !newEmail || newEmail.trim() === "") return false
+export const changeUserEmail = (newEmail: string): void => {
+  if (!isBrowser()) return
 
   try {
-    // Save the new email
     localStorage.setItem("currentUserEmail", newEmail)
-
-    // If there's no history for this email yet, initialize it
-    const key = `assessmentHistory_${newEmail}`
-    if (!localStorage.getItem(key)) {
-      localStorage.setItem(key, JSON.stringify([]))
-    }
-
-    return true
   } catch (e) {
     console.error("Error changing user email:", e)
-    return false
   }
 }
 
