@@ -2,45 +2,21 @@
 
 import type React from "react"
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Mail, ArrowLeft, CheckCircle, Loader2, RefreshCw } from "lucide-react"
+import { AlertCircle, Mail, ArrowLeft, CheckCircle, Loader2 } from "lucide-react"
+import { VerificationCodeForm } from "@/components/verification-code-form"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [isFixing, setIsFixing] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
-  const router = useRouter()
-
-  const handleFix = async () => {
-    setIsFixing(true)
-    setError("")
-
-    try {
-      const response = await fetch("/api/debug/reset-token-system", {
-        method: "POST",
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setError("Database fixed. Please try again.")
-      } else {
-        setError(`Fix failed: ${data.message}`)
-      }
-    } catch (err) {
-      setError("Failed to fix database. Please contact support.")
-    } finally {
-      setIsFixing(false)
-    }
-  }
+  const [codeSent, setCodeSent] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -67,6 +43,7 @@ export default function ForgotPasswordPage() {
       }
 
       setSuccess(true)
+      setCodeSent(true)
 
       // If we're in development, we can show the reset link for testing
       if (process.env.NODE_ENV === "development" && data.previewUrl) {
@@ -93,70 +70,64 @@ export default function ForgotPasswordPage() {
           {error && (
             <Alert variant="destructive" className="mb-4 bg-red-900 border-red-800 text-red-200">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="flex justify-between items-center">
-                <span>{error}</span>
-                {error.includes("Failed to create reset token") && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleFix}
-                    disabled={isFixing}
-                    className="ml-2 bg-transparent border-red-600 text-red-200 hover:bg-red-800"
-                  >
-                    {isFixing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-1" /> Fix
-                      </>
-                    )}
-                  </Button>
-                )}
-              </AlertDescription>
+              <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
-          {success && (
+          {success && !codeSent && (
             <Alert className="mb-4 bg-green-900 border-green-800 text-green-200">
               <CheckCircle className="h-4 w-4" />
               <AlertDescription>
-                If an account exists with this email, a reset link has been sent. Please check your email for
-                instructions.
+                If an account exists with this email, a verification code has been sent. Please check your email.
               </AlertDescription>
             </Alert>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-300">
-                Email Address
-              </Label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
+          {!codeSent ? (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-gray-300">
+                  Email Address
+                </Label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10 bg-gray-700 border-gray-600 text-white"
+                    required
+                  />
                 </div>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 bg-gray-700 border-gray-600 text-white"
-                  required
-                />
               </div>
-            </div>
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                "Send Verification Code"
-              )}
-            </Button>
-          </form>
+              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send Verification Code"
+                )}
+              </Button>
+            </form>
+          ) : (
+            <>
+              <Alert className="mb-4 bg-blue-900 border-blue-800 text-blue-200">
+                <AlertDescription>Please enter the verification code sent to {email}</AlertDescription>
+              </Alert>
+              <VerificationCodeForm email={email} />
+              <div className="mt-4 text-center">
+                <button onClick={() => setCodeSent(false)} className="text-sm text-blue-400 hover:text-blue-300">
+                  Use a different email
+                </button>
+              </div>
+            </>
+          )}
         </CardContent>
         <CardFooter className="flex justify-center">
           <Link href="/login" className="flex items-center text-sm text-blue-400 hover:text-blue-300">
