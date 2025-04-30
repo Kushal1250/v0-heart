@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
-import { getUserByEmail, getUserByPhone, createPasswordResetToken } from "@/lib/db"
-import { generateToken, isValidEmail } from "@/lib/auth-utils"
+import { getUserByEmail, getUserByPhone } from "@/lib/db"
+import { createPasswordResetToken } from "@/lib/db"
+import { isValidEmail } from "@/lib/auth-utils"
 import { sendPasswordResetEmail } from "@/lib/email-utils"
 import { sendPasswordResetSMS } from "@/lib/sms-utils"
 
@@ -46,14 +47,11 @@ export async function POST(request: Request) {
     }
 
     try {
-      // Generate token and expiration
-      const token = generateToken()
-      const expiresAt = new Date(Date.now() + 1 * 60 * 60 * 1000) // 1 hour
-
+      // Generate token and create reset token
       console.log(`Creating password reset token for user: ${user.id}`)
 
-      // Save token to database
-      await createPasswordResetToken(user.id, token, expiresAt)
+      // Use the createPasswordResetToken function directly from db.ts instead of createResetToken
+      const { token, expires } = await createPasswordResetToken(user.id)
 
       // Send reset instructions based on method
       const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`

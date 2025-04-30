@@ -1,9 +1,26 @@
 "use server"
 
+import { Twilio } from "twilio"
+import { logError } from "./error-logger"
+
+// Initialize Twilio client
+const accountSid = process.env.TWILIO_ACCOUNT_SID
+const authToken = process.env.TWILIO_AUTH_TOKEN
+const fromNumber = process.env.TWILIO_PHONE_NUMBER
+
+let twilioClient: Twilio | null = null
+
+// Only initialize if credentials are available
+if (accountSid && authToken) {
+  twilioClient = new Twilio(accountSid, authToken)
+}
+
 // Define a type for the SMS response
 export type SMSResponse = {
   success: boolean
-  message: string
+  message?: string
+  messageId?: string
+  error?: string
   errorDetails?: string
   sid?: string
   debugInfo?: any
@@ -90,6 +107,36 @@ export async function isTwilioConfigured(): Promise<{
 }
 
 /**
+ * Send an SMS message
+ * @param to Recipient phone number
+ * @param body Message content
+ * @returns Success status and message
+ */
+async function baseSendSMS(to: string, body: string): Promise<SMSResponse> {
+  try {
+    // Check if Twilio is configured
+    if (!twilioClient || !fromNumber) {
+      console.warn("Twilio not configured. SMS would have been sent to:", to)
+      return { success: false, error: "SMS service not configured" }
+    }
+
+    // Send SMS
+    const message = await twilioClient.messages.create({
+      body,
+      from: fromNumber,
+      to,
+    })
+
+    console.log("SMS sent:", message.sid)
+    return { success: true, messageId: message.sid, sid: message.sid }
+  } catch (error: any) {
+    console.error("Error sending SMS:", error)
+    logError("SMS sending failed", { error, to, body })
+    return { success: false, error: "Failed to send SMS", errorDetails: error.message }
+  }
+}
+
+/**
  * Send SMS using Twilio with enhanced error handling and debugging
  */
 export async function sendSMS(to: string, message: string): Promise<SMSResponse> {
@@ -161,21 +208,27 @@ export async function sendSMS(to: string, message: string): Promise<SMSResponse>
     // In production, send the actual SMS
     try {
       // Dynamically import Twilio to avoid bundling issues
-      const twilioModule = await import("twilio").catch((err) => {
-        console.error("Failed to import Twilio module:", err)
-        throw new Error("Failed to load SMS service module. Please try again later.")
-      })
+      // const twilioModule = await import("twilio").catch((err) => {
+      //   console.error("Failed to import Twilio module:", err)
+      //   throw new Error("Failed to load SMS service module. Please try again later.")
+      // })
 
-      const Twilio = twilioModule.Twilio
-      const client = new Twilio(accountSid, authToken)
+      // const Twilio = twilioModule.Twilio
+      // const client = new Twilio(accountSid, authToken)
 
       console.log(`Sending SMS via Twilio from ${fromNumber} to ${formattedPhone}`)
 
-      const result = await client.messages.create({
-        body: message,
-        from: fromNumber,
-        to: formattedPhone,
-      })
+      // const result = await client.messages.create({
+      //   body: message,
+      //   from: fromNumber,
+      //   to: formattedPhone,
+      // })
+
+      const result = await baseSendSMS(formattedPhone, message)
+
+      if (!result.success) {
+        return result
+      }
 
       console.log(`SMS sent successfully. SID: ${result.sid}`)
 
@@ -246,6 +299,17 @@ export async function sendSMS(to: string, message: string): Promise<SMSResponse>
 }
 
 /**
+ * Send a verification code via SMS
+ * @param to Recipient phone number
+ * @param code Verification code
+ * @returns Success status and message
+ */
+export async function sendVerificationSMS(to: string, code: string) {
+  const body = `Your verification code is: ${code}. This code will expire in 15 minutes.`
+  return await sendSMS(to, body)
+}
+
+/**
  * Send a test SMS message
  */
 export async function sendTestSMS(to: string): Promise<SMSResponse> {
@@ -268,7 +332,7 @@ export async function sendVerificationWithFallback(
   fallbackUsed?: boolean
 }> {
   // Try SMS first
-  const smsResult = await sendSMS(phone, `Your HeartPredict verification code is: ${code}. Valid for 15 minutes.`)
+  const smsResult = await sendVerificationSMS(phone, code) //await sendSMS(phone, `Your HeartPredict verification code is: ${code}. Valid for 15 minutes.`)
 
   // If SMS succeeds, return success
   if (smsResult.success) {
@@ -320,16 +384,32 @@ export async function sendVerificationWithFallback(
 }
 
 /**
+ * Send a password reset SMS
+ * @param to Recipient phone number
+ * @param resetLink Password reset link
+ * @param shortCode Optional short code for easier entry
+ * @returns Success status and message
+ */
+export async function sendPasswordResetSMS(to: string, resetLink: string, shortCode?: string) {
+  // If no short code is provided, use the first 6 characters of the token
+  const code = shortCode || resetLink.split("token=")[1]?.substring(0, 6) || ""
+
+  const body = `Your password reset code is: ${code}. Use this code or click the link to reset your password: ${resetLink}. This will expire in 1 hour.`
+
+  return await sendSMS(to, body)
+}
+
+/**
  * Send a password reset SMS with a reset code or link
  */
-export async function sendPasswordResetSMS(to: string, resetToken: string, shortCode?: string): Promise<SMSResponse> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+// export async function sendPasswordResetSMS(to: string, resetToken: string, shortCode?: string): Promise<SMSResponse> {
+//   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
 
-  // If a short code is provided, use it instead of the full token
-  const resetCode = shortCode || resetToken.substring(0, 6).toUpperCase()
-  const resetLink = `${appUrl}/reset-password?token=${resetToken}`
+//   // If a short code is provided, use it instead of the full token
+//   const resetCode = shortCode || resetToken.substring(0, 6).toUpperCase()
+//   const resetLink = `${appUrl}/reset-password?token=${resetToken}`
 
-  const message = `HeartPredict: Your password reset code is ${resetCode}. Or use this link: ${resetLink} (Valid for 1 hour)`
+//   const message = `HeartPredict: Your password reset code is ${resetCode}. Or use this link: ${resetLink} (Valid for 1 hour)`
 
-  return await sendSMS(to, message)
-}
+//   return await sendSMS(to, message)
+// }

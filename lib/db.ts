@@ -306,6 +306,68 @@ export async function createPasswordResetToken(userId: string, token: string, ex
   }
 }
 
+/**
+ * Verify if a password reset token is valid and not expired
+ * @param token The token to verify
+ * @returns An object with the token information if valid, null otherwise
+ */
+export async function verifyPasswordResetToken(token: string) {
+  try {
+    if (!token) {
+      console.error("verifyPasswordResetToken called with empty token")
+      throw new Error("Token is required")
+    }
+
+    console.log(`Verifying password reset token: ${token}`)
+
+    const result = await sql`
+      SELECT * FROM password_reset_tokens
+      WHERE token = ${token}
+      AND expires_at > NOW()
+      AND is_valid = true
+    `
+
+    if (result.length === 0) {
+      console.log(`No valid token found for: ${token}`)
+      return null
+    }
+
+    console.log(`Valid token found: ${token}`)
+    return result[0]
+  } catch (error) {
+    console.error("Error verifying password reset token:", error)
+    throw new Error(`Failed to verify token: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
+ * Invalidate a password reset token after it has been used
+ * @param token The token to invalidate
+ * @returns Success status
+ */
+export async function invalidatePasswordResetToken(token: string) {
+  try {
+    if (!token) {
+      console.error("invalidatePasswordResetToken called with empty token")
+      throw new Error("Token is required")
+    }
+
+    console.log(`Invalidating password reset token: ${token}`)
+
+    await sql`
+      UPDATE password_reset_tokens
+      SET is_valid = false
+      WHERE token = ${token}
+    `
+
+    console.log(`Token invalidated successfully: ${token}`)
+    return true
+  } catch (error) {
+    console.error("Error invalidating password reset token:", error)
+    throw new Error(`Failed to invalidate token: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
 export async function getPasswordResetByToken(token: string) {
   try {
     if (!token) {

@@ -1,98 +1,102 @@
-import { sql } from "@/lib/db"
+import { db } from "@/lib/db"
 
+/**
+ * This script ensures the password_reset_tokens table exists and has the correct structure
+ */
 export async function fixPasswordResetTokensTable() {
   try {
     console.log("Checking password_reset_tokens table...")
 
     // Check if the table exists
-    const tableExists = await sql`
+    const tableExists = await db.query(`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_name = 'password_reset_tokens'
-      );
-    `
+      )
+    `)
 
-    if (!tableExists[0].exists) {
-      console.log("password_reset_tokens table does not exist, creating it...")
+    if (!tableExists.rows[0].exists) {
+      console.log("Creating password_reset_tokens table...")
 
-      await sql`
+      // Create the table
+      await db.query(`
         CREATE TABLE password_reset_tokens (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          user_id UUID NOT NULL,
+          user_id TEXT NOT NULL,
           token TEXT NOT NULL,
           expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
           is_valid BOOLEAN DEFAULT true,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-        
-        CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token);
-        CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
-      `
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `)
 
-      console.log("password_reset_tokens table created successfully")
-      return { success: true, message: "Table created successfully" }
+      // Create indexes
+      await db.query(`CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token)`)
+      await db.query(`CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id)`)
+
+      console.log("Table created successfully")
+      return { success: true, message: "Password reset tokens table created" }
     }
 
     // Check if the table has the correct structure
     console.log("Checking table structure...")
 
-    // Check if user_id column is UUID type
-    const userIdType = await sql`
-      SELECT data_type 
-      FROM information_schema.columns 
-      WHERE table_name = 'password_reset_tokens' AND column_name = 'user_id';
-    `
+    // Check if is_valid column exists
+    const isValidExists = await db.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.columns 
+        WHERE table_name = 'password_reset_tokens' AND column_name = 'is_valid'
+      )
+    `)
 
-    if (userIdType.length > 0 && userIdType[0].data_type !== "uuid") {
-      console.log("Fixing user_id column type...")
-
-      // Create a temporary table with the correct structure
-      await sql`
-        CREATE TABLE password_reset_tokens_new (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          user_id UUID NOT NULL,
-          token TEXT NOT NULL,
-          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-          is_valid BOOLEAN DEFAULT true,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-        
-        -- Copy data that can be converted (this might fail for some rows)
-        INSERT INTO password_reset_tokens_new (id, user_id, token, expires_at, is_valid, created_at)
-        SELECT id, user_id::uuid, token, expires_at, is_valid, created_at
-        FROM password_reset_tokens
-        WHERE user_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
-        
-        -- Drop the old table
-        DROP TABLE password_reset_tokens;
-        
-        -- Rename the new table
-        ALTER TABLE password_reset_tokens_new RENAME TO password_reset_tokens;
-        
-        -- Recreate indexes
-        CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token);
-        CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
-      `
-
-      console.log("Fixed user_id column type")
+    if (!isValidExists.rows[0].exists) {
+      console.log("Adding is_valid column...")
+      await db.query(`ALTER TABLE password_reset_tokens ADD COLUMN is_valid BOOLEAN DEFAULT true`)
     }
 
-    console.log("password_reset_tokens table is properly set up")
-    return { success: true, message: "Table structure is correct" }
+    // Check if indexes exist
+    const tokenIndexExists = await db.query(`
+      SELECT EXISTS (
+        SELECT FROM pg_indexes 
+        WHERE indexname = 'idx_password_reset_tokens_token'
+      )
+    `)
+
+    if (!tokenIndexExists.rows[0].exists) {
+      console.log("Creating token index...")
+      await db.query(`CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token)`)
+    }
+
+    const userIdIndexExists = await db.query(`
+      SELECT EXISTS (
+        SELECT FROM pg_indexes 
+        WHERE indexname = 'idx_password_reset_tokens_user_id'
+      )
+    `)
+
+    if (!userIdIndexExists.rows[0].exists) {
+      console.log("Creating user_id index...")
+      await db.query(`CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id)`)
+    }
+
+    console.log("Password reset tokens table is properly configured")
+    return { success: true, message: "Password reset tokens table verified" }
   } catch (error) {
-    console.error("Error fixing password_reset_tokens table:", error)
-    return {
-      success: false,
-      message: `Failed to fix password_reset_tokens table: ${error instanceof Error ? error.message : "Unknown error"}`,
-    }
+    console.error("Error fixing password reset tokens table:", error)
+    return { success: false, error: "Failed to fix password reset tokens table" }
   }
 }
 
 // Execute the function if this script is run directly
 if (require.main === module) {
   fixPasswordResetTokensTable()
-    .then((result) => console.log(result))
-    .catch((error) => console.error(error))
+    .then((result) => {
+      console.log(result)
+      process.exit(0)
+    })
+    .catch((error) => {
+      console.error(error)
+      process.exit(1)
+    })
 }
