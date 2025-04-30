@@ -72,7 +72,9 @@
     "@neondatabase/serverless": "latest",
     "twilio": "latest",
     "util": "latest",
-    "bcrypt-ts": "latest"
+    "bcrypt-ts": "latest",
+    "@vercel/postgres": "latest",
+    "bcryptjs": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

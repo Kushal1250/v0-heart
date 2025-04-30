@@ -11,6 +11,7 @@ import type { NextRequest } from "next/server"
 import { sendSMS } from "@/lib/sms-utils"
 import { logError } from "@/lib/error-logger"
 import { sendEmail } from "@/lib/email-utils"
+import bcrypt from "bcryptjs"
 
 export function getSessionToken(): string | undefined {
   return cookies().get("session")?.value
@@ -41,6 +42,10 @@ export function isValidEmail(email: string): boolean {
 export function isStrongPassword(password: string): boolean {
   // Password must be at least 8 characters with uppercase, lowercase, and numbers
   return password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password)
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  return await bcrypt.hash(password, 10)
 }
 
 export function createResponseWithCookie(data: any, token: string): any {
