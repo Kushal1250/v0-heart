@@ -8,23 +8,28 @@ import { Button } from "@/components/ui/button"
 import { Heart, Activity, BarChart2, ArrowRight, Database, Shield, Award, Users } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { CheckCircle } from "lucide-react"
 
 export default function HomePage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
   const [showWelcome, setShowWelcome] = useState(false)
+  const [showWelcomeMessage, setShowWelcomeMessage] = useState(false)
 
   useEffect(() => {
     // Check if this is a redirect from login
     const loginSuccess = sessionStorage.getItem("loginSuccess")
     if (loginSuccess === "true") {
       setShowWelcome(true)
+      setShowWelcomeMessage(true)
       // Clear the flag
       sessionStorage.removeItem("loginSuccess")
 
       // Hide welcome message after 5 seconds
       const timer = setTimeout(() => {
         setShowWelcome(false)
+        setShowWelcomeMessage(false)
       }, 5000)
 
       return () => clearTimeout(timer)
@@ -77,6 +82,13 @@ export default function HomePage() {
             </svg>
           </button>
         </div>
+      )}
+
+      {showWelcomeMessage && (
+        <Alert className="mb-6 bg-green-50 border-green-200 text-green-800">
+          <CheckCircle className="h-4 w-4 mr-2" />
+          <AlertDescription>Welcome back! You have successfully logged in.</AlertDescription>
+        </Alert>
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

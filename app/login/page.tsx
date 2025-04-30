@@ -60,7 +60,10 @@ export default function LoginPage() {
         throw new Error(data.message || "Login failed")
       }
 
-      // Redirect to dashboard or home page
+      // Set success flag in session storage for home page to display welcome message
+      sessionStorage.setItem("loginSuccess", "true")
+
+      // Redirect to the home page
       router.push("/home")
     } catch (err: any) {
       console.error("Error in login:", err)
@@ -71,24 +74,22 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 px-4 py-12 sm:px-6 lg:px-8 text-white">
-      <Card className="w-full max-w-md bg-gray-800 border-gray-700">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-center text-2xl font-bold text-white">Sign In</CardTitle>
-          <CardDescription className="text-center text-gray-300">
-            Enter your credentials to access your account
-          </CardDescription>
+          <CardTitle className="text-center text-2xl font-bold">Login</CardTitle>
+          <CardDescription className="text-center">Enter your credentials to access your account</CardDescription>
         </CardHeader>
         <CardContent>
           {error && (
-            <Alert variant="destructive" className="mb-4 bg-red-900 border-red-800 text-red-200">
+            <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4 mr-2" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
           {successMessage && (
-            <Alert className="mb-4 bg-green-900 border-green-800 text-green-200">
+            <Alert className="mb-4 bg-green-50 border-green-200 text-green-800">
               <CheckCircle className="h-4 w-4 mr-2" />
               <AlertDescription>{successMessage}</AlertDescription>
             </Alert>
@@ -96,9 +97,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-300">
-                Email Address
-              </Label>
+              <Label htmlFor="email">Email</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-gray-400" />
@@ -109,15 +108,13 @@ export default function LoginPage() {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 bg-gray-700 border-gray-600 text-white"
+                  className="pl-10"
                   required
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-300">
-                Password
-              </Label>
+              <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-gray-400" />
@@ -128,15 +125,13 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 bg-gray-700 border-gray-600 text-white"
+                  className="pl-10"
                   required
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone" className="text-gray-300">
-                Phone Number
-              </Label>
+              <Label htmlFor="phone">Phone Number</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Phone className="h-5 w-5 text-gray-400" />
@@ -147,32 +142,32 @@ export default function LoginPage() {
                   placeholder="+1 (555) 123-4567"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="pl-10 bg-gray-700 border-gray-600 text-white"
+                  className="pl-10"
                   required
                 />
               </div>
             </div>
             <div className="flex justify-end">
-              <Link href="/forgot-password" className="text-sm text-blue-400 hover:text-blue-300">
-                Forgot password?
+              <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-500">
+                Forgot your password?
               </Link>
             </div>
             <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
+                  Logging in...
                 </>
               ) : (
-                "Sign In"
+                "Login"
               )}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-gray-600">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-blue-400 hover:text-blue-300">
+            <Link href="/signup" className="text-blue-600 hover:text-blue-500">
               Sign up
             </Link>
           </p>
