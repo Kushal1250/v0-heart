@@ -40,51 +40,42 @@ export default function ForgotPasswordPage() {
         return
       }
 
-      console.log(`Attempting to send verification code via email`, { email })
+      console.log(`Attempting to send password reset request for email`, { email })
 
-      const response = await fetch("/api/auth/send-verification-code", {
+      const response = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           email,
-          isLoggedIn: false,
         }),
       })
 
+      const data = await response.json()
+
       if (response.ok) {
-        const data = await response.json()
         setLoading(false)
         setSuccess(true)
-        setError(data.message)
+        setError("")
 
         // If there's a preview URL (development environment), show it
         if (data.previewUrl) {
-          setError(`${data.message} Preview available at: ${data.previewUrl}`)
           setPreviewUrl(data.previewUrl)
         }
 
         // Redirect after a short delay to show success message
         setTimeout(() => {
-          router.push(`/otp-verification?identifier=${encodeURIComponent(email)}&method=email`)
+          router.push(`/reset-password?email=${encodeURIComponent(email)}`)
         }, 2000)
       } else {
-        const errorData = await response.json()
         setLoading(false)
-        setError(errorData.message || "An error occurred. Please try again.")
-
-        // If there's still a preview URL despite the error, show it for debugging
-        if (errorData.previewUrl) {
-          setError(`${errorData.message} Preview: ${errorData.previewUrl}`)
-          setPreviewUrl(errorData.previewUrl)
-        }
+        setError(data.message || "Failed to send reset link. Please try again.")
       }
     } catch (err: any) {
-      console.error("Error sending verification code:", err)
-      setError(err.message || "An error occurred while sending the verification code. Please try again.")
-    } finally {
+      console.error("Error sending reset password request:", err)
       setLoading(false)
+      setError("Network error. Please check your connection and try again.")
     }
   }
 
