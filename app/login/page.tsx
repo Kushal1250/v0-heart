@@ -44,6 +44,13 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+
+    // Validate phone number is provided
+    if (!phone.trim()) {
+      setError("Phone number is required")
+      return
+    }
+
     setIsLoading(true)
 
     // Save or clear credentials based on remember me checkbox
@@ -128,7 +135,7 @@ export default function LoginPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number (Optional)</Label>
+              <Label htmlFor="phone">Phone Number</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Phone className="h-5 w-5 text-gray-400" />
@@ -140,6 +147,7 @@ export default function LoginPage() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="pl-10"
+                  required
                 />
               </div>
             </div>
