@@ -29,55 +29,31 @@ export interface ErrorLogEntry {
 }
 
 /**
- * Logs an error to the console and database
+ * Log an error to the console and potentially to a monitoring service
  * @param context The context where the error occurred
  * @param error The error object
- * @param metadata Any additional data to log
- * @param severity Error severity level
- * @param userId User ID if available
+ * @param metadata Additional metadata about the error
  */
-export async function logError(
-  context: string,
-  error: unknown,
-  metadata: Record<string, any> = {},
-  severity: ErrorSeverity = ErrorSeverity.MEDIUM,
-  userId?: string,
-): Promise<string> {
-  const errorId = generateErrorId()
-  const timestamp = new Date()
-
-  // Extract error details
+export async function logError(context: string, error: any, metadata: Record<string, any> = {}) {
   const errorMessage = error instanceof Error ? error.message : String(error)
   const errorStack = error instanceof Error ? error.stack : undefined
 
-  // Create log entry
-  const logEntry: ErrorLogEntry = {
-    id: errorId,
-    timestamp,
-    context,
-    message: errorMessage,
-    stack: errorStack,
-    severity,
-    userId,
-    metadata: {
-      ...metadata,
-      environment: process.env.NODE_ENV || "unknown",
-    },
-  }
-
   // Log to console
-  console.error(`[${severity.toUpperCase()}] Error in ${context} (${errorId}):`, errorMessage)
-  if (errorStack) console.error(errorStack)
-  if (Object.keys(metadata).length > 0) console.error("Additional data:", metadata)
-
-  try {
-    // Store in database if available
-    await storeErrorLog(logEntry)
-  } catch (dbError) {
-    console.error("Failed to store error log in database:", dbError)
+  console.error(`[${context}] Error:`, errorMessage)
+  if (errorStack) {
+    console.error(`[${context}] Stack:`, errorStack)
+  }
+  if (Object.keys(metadata).length > 0) {
+    console.error(`[${context}] Metadata:`, metadata)
   }
 
-  return errorId
+  // In a production environment, you would send this to a monitoring service
+  // like Sentry, LogRocket, etc.
+  if (process.env.NODE_ENV === "production") {
+    // Example: await sentryClient.captureException(error, { extra: { context, ...metadata } })
+  }
+
+  return { logged: true, context, errorMessage }
 }
 
 /**

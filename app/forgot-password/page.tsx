@@ -1,7 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -9,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Mail, ArrowLeft, Phone, CheckCircle } from "lucide-react"
+import { AlertCircle, Mail, ArrowLeft, Phone, CheckCircle, Loader2 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function ForgotPasswordPage() {
@@ -19,7 +20,34 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
   const [activeTab, setActiveTab] = useState("email")
+  const [retryCount, setRetryCount] = useState(0)
   const router = useRouter()
+
+  // Effect to run the database fix if we've had multiple failures
+  useEffect(() => {
+    if (retryCount >= 3) {
+      // After 3 failures, try to fix the database table
+      const fixDatabase = async () => {
+        try {
+          console.log("Attempting to fix database tables...")
+          const response = await fetch("/api/admin/fix-reset-tokens", {
+            method: "POST",
+          })
+
+          if (response.ok) {
+            console.log("Database fix completed successfully")
+            setRetryCount(0) // Reset retry count
+          } else {
+            console.error("Database fix failed")
+          }
+        } catch (err) {
+          console.error("Error fixing database:", err)
+        }
+      }
+
+      fixDatabase()
+    }
+  }, [retryCount])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,10 +71,14 @@ export default function ForgotPasswordPage() {
       const data = await response.json()
 
       if (!response.ok) {
+        // Increment retry count on failure
+        setRetryCount((prev) => prev + 1)
         throw new Error(data.message || "Failed to send reset instructions")
       }
 
       setSuccess(true)
+      setRetryCount(0) // Reset retry count on success
+
       // If we're in development, we can show the reset link for testing
       if (process.env.NODE_ENV === "development" && data.previewUrl) {
         console.log("Reset link:", data.previewUrl)
@@ -117,7 +149,14 @@ export default function ForgotPasswordPage() {
                   </div>
                 </div>
                 <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
-                  {isLoading ? "Sending..." : "Send Verification Code"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Send Verification Code"
+                  )}
                 </Button>
               </form>
             </TabsContent>
@@ -143,7 +182,14 @@ export default function ForgotPasswordPage() {
                   </div>
                 </div>
                 <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
-                  {isLoading ? "Sending..." : "Send Verification Code"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Send Verification Code"
+                  )}
                 </Button>
               </form>
             </TabsContent>
