@@ -201,15 +201,18 @@ export default function SignupPage() {
                   type="text"
                   autoComplete="name"
                   required
-                  className={`form-input pl-14 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                  className={`form-input pl-16 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
                     fieldErrors.name
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                       : "focus:border-primary focus:ring-primary"
                   }`}
-                  style={{ caretColor: "white" }}
+                  style={{ caretColor: "white", color: "white" }}
                   placeholder="John Doe"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value)
+                    e.target.style.color = "white"
+                  }}
                 />
               </div>
               {fieldErrors.name && <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>}
@@ -229,15 +232,18 @@ export default function SignupPage() {
                   type="email"
                   autoComplete="email"
                   required
-                  className={`form-input pl-14 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                  className={`form-input pl-16 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
                     fieldErrors.email
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                       : "focus:border-primary focus:ring-primary"
                   }`}
-                  style={{ caretColor: "white" }}
+                  style={{ caretColor: "white", color: "white" }}
                   placeholder="you@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    e.target.style.color = "white"
+                  }}
                 />
               </div>
               {fieldErrors.email && <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>}
@@ -257,15 +263,18 @@ export default function SignupPage() {
                   type="tel"
                   autoComplete="tel"
                   required
-                  className={`form-input pl-14 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                  className={`form-input pl-16 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
                     fieldErrors.phone
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                       : "focus:border-primary focus:ring-primary"
                   }`}
-                  style={{ caretColor: "white" }}
+                  style={{ caretColor: "white", color: "white" }}
                   placeholder="+1 (555) 123-4567"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => {
+                    setPhone(e.target.value)
+                    e.target.style.color = "white"
+                  }}
                 />
               </div>
               {fieldErrors.phone && <p className="mt-1 text-xs text-red-500">{fieldErrors.phone}</p>}
@@ -285,15 +294,18 @@ export default function SignupPage() {
                   type="password"
                   autoComplete="new-password"
                   required
-                  className={`form-input pl-14 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                  className={`form-input pl-16 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
                     fieldErrors.password
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                       : "focus:border-primary focus:ring-primary"
                   }`}
-                  style={{ caretColor: "white" }}
+                  style={{ caretColor: "white", color: "white" }}
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    e.target.style.color = "white"
+                  }}
                 />
               </div>
               {fieldErrors.password && <p className="mt-1 text-xs text-red-500">{fieldErrors.password}</p>}
@@ -333,15 +345,18 @@ export default function SignupPage() {
                   type="password"
                   autoComplete="new-password"
                   required
-                  className={`form-input pl-14 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                  className={`form-input pl-16 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
                     fieldErrors.confirmPassword
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                       : "focus:border-primary focus:ring-primary"
                   }`}
-                  style={{ caretColor: "white" }}
+                  style={{ caretColor: "white", color: "white" }}
                   placeholder="••••••••"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value)
+                    e.target.style.color = "white"
+                  }}
                 />
               </div>
               {fieldErrors.confirmPassword && (

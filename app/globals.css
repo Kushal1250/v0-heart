@@ -518,3 +518,36 @@ input:-webkit-autofill:active {
   -webkit-box-shadow: 0 0 0 30px #111827 inset !important;
   transition: background-color 5000s ease-in-out 0s;
 }
+
+/* Ensure input text is always white in dark mode forms */
+.bg-gray-900 input,
+.bg-black input,
+input.bg-gray-900,
+.dark input {
+  color: white !important;
+}
+
+/* Ensure placeholder text has enough contrast but is distinguishable from input text */
+.bg-gray-900 input::placeholder,
+.bg-black input::placeholder,
+input.bg-gray-900::placeholder,
+.dark input::placeholder {
+  color: #9ca3af !important;
+  opacity: 1;
+}
+
+/* Ensure text remains white when typing */
+.form-input {
+  color: white !important;
+}
+
+/* Improve autofill styling */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: white !important;
+  -webkit-box-shadow: 0 0 0 30px #111827 inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+  caret-color: white !important;
+}
