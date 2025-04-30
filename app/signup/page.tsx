@@ -139,12 +139,12 @@ export default function SignupPage() {
   const PasswordRequirement = ({ met, text }: { met: boolean; text: string }) => (
     <div className="flex items-center space-x-2 text-sm">
       {met ? <Check className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-gray-400" />}
-      <span className={met ? "text-green-500" : "text-gray-500"}>{text}</span>
+      <span className={met ? "text-green-500" : "text-gray-400"}>{text}</span>
     </div>
   )
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-black py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 animate-fade-in">
         <div className="text-center">
           <Link href="/" className="inline-flex items-center justify-center">
@@ -162,8 +162,8 @@ export default function SignupPage() {
               <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
             </svg>
           </Link>
-          <h2 className="mt-8 text-3xl font-extrabold text-foreground animate-slide-down">Create your account</h2>
-          <p className="mt-3 text-sm text-gray-600 animate-slide-down" style={{ animationDelay: "0.1s" }}>
+          <h2 className="mt-8 text-3xl font-extrabold text-white animate-slide-down">Create your account</h2>
+          <p className="mt-3 text-sm text-gray-300 animate-slide-down" style={{ animationDelay: "0.1s" }}>
             Or{" "}
             <Link href="/login" className="font-medium text-primary hover:text-primary/80">
               sign in to your existing account
@@ -185,10 +185,10 @@ export default function SignupPage() {
           </Alert>
         )}
 
-        <div className="bg-white py-8 px-4 shadow-lg sm:rounded-lg sm:px-10 border border-gray-100 animate-slide-up card-hover">
+        <div className="bg-black py-8 px-4 shadow-lg sm:rounded-lg sm:px-10 border border-gray-800 animate-slide-up card-hover">
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="form-group">
-              <Label htmlFor="name" className="form-label">
+              <Label htmlFor="name" className="form-label text-white">
                 Full name
               </Label>
               <div className="mt-1 relative rounded-md shadow-sm">
@@ -201,7 +201,11 @@ export default function SignupPage() {
                   type="text"
                   autoComplete="name"
                   required
-                  className={`form-input pl-12 ${fieldErrors.name ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
+                  className={`form-input pl-12 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                    fieldErrors.name
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      : "focus:border-primary focus:ring-primary"
+                  }`}
                   placeholder="John Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -211,7 +215,7 @@ export default function SignupPage() {
             </div>
 
             <div className="form-group">
-              <Label htmlFor="email" className="form-label">
+              <Label htmlFor="email" className="form-label text-white">
                 Email address
               </Label>
               <div className="mt-1 relative rounded-md shadow-sm">
@@ -224,7 +228,11 @@ export default function SignupPage() {
                   type="email"
                   autoComplete="email"
                   required
-                  className={`form-input pl-12 ${fieldErrors.email ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
+                  className={`form-input pl-12 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                    fieldErrors.email
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      : "focus:border-primary focus:ring-primary"
+                  }`}
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -234,7 +242,7 @@ export default function SignupPage() {
             </div>
 
             <div className="form-group">
-              <Label htmlFor="phone" className="form-label">
+              <Label htmlFor="phone" className="form-label text-white">
                 Phone number
               </Label>
               <div className="mt-1 relative rounded-md shadow-sm">
@@ -247,7 +255,11 @@ export default function SignupPage() {
                   type="tel"
                   autoComplete="tel"
                   required
-                  className={`form-input pl-12 ${fieldErrors.phone ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
+                  className={`form-input pl-12 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                    fieldErrors.phone
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      : "focus:border-primary focus:ring-primary"
+                  }`}
                   placeholder="+1 (555) 123-4567"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -257,7 +269,7 @@ export default function SignupPage() {
             </div>
 
             <div className="form-group">
-              <Label htmlFor="password" className="form-label">
+              <Label htmlFor="password" className="form-label text-white">
                 Password
               </Label>
               <div className="mt-1 relative rounded-md shadow-sm">
@@ -270,7 +282,11 @@ export default function SignupPage() {
                   type="password"
                   autoComplete="new-password"
                   required
-                  className={`form-input pl-12 ${fieldErrors.password ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
+                  className={`form-input pl-12 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                    fieldErrors.password
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      : "focus:border-primary focus:ring-primary"
+                  }`}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -278,8 +294,8 @@ export default function SignupPage() {
               </div>
               {fieldErrors.password && <p className="mt-1 text-xs text-red-500">{fieldErrors.password}</p>}
 
-              <div className="mt-3 p-3 bg-gray-50 rounded-md border border-gray-200">
-                <p className="text-sm font-medium text-gray-700 mb-2">Password must contain:</p>
+              <div className="mt-3 p-3 bg-gray-900 rounded-md border border-gray-700">
+                <p className="text-sm font-medium text-gray-300 mb-2">Password must contain:</p>
                 <div className="space-y-1">
                   <PasswordRequirement met={passwordRequirements.minLength} text="At least 8 characters" />
                   <PasswordRequirement
@@ -300,7 +316,7 @@ export default function SignupPage() {
             </div>
 
             <div className="form-group">
-              <Label htmlFor="confirmPassword" className="form-label">
+              <Label htmlFor="confirmPassword" className="form-label text-white">
                 Confirm password
               </Label>
               <div className="mt-1 relative rounded-md shadow-sm">
@@ -313,7 +329,11 @@ export default function SignupPage() {
                   type="password"
                   autoComplete="new-password"
                   required
-                  className={`form-input pl-12 ${fieldErrors.confirmPassword ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
+                  className={`form-input pl-12 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                    fieldErrors.confirmPassword
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      : "focus:border-primary focus:ring-primary"
+                  }`}
                   placeholder="••••••••"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -330,9 +350,9 @@ export default function SignupPage() {
                 name="terms"
                 type="checkbox"
                 required
-                className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                className="h-4 w-4 text-primary focus:ring-primary border-gray-700 rounded bg-gray-900"
               />
-              <label htmlFor="terms" className="ml-2 block text-sm text-gray-700">
+              <label htmlFor="terms" className="ml-2 block text-sm text-gray-300">
                 I agree to the{" "}
                 <Link href="/legal/terms" className="font-medium text-primary hover:text-primary/80">
                   Terms of Service
@@ -360,10 +380,10 @@ export default function SignupPage() {
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
+                <div className="w-full border-t border-gray-700" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                <span className="px-2 bg-black text-gray-400">Or continue with</span>
               </div>
             </div>
 
@@ -371,7 +391,7 @@ export default function SignupPage() {
               <div>
                 <Link
                   href="/api/auth/google"
-                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 btn-hover-effect"
+                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-700 rounded-md shadow-sm bg-gray-900 text-sm font-medium text-gray-300 hover:bg-gray-800 btn-hover-effect"
                 >
                   <span className="sr-only">Sign up with Google</span>
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -383,7 +403,7 @@ export default function SignupPage() {
               <div>
                 <Link
                   href="/api/auth/facebook"
-                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 btn-hover-effect"
+                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-700 rounded-md shadow-sm bg-gray-900 text-sm font-medium text-gray-300 hover:bg-gray-800 btn-hover-effect"
                 >
                   <span className="sr-only">Sign up with Facebook</span>
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -399,7 +419,7 @@ export default function SignupPage() {
               <div>
                 <Link
                   href="/api/auth/github"
-                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 btn-hover-effect"
+                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-700 rounded-md shadow-sm bg-gray-900 text-sm font-medium text-gray-300 hover:bg-gray-800 btn-hover-effect"
                 >
                   <span className="sr-only">Sign up with GitHub</span>
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
