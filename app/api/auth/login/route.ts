@@ -4,7 +4,7 @@ import { generateToken, createResponseWithCookie } from "@/lib/auth-utils"
 
 export async function POST(request: Request) {
   try {
-    const { email, password, phone } = await request.json()
+    const { email, password, phone, rememberMe } = await request.json()
 
     // Basic validation
     if (!email || !password) {
@@ -33,14 +33,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Invalid email or password" }, { status: 401 })
     }
 
-    // Create session
+    // Create session with appropriate expiration based on rememberMe
     const token = generateToken()
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+
+    // Set expiration time based on rememberMe flag
+    // 30 days if rememberMe is true, 24 hours if false
+    const expiresAt = new Date(Date.now() + (rememberMe ? 30 : 1) * 24 * 60 * 60 * 1000)
+
     await createSession(user.id, token, expiresAt)
 
-    // Return user data (without password) and set cookie
+    // Return user data (without password) and set cookie with appropriate expiration
     const { password: _, ...userWithoutPassword } = user
-    return createResponseWithCookie({ user: userWithoutPassword }, token)
+    return createResponseWithCookie(
+      {
+        user: userWithoutPassword,
+        rememberMe,
+      },
+      token,
+      rememberMe,
+    )
   } catch (error) {
     console.error("Login error:", error)
     const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred during login"

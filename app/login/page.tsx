@@ -10,18 +10,35 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, Mail, Lock, Phone, CheckCircle, Loader2 } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [phone, setPhone] = useState("")
+  const [rememberMe, setRememberMe] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
   const router = useRouter()
   const searchParams = useSearchParams()
 
+  // Load saved credentials when the component mounts
   useEffect(() => {
+    const savedCredentials = localStorage.getItem("rememberedCredentials")
+    if (savedCredentials) {
+      try {
+        const { email: savedEmail, phone: savedPhone } = JSON.parse(savedCredentials)
+        setEmail(savedEmail || "")
+        setPhone(savedPhone || "")
+        setRememberMe(true)
+      } catch (err) {
+        console.error("Error parsing saved credentials:", err)
+        // Clear corrupted data
+        localStorage.removeItem("rememberedCredentials")
+      }
+    }
+
     // Check for reset=success in URL
     const resetParam = searchParams?.get("reset")
     if (resetParam === "success") {
@@ -41,6 +58,19 @@ export default function LoginPage() {
 
     setIsLoading(true)
 
+    // Save or clear credentials based on remember me checkbox
+    if (rememberMe) {
+      localStorage.setItem(
+        "rememberedCredentials",
+        JSON.stringify({
+          email,
+          phone,
+        }),
+      )
+    } else {
+      localStorage.removeItem("rememberedCredentials")
+    }
+
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -51,6 +81,7 @@ export default function LoginPage() {
           email,
           password,
           phone,
+          rememberMe,
         }),
       })
 
@@ -147,7 +178,20 @@ export default function LoginPage() {
                 />
               </div>
             </div>
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="remember-me"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked === true)}
+                />
+                <Label
+                  htmlFor="remember-me"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Remember me
+                </Label>
+              </div>
               <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-500">
                 Forgot your password?
               </Link>

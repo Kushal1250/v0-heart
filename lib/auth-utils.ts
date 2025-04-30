@@ -48,16 +48,19 @@ export async function hashPassword(password: string): Promise<string> {
   return await bcrypt.hash(password, 10)
 }
 
-export function createResponseWithCookie(data: any, token: string): any {
+export function createResponseWithCookie(data: any, token: string, rememberMe = false): any {
   const response = new Response(JSON.stringify(data), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   })
 
+  // Set cookie expiration based on rememberMe flag
+  const maxAge = rememberMe ? 30 * 24 * 60 * 60 : 24 * 60 * 60 // 30 days or 24 hours
+
   // Set cookie with proper configuration
   response.headers.set(
     "Set-Cookie",
-    `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax`, // Adjust secure based on your environment
+    `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`, // Adjust secure based on your environment
   )
 
   return response
