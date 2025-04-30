@@ -9,13 +9,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Mail, Lock, Phone, CheckCircle, Loader2 } from "lucide-react"
+import { AlertCircle, Mail, Lock, Phone, CheckCircle, Loader2, Eye, EyeOff } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [phone, setPhone] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
@@ -49,13 +50,6 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
-
-    // Validate phone number is provided
-    if (!phone.trim()) {
-      setError("Phone number is required")
-      return
-    }
-
     setIsLoading(true)
 
     // Save or clear credentials based on remember me checkbox
@@ -72,6 +66,8 @@ export default function LoginPage() {
     }
 
     try {
+      console.log("Submitting login form:", { email, phoneProvided: !!phone, rememberMe })
+
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -86,6 +82,7 @@ export default function LoginPage() {
       })
 
       const data = await response.json()
+      console.log("Login response:", { status: response.status, success: response.ok })
 
       if (!response.ok) {
         throw new Error(data.message || "Login failed")
@@ -93,8 +90,6 @@ export default function LoginPage() {
 
       // Set success flag in session storage for home page to display welcome message
       sessionStorage.setItem("loginSuccess", "true")
-
-      // Add a console log to debug
       console.log("Login successful, redirecting to /home")
 
       // Force a hard navigation instead of client-side navigation
@@ -155,13 +150,24 @@ export default function LoginPage() {
                 </div>
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 pr-10"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-gray-400" />
+                  )}
+                </button>
               </div>
             </div>
             <div className="space-y-2">
@@ -177,7 +183,6 @@ export default function LoginPage() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="pl-10"
-                  required
                 />
               </div>
             </div>
