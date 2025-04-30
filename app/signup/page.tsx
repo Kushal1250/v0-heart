@@ -86,8 +86,16 @@ export default function SignupPage() {
 
       // Check if the response is ok
       if (!response.ok) {
-        // Handle field-specific errors
-        if (response.status === 409 && data.field) {
+        // Redirect to login if email already exists
+        if (response.status === 409 && data.field === "email") {
+          setSuccess("Email already exists. Redirecting to login page...")
+          setTimeout(() => {
+            router.push("/login")
+          }, 1500)
+          return
+        }
+        // Handle other field-specific errors
+        else if (response.status === 409 && data.field) {
           setFieldErrors((prev) => ({ ...prev, [data.field]: data.message }))
         } else {
           // Use the error message from the response if available

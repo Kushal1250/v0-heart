@@ -36,12 +36,15 @@ export async function GET(request: Request) {
       ORDER BY p.created_at DESC
     `
 
+    // Log the raw data for debugging
+    console.log(`Found ${predictions.length} predictions in the database`)
+
     // Transform the data to match the expected format
     const formattedPredictions = predictions.map((pred) => ({
       id: pred.id,
       userId: pred.user_id,
       userName: pred.name || pred.email || "Unknown User",
-      result: Number.parseFloat(pred.result),
+      result: typeof pred.result === "string" ? Number.parseFloat(pred.result) : Number(pred.result),
       timestamp: pred.created_at,
       data: pred.prediction_data || {},
     }))

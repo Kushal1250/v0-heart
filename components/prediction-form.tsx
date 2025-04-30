@@ -3,13 +3,8 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { useMediaQuery } from "@/hooks/use-media-query"
-import { InfoIcon } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 // Helper function to get current user email
 const getCurrentUserEmail = () => {
@@ -65,6 +60,24 @@ export function PredictionForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const isMobile = useMediaQuery("(max-width: 640px)")
+
+  // Add the necessary imports for the multi-step form
+  // Add state for tracking the current step
+  const [currentStep, setCurrentStep] = useState(1)
+  const totalSteps = 3
+
+  // Function to navigate between steps
+  const goToNextStep = () => {
+    if (currentStep < totalSteps) {
+      setCurrentStep(currentStep + 1)
+    }
+  }
+
+  const goToPrevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1)
+    }
+  }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -147,344 +160,347 @@ export function PredictionForm() {
     }
   }
 
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setFormData({
+      ...formData,
+      [name]: value,
+    })
+  }
+
+  const [isPredicting, setIsPredicting] = useState(false)
+
+  // Modify the form to use steps
   return (
     <Card className="bg-gray-900 border-gray-800">
       <CardHeader>
         <CardTitle>Heart Health Assessment</CardTitle>
         <CardDescription>Enter your health information to get a heart disease risk assessment</CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
-          {error && <div className="bg-red-900/50 border border-red-700 text-white px-4 py-3 rounded">{error}</div>}
+      <CardContent className="space-y-4">
+        {error && <div className="bg-red-900/50 border border-red-700 text-white px-4 py-3 rounded">{error}</div>}
+        <div className="bg-white shadow rounded-lg p-6">
+          <div className="mb-6">
+            <div className="flex justify-between mb-2">
+              {Array.from({ length: totalSteps }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className={`flex-1 h-2 ${
+                    idx + 1 <= currentStep ? "bg-blue-500" : "bg-gray-200"
+                  } ${idx > 0 ? "ml-1" : ""}`}
+                ></div>
+              ))}
+            </div>
+            <div className="flex justify-between text-sm text-gray-500">
+              <span>Personal Info</span>
+              <span>Health Metrics</span>
+              <span>Medical History</span>
+            </div>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="age">Age</Label>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <InfoIcon className="h-4 w-4 text-gray-400" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">Your current age in years</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+          <h2 className="text-xl font-semibold mb-4">
+            {currentStep === 1 && "Step 1: Personal Information"}
+            {currentStep === 2 && "Step 2: Health Metrics"}
+            {currentStep === 3 && "Step 3: Medical History"}
+          </h2>
+
+          <form onSubmit={handleSubmit}>
+            {/* Step 1: Personal Information */}
+            {currentStep === 1 && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="age" className="block text-sm font-medium text-gray-700">
+                      Age
+                    </label>
+                    <input
+                      id="age"
+                      name="age"
+                      type="number"
+                      min="18"
+                      max="100"
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      value={formData.age}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="sex" className="block text-sm font-medium text-gray-700">
+                      Gender
+                    </label>
+                    <select
+                      id="sex"
+                      name="sex"
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      value={formData.sex}
+                      onChange={handleChange}
+                    >
+                      <option value="">Select Gender</option>
+                      <option value="1">Male</option>
+                      <option value="0">Female</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end mt-6">
+                  <Button
+                    type="button"
+                    onClick={goToNextStep}
+                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
-              <Input
-                id="age"
-                name="age"
-                type="number"
-                placeholder="Enter your age"
-                value={formData.age}
-                onChange={handleInputChange}
-                required
-                className="bg-gray-800 border-gray-700"
-              />
-            </div>
+            )}
 
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="sex">Gender</Label>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <InfoIcon className="h-4 w-4 text-gray-400" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">Biological sex is an important factor in heart disease risk</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+            {/* Step 2: Health Metrics */}
+            {currentStep === 2 && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="trestbps" className="block text-sm font-medium text-gray-700">
+                      Resting Blood Pressure (mm Hg)
+                    </label>
+                    <input
+                      id="trestbps"
+                      name="trestbps"
+                      type="number"
+                      min="60"
+                      max="250"
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      value={formData.trestbps}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="chol" className="block text-sm font-medium text-gray-700">
+                      Serum Cholesterol (mg/dl)
+                    </label>
+                    <input
+                      id="chol"
+                      name="chol"
+                      type="number"
+                      min="100"
+                      max="600"
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      value={formData.chol}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="fbs" className="block text-sm font-medium text-gray-700">
+                      Fasting Blood Sugar &gt; 120 mg/dl
+                    </label>
+                    <select
+                      id="fbs"
+                      name="fbs"
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      value={formData.fbs}
+                      onChange={handleChange}
+                    >
+                      <option value="">Select Option</option>
+                      <option value="1">Yes</option>
+                      <option value="0">No</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="restecg" className="block text-sm font-medium text-gray-700">
+                      Resting ECG Results
+                    </label>
+                    <select
+                      id="restecg"
+                      name="restecg"
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      value={formData.restecg}
+                      onChange={handleChange}
+                    >
+                      <option value="">Select Option</option>
+                      <option value="0">Normal</option>
+                      <option value="1">ST-T Wave Abnormality</option>
+                      <option value="2">Left Ventricular Hypertrophy</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-between mt-6">
+                  <Button
+                    type="button"
+                    onClick={goToPrevStep}
+                    className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={goToNextStep}
+                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
-              <Select
-                name="sex"
-                value={formData.sex}
-                onValueChange={(value) => handleSelectChange("sex", value)}
-                required
-              >
-                <SelectTrigger className="bg-gray-800 border-gray-700">
-                  <SelectValue placeholder="Select gender" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Male</SelectItem>
-                  <SelectItem value="0">Female</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+            )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="trestbps">Blood Pressure (mm Hg)</Label>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <InfoIcon className="h-4 w-4 text-gray-400" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">Your resting blood pressure in mm Hg</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+            {/* Step 3: Medical History */}
+            {currentStep === 3 && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="thalach" className="block text-sm font-medium text-gray-700">
+                      Maximum Heart Rate
+                    </label>
+                    <input
+                      id="thalach"
+                      name="thalach"
+                      type="number"
+                      min="60"
+                      max="220"
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      value={formData.thalach}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="exang" className="block text-sm font-medium text-gray-700">
+                      Exercise Induced Angina
+                    </label>
+                    <select
+                      id="exang"
+                      name="exang"
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      value={formData.exang}
+                      onChange={handleChange}
+                    >
+                      <option value="">Select Option</option>
+                      <option value="1">Yes</option>
+                      <option value="0">No</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="oldpeak" className="block text-sm font-medium text-gray-700">
+                      ST Depression Induced by Exercise
+                    </label>
+                    <input
+                      id="oldpeak"
+                      name="oldpeak"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="10"
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      value={formData.oldpeak}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="slope" className="block text-sm font-medium text-gray-700">
+                      Slope of Peak Exercise ST Segment
+                    </label>
+                    <select
+                      id="slope"
+                      name="slope"
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      value={formData.slope}
+                      onChange={handleChange}
+                    >
+                      <option value="">Select Option</option>
+                      <option value="0">Upsloping</option>
+                      <option value="1">Flat</option>
+                      <option value="2">Downsloping</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="ca" className="block text-sm font-medium text-gray-700">
+                      Number of Major Vessels Colored by Fluoroscopy
+                    </label>
+                    <select
+                      id="ca"
+                      name="ca"
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      value={formData.ca}
+                      onChange={handleChange}
+                    >
+                      <option value="">Select Option</option>
+                      <option value="0">0</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="thal" className="block text-sm font-medium text-gray-700">
+                      Thalassemia
+                    </label>
+                    <select
+                      id="thal"
+                      name="thal"
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      value={formData.thal}
+                      onChange={handleChange}
+                    >
+                      <option value="">Select Option</option>
+                      <option value="1">Normal</option>
+                      <option value="2">Fixed Defect</option>
+                      <option value="3">Reversible Defect</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-between mt-6">
+                  <Button
+                    type="button"
+                    onClick={goToPrevStep}
+                    className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    disabled={isPredicting}
+                  >
+                    {isPredicting ? "Processing..." : "Get Assessment"}
+                  </Button>
+                </div>
               </div>
-              <Input
-                id="trestbps"
-                name="trestbps"
-                type="number"
-                placeholder="e.g., 120"
-                value={formData.trestbps}
-                onChange={handleInputChange}
-                required
-                className="bg-gray-800 border-gray-700"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="chol">Cholesterol (mg/dl)</Label>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <InfoIcon className="h-4 w-4 text-gray-400" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">Your serum cholesterol level in mg/dl</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <Input
-                id="chol"
-                name="chol"
-                type="number"
-                placeholder="e.g., 200"
-                value={formData.chol}
-                onChange={handleInputChange}
-                required
-                className="bg-gray-800 border-gray-700"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="cp">Chest Pain Type</Label>
-              <Select name="cp" value={formData.cp} onValueChange={(value) => handleSelectChange("cp", value)}>
-                <SelectTrigger className="bg-gray-800 border-gray-700">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Typical angina</SelectItem>
-                  <SelectItem value="1">Atypical angina</SelectItem>
-                  <SelectItem value="2">Non-anginal pain</SelectItem>
-                  <SelectItem value="3">Asymptomatic</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="fbs">Fasting Blood Sugar &gt; 120 mg/dl</Label>
-              <Select name="fbs" value={formData.fbs} onValueChange={(value) => handleSelectChange("fbs", value)}>
-                <SelectTrigger className="bg-gray-800 border-gray-700">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Yes</SelectItem>
-                  <SelectItem value="0">No</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="restecg">Resting ECG Results</Label>
-              <Select
-                name="restecg"
-                value={formData.restecg}
-                onValueChange={(value) => handleSelectChange("restecg", value)}
-              >
-                <SelectTrigger className="bg-gray-800 border-gray-700">
-                  <SelectValue placeholder="Select result" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Normal</SelectItem>
-                  <SelectItem value="1">ST-T wave abnormality</SelectItem>
-                  <SelectItem value="2">Left ventricular hypertrophy</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="thalach">Maximum Heart Rate</Label>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <InfoIcon className="h-4 w-4 text-gray-400" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">Maximum heart rate achieved during exercise</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <Input
-                id="thalach"
-                name="thalach"
-                type="number"
-                placeholder="e.g., 150"
-                value={formData.thalach}
-                onChange={handleInputChange}
-                required
-                className="bg-gray-800 border-gray-700"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="exang">Exercise Induced Angina</Label>
-              <Select name="exang" value={formData.exang} onValueChange={(value) => handleSelectChange("exang", value)}>
-                <SelectTrigger className="bg-gray-800 border-gray-700">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Yes</SelectItem>
-                  <SelectItem value="0">No</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="oldpeak">ST Depression Induced by Exercise</Label>
-              <Input
-                id="oldpeak"
-                name="oldpeak"
-                type="number"
-                step="0.1"
-                placeholder="e.g., 1.0"
-                value={formData.oldpeak}
-                onChange={handleInputChange}
-                className="bg-gray-800 border-gray-700"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="slope">Slope of Peak Exercise ST Segment</Label>
-              <Select name="slope" value={formData.slope} onValueChange={(value) => handleSelectChange("slope", value)}>
-                <SelectTrigger className="bg-gray-800 border-gray-700">
-                  <SelectValue placeholder="Select slope" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Upsloping</SelectItem>
-                  <SelectItem value="1">Flat</SelectItem>
-                  <SelectItem value="2">Downsloping</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="ca">Number of Major Vessels</Label>
-              <Select name="ca" value={formData.ca} onValueChange={(value) => handleSelectChange("ca", value)}>
-                <SelectTrigger className="bg-gray-800 border-gray-700">
-                  <SelectValue placeholder="Select number" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">0</SelectItem>
-                  <SelectItem value="1">1</SelectItem>
-                  <SelectItem value="2">2</SelectItem>
-                  <SelectItem value="3">3</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="thal">Thalassemia</Label>
-              <Select name="thal" value={formData.thal} onValueChange={(value) => handleSelectChange("thal", value)}>
-                <SelectTrigger className="bg-gray-800 border-gray-700">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Normal</SelectItem>
-                  <SelectItem value="1">Fixed defect</SelectItem>
-                  <SelectItem value="2">Reversible defect</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="foodHabits">Food Habits</Label>
-              <Select
-                name="foodHabits"
-                value={formData.foodHabits}
-                onValueChange={(value) => handleSelectChange("foodHabits", value)}
-              >
-                <SelectTrigger className="bg-gray-800 border-gray-700">
-                  <SelectValue placeholder="Select food habits" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="vegetarian">Vegetarian</SelectItem>
-                  <SelectItem value="non-vegetarian">Non-Vegetarian</SelectItem>
-                  <SelectItem value="mixed">Mixed Diet</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="junkFoodConsumption">Junk Food Consumption</Label>
-              <Select
-                name="junkFoodConsumption"
-                value={formData.junkFoodConsumption}
-                onValueChange={(value) => handleSelectChange("junkFoodConsumption", value)}
-              >
-                <SelectTrigger className="bg-gray-800 border-gray-700">
-                  <SelectValue placeholder="Select frequency" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low (rarely)</SelectItem>
-                  <SelectItem value="moderate">Moderate (weekly)</SelectItem>
-                  <SelectItem value="high">High (daily)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="sleepingHours">Average Sleeping Hours</Label>
-            <Select
-              name="sleepingHours"
-              value={formData.sleepingHours}
-              onValueChange={(value) => handleSelectChange("sleepingHours", value)}
-            >
-              <SelectTrigger className="bg-gray-800 border-gray-700">
-                <SelectValue placeholder="Select hours" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="5">Less than 6 hours</SelectItem>
-                <SelectItem value="6">6 hours</SelectItem>
-                <SelectItem value="7">7 hours</SelectItem>
-                <SelectItem value="8">8 hours</SelectItem>
-                <SelectItem value="9">More than 8 hours</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-        <CardFooter>
-          <Button type="submit" disabled={isSubmitting} className="w-full bg-red-600 hover:bg-red-700">
-            {isSubmitting ? "Processing..." : "Get Assessment"}
-          </Button>
-        </CardFooter>
-      </form>
+            )}
+          </form>
+        </div>
+      </CardContent>
+      <CardFooter>
+        <Button type="submit" disabled={isSubmitting} className="w-full bg-red-600 hover:bg-red-700">
+          {isSubmitting ? "Processing..." : "Get Assessment"}
+        </Button>
+      </CardFooter>
     </Card>
   )
 }

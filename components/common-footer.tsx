@@ -1,0 +1,241 @@
+"use client"
+
+import Link from "next/link"
+import { Heart, Mail, Phone, MapPin, Twitter, Facebook, Instagram, Linkedin, Github } from "lucide-react"
+
+export default function CommonFooter() {
+  return (
+    <footer className="bg-[#0d1524] text-white py-12 border-t border-gray-800">
+      <div className="container mx-auto px-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
+          {/* Column 1: Logo and Description */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Heart className="h-6 w-6 text-red-500 fill-red-500" />
+              <span className="text-xl font-bold">HeartCare</span>
+            </div>
+            <p className="text-gray-400 text-sm">Monitoring heart health with precision and care.</p>
+            <div className="flex space-x-4 pt-2">
+              <Link href="/social/twitter" className="text-gray-400 hover:text-white transition-colors">
+                <Twitter className="h-5 w-5" />
+                <span className="sr-only">Twitter</span>
+              </Link>
+              <Link href="/social/facebook" className="text-gray-400 hover:text-white transition-colors">
+                <Facebook className="h-5 w-5" />
+                <span className="sr-only">Facebook</span>
+              </Link>
+              <Link href="/social/instagram" className="text-gray-400 hover:text-white transition-colors">
+                <Instagram className="h-5 w-5" />
+                <span className="sr-only">Instagram</span>
+              </Link>
+              <Link href="/social/linkedin" className="text-gray-400 hover:text-white transition-colors">
+                <Linkedin className="h-5 w-5" />
+                <span className="sr-only">LinkedIn</span>
+              </Link>
+              <Link href="/social/github" className="text-gray-400 hover:text-white transition-colors">
+                <Github className="h-5 w-5" />
+                <span className="sr-only">GitHub</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* Column 2: PRODUCT */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">PRODUCT</h3>
+            <ul className="space-y-2">
+              <li>
+                <Link href="/product/features" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  Features
+                </Link>
+              </li>
+              <li>
+                <Link href="/product/pricing" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  Pricing
+                </Link>
+              </li>
+              <li>
+                <Link href="/product/faq" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  FAQ
+                </Link>
+              </li>
+              <li>
+                <Link href="/product/testimonials" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  Testimonials
+                </Link>
+              </li>
+              <li>
+                <Link href="/product/case-studies" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  Case Studies
+                </Link>
+              </li>
+              <li>
+                <Link href="/product/integrations" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  Integrations
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Column 3: COMPANY */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">COMPANY</h3>
+            <ul className="space-y-2">
+              <li>
+                <Link href="/company/about-us" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link href="/company/team" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  Our Team
+                </Link>
+              </li>
+              <li>
+                <Link href="/company/careers" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  Careers
+                </Link>
+              </li>
+              <li>
+                <Link href="/company/blog" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  Blog
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/company/press-releases"
+                  className="text-gray-400 hover:text-white transition-colors text-sm"
+                >
+                  Press Releases
+                </Link>
+              </li>
+              <li>
+                <Link href="/company/partners" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  Our Partners
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Column 4: LEGAL */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">LEGAL</h3>
+            <ul className="space-y-2">
+              <li>
+                <Link href="/legal/privacy-policy" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/legal/terms" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  Terms of Service
+                </Link>
+              </li>
+              <li>
+                <Link href="/legal/cookie-policy" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  Cookie Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/legal/gdpr" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  GDPR Compliance
+                </Link>
+              </li>
+              <li>
+                <Link href="/legal/security" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  Security
+                </Link>
+              </li>
+              <li>
+                <Link href="/legal/hipaa" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  HIPAA Compliance
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Column 5: CONTACT */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">CONTACT</h3>
+            <ul className="space-y-3">
+              <li className="flex items-start gap-2">
+                <Mail className="h-5 w-5 text-gray-400 mt-0.5" />
+                <a
+                  href="mailto:heartguide108@gmail.com"
+                  className="text-gray-400 hover:text-white transition-colors text-sm"
+                >
+                  heartguide108@gmail.com
+                </a>
+              </li>
+              <li className="flex items-start gap-2">
+                <Phone className="h-5 w-5 text-gray-400 mt-0.5" />
+                <a href="tel:+919016261380" className="text-gray-400 hover:text-white transition-colors text-sm">
+                  +91 (901) 626-1380
+                </a>
+              </li>
+              <li className="text-green-400 hover:text-green-300 transition-colors text-sm ml-7">
+                <Link href="/contact/whatsapp-support">WhatsApp Support</Link>
+              </li>
+              <li className="flex items-start gap-2 mt-2">
+                <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
+                <div className="text-gray-400 text-sm">
+                  <p>HeartCare Headquarters</p>
+                  <p>123 Health Street</p>
+                  <p>Medical City, MC 12345</p>
+                  <p>India</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Quick Links */}
+        <div className="mt-12 pt-8 border-t border-gray-800">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <Link
+              href="/contact/form"
+              className="bg-gray-800 hover:bg-gray-700 transition-colors rounded-lg p-6 text-center"
+            >
+              <h4 className="text-lg font-medium mb-2">Contact Form</h4>
+              <p className="text-gray-400 text-sm">Get in touch with our team for any inquiries</p>
+            </Link>
+
+            <Link
+              href="/support/center"
+              className="bg-gray-800 hover:bg-gray-700 transition-colors rounded-lg p-6 text-center"
+            >
+              <h4 className="text-lg font-medium mb-2">Support Center</h4>
+              <p className="text-gray-400 text-sm">Find answers to common questions and get help</p>
+            </Link>
+
+            <Link
+              href="/contact/whatsapp-support"
+              className="bg-gray-800 hover:bg-gray-700 transition-colors rounded-lg p-6 text-center"
+            >
+              <h4 className="text-lg font-medium mb-2">WhatsApp Support</h4>
+              <p className="text-gray-400 text-sm">Get instant help through our WhatsApp channel</p>
+            </Link>
+          </div>
+        </div>
+
+        {/* Copyright and Bottom Links */}
+        <div className="mt-6 pt-8 border-t border-gray-800 text-center">
+          <p className="text-gray-400 text-sm mb-4">© 2025 HeartCare. All rights reserved.</p>
+          <div className="flex justify-center space-x-6">
+            <Link href="/legal/accessibility" className="text-gray-400 hover:text-white transition-colors text-sm">
+              Accessibility
+            </Link>
+            <Link href="/sitemap" className="text-gray-400 hover:text-white transition-colors text-sm">
+              Sitemap
+            </Link>
+            <Link
+              href="/legal/responsible-disclosure"
+              className="text-gray-400 hover:text-white transition-colors text-sm"
+            >
+              Responsible Disclosure
+            </Link>
+          </div>
+        </div>
+      </div>
+    </footer>
+  )
+}
