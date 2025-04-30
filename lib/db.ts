@@ -255,24 +255,54 @@ export async function deleteSession(token: string) {
 }
 
 // Password reset functions
+// Replace the createPasswordResetToken function with this improved version
 export async function createPasswordResetToken(userId: string, token: string, expiresAt: Date) {
   try {
     if (!userId || !token || !expiresAt) {
       throw new Error("User ID, token, and expiration date are required to create a password reset token")
     }
 
+    console.log(`Creating password reset token for user ID: ${userId}`)
+
+    // First, invalidate any existing tokens for this user
+    try {
+      await sql`
+        UPDATE password_reset_tokens 
+        SET is_valid = false 
+        WHERE user_id = ${userId}
+      `
+      console.log(`Invalidated existing tokens for user ID: ${userId}`)
+    } catch (invalidateError) {
+      console.error("Error invalidating existing tokens:", invalidateError)
+      // Continue with token creation even if invalidation fails
+    }
+
     const resetId = uuidv4()
 
-    await sql`
+    // Insert the new token with proper error handling
+    const result = await sql`
       INSERT INTO password_reset_tokens (id, user_id, token, expires_at)
       VALUES (${resetId}, ${userId}, ${token}, ${expiresAt})
+      RETURNING id, token, expires_at
     `
-    return true
+
+    console.log(`Successfully created password reset token for user ID: ${userId}`)
+    return result[0] || true
   } catch (error) {
     console.error("Database error in createPasswordResetToken:", error)
-    throw new Error(
-      `Failed to create password reset token: ${error instanceof Error ? error.message : "Unknown error"}`,
-    )
+
+    // Check for specific database errors
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+
+    if (errorMessage.includes("foreign key constraint")) {
+      throw new Error("Invalid user ID provided for password reset token")
+    }
+
+    if (errorMessage.includes("relation") && errorMessage.includes("does not exist")) {
+      throw new Error("Password reset tokens table does not exist")
+    }
+
+    throw new Error(`Failed to create password reset token: ${errorMessage}`)
   }
 }
 
