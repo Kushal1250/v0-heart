@@ -1,60 +1,67 @@
 import { NextResponse } from "next/server"
-import { getUserByEmail, comparePasswords, createSession } from "@/lib/db"
-import { generateToken, createResponseWithCookie } from "@/lib/auth-utils"
+import { cookies } from "next/headers"
+import { verifyPassword, createSession } from "@/lib/auth-utils"
+import { getUserByEmail } from "@/lib/db"
 
 export async function POST(request: Request) {
   try {
     const { email, password, phone, rememberMe } = await request.json()
 
-    // Basic validation
+    // Validate input
     if (!email || !password) {
       return NextResponse.json({ message: "Email and password are required" }, { status: 400 })
     }
 
-    // Validate phone number is provided
-    if (!phone) {
-      return NextResponse.json({ message: "Phone number is required" }, { status: 400 })
-    }
-
-    // Get user
+    // Get user by email
     const user = await getUserByEmail(email)
+
     if (!user) {
       return NextResponse.json({ message: "Invalid email or password" }, { status: 401 })
     }
 
-    // Verify phone number
-    if (!user.phone || phone !== user.phone) {
-      return NextResponse.json({ message: "Invalid phone number" }, { status: 401 })
-    }
+    // Verify password
+    const isPasswordValid = await verifyPassword(password, user.password_hash)
 
-    // Check password
-    const isPasswordValid = await comparePasswords(password, user.password)
     if (!isPasswordValid) {
       return NextResponse.json({ message: "Invalid email or password" }, { status: 401 })
     }
 
-    // Create session with appropriate expiration based on rememberMe
-    const token = generateToken()
+    // Verify phone if provided
+    if (phone && user.phone && phone !== user.phone) {
+      return NextResponse.json({ message: "Invalid phone number" }, { status: 401 })
+    }
 
-    // Set expiration time based on rememberMe flag
-    // 30 days if rememberMe is true, 24 hours if false
-    const expiresAt = new Date(Date.now() + (rememberMe ? 30 : 1) * 24 * 60 * 60 * 1000)
+    // Create session
+    const { token, expiresAt } = await createSession(user.id, rememberMe)
 
-    await createSession(user.id, token, expiresAt)
+    // Set session cookie
+    const cookieStore = cookies()
 
-    // Return user data (without password) and set cookie with appropriate expiration
-    const { password: _, ...userWithoutPassword } = user
-    return createResponseWithCookie(
-      {
-        user: userWithoutPassword,
-        rememberMe,
+    // Calculate expiration time
+    const maxAge = rememberMe ? 30 * 24 * 60 * 60 : 24 * 60 * 60 // 30 days or 24 hours
+
+    cookieStore.set("session", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge,
+      path: "/",
+    })
+
+    // Return user data (excluding sensitive information)
+    return NextResponse.json({
+      message: "Login successful",
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        profile_picture: user.profile_picture,
+        phone: user.phone,
       },
-      token,
-      rememberMe,
-    )
+    })
   } catch (error) {
-    console.error("Login error:", error)
-    const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred during login"
-    return NextResponse.json({ message: errorMessage }, { status: 500 })
+    console.error("Error in login route:", error)
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
   }
 }

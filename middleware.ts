@@ -21,25 +21,34 @@ const publicPaths = [
   "/contact",
 ]
 
-// Define paths that require admin role
-const adminPaths = ["/admin", "/admin-login"]
+// Define paths that require authentication
+const protectedPaths = ["/home", "/dashboard", "/profile", "/settings", "/predict/results", "/history"]
 
-export function middleware(request: NextRequest) {
+// Define paths that require admin role
+const adminPaths = ["/admin"]
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionToken = request.cookies.get("session")?.value
 
   // Check if the path is public
-  const isPublicPath = publicPaths.some((path) => pathname.startsWith(path))
-  const isAdminPath = adminPaths.some((path) => pathname.startsWith(path))
+  const isPublicPath = publicPaths.some((path) => pathname.startsWith(path) || pathname === path)
+
+  // Check if the path is protected
+  const isProtectedPath = protectedPaths.some((path) => pathname.startsWith(path) || pathname === path)
+
+  // Check if the path is admin-only
+  const isAdminPath = adminPaths.some((path) => pathname.startsWith(path) || pathname === path)
 
   // If the path is public, allow access
   if (isPublicPath) {
     return NextResponse.next()
   }
 
-  // If no session token exists and the path is not public, redirect to login
-  if (!sessionToken) {
+  // If no session token exists and the path is protected, redirect to login
+  if (!sessionToken && isProtectedPath) {
     const url = new URL("/login", request.url)
+    url.searchParams.set("redirect", pathname)
     return NextResponse.redirect(url)
   }
 

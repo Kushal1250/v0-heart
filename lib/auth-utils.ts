@@ -6,6 +6,7 @@ import {
   createVerificationCode,
   getVerificationCode,
   deleteVerificationCode,
+  createNewSession,
 } from "@/lib/db"
 import type { NextRequest } from "next/server"
 import { sendSMS } from "@/lib/sms-utils"
@@ -46,6 +47,21 @@ export function isStrongPassword(password: string): boolean {
 
 export async function hashPassword(password: string): Promise<string> {
   return await bcrypt.hash(password, 10)
+}
+
+/**
+ * Verify a password against a hashed password
+ * @param password The plain text password to verify
+ * @param hashedPassword The hashed password to compare against
+ * @returns Boolean indicating if the password matches
+ */
+export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+  try {
+    return await bcrypt.compare(password, hashedPassword)
+  } catch (error) {
+    console.error("Error verifying password:", error)
+    return false
+  }
 }
 
 export function createResponseWithCookie(data: any, token: string, rememberMe = false): any {
@@ -196,6 +212,37 @@ export async function getUserFromSession(sessionToken: string | undefined): Prom
   } catch (error) {
     console.error("Error getting user from session:", error)
     return null
+  }
+}
+
+/**
+ * Creates a new session for a user
+ * @param userId The ID of the user to create a session for
+ * @param rememberMe Whether to create a long-lived session
+ * @returns The session token
+ */
+export async function createSession(userId: string, rememberMe = false): Promise<string> {
+  try {
+    // Generate a new session token
+    const token = generateToken()
+
+    // Calculate expiration time based on rememberMe flag
+    const expiresAt = new Date()
+    if (rememberMe) {
+      // 30 days if remember me is checked
+      expiresAt.setDate(expiresAt.getDate() + 30)
+    } else {
+      // 24 hours if remember me is not checked
+      expiresAt.setHours(expiresAt.getHours() + 24)
+    }
+
+    // Create the session in the database
+    await createNewSession(userId, token, expiresAt)
+
+    return token
+  } catch (error) {
+    console.error("Error creating session:", error)
+    throw new Error("Failed to create session")
   }
 }
 

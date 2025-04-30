@@ -2,47 +2,65 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Heart, Activity, BarChart2, ArrowRight, Database, Shield, Award, Users } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle } from "lucide-react"
 
 export default function HomePage() {
-  const { user, isLoading } = useAuth()
-  const router = useRouter()
+  const [user, setUser] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [showWelcome, setShowWelcome] = useState(false)
-  const [showWelcomeMessage, setShowWelcomeMessage] = useState(false)
+  const router = useRouter()
 
+  // Fetch user data and handle authentication
   useEffect(() => {
-    // Check if this is a redirect from login
-    const loginSuccess = sessionStorage.getItem("loginSuccess")
-    if (loginSuccess === "true") {
-      setShowWelcome(true)
-      setShowWelcomeMessage(true)
-      // Clear the flag
-      sessionStorage.removeItem("loginSuccess")
+    const fetchUserData = async () => {
+      try {
+        const response = await fetch("/api/auth/user", {
+          credentials: "include",
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          },
+        })
 
-      // Hide welcome message after 5 seconds
-      const timer = setTimeout(() => {
-        setShowWelcome(false)
-        setShowWelcomeMessage(false)
-      }, 5000)
+        if (response.ok) {
+          const userData = await response.json()
+          setUser(userData)
 
-      return () => clearTimeout(timer)
+          // Check if this is a redirect from login
+          const loginSuccess = sessionStorage.getItem("loginSuccess")
+          if (loginSuccess === "true") {
+            setShowWelcome(true)
+            // Clear the flag
+            sessionStorage.removeItem("loginSuccess")
+
+            // Hide welcome message after 5 seconds
+            const timer = setTimeout(() => {
+              setShowWelcome(false)
+            }, 5000)
+
+            return () => clearTimeout(timer)
+          }
+        } else {
+          // If not authenticated, redirect to login
+          router.push("/login")
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error)
+        // On error, redirect to login
+        router.push("/login")
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }, [])
 
-  // If not authenticated and not loading, redirect to login
-  useEffect(() => {
-    if (!user && !isLoading) {
-      router.push("/login")
-    }
-  }, [user, isLoading, router])
+    fetchUserData()
+  }, [router])
 
+  // Show loading state while checking authentication
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -54,8 +72,9 @@ export default function HomePage() {
     )
   }
 
+  // If no user data, return null (will redirect in useEffect)
   if (!user) {
-    return null // Will redirect in useEffect
+    return null
   }
 
   return (
@@ -63,13 +82,7 @@ export default function HomePage() {
       {showWelcome && (
         <div className="mb-6 p-4 bg-green-100 text-green-800 rounded-md animate-fade-in flex items-center justify-between">
           <div className="flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clipRule="evenodd"
-              />
-            </svg>
+            <CheckCircle className="h-5 w-5 mr-2" />
             <span>Login successful! Welcome to HeartPredict.</span>
           </div>
           <button onClick={() => setShowWelcome(false)} className="text-green-700 hover:text-green-900">
@@ -84,16 +97,9 @@ export default function HomePage() {
         </div>
       )}
 
-      {showWelcomeMessage && (
-        <Alert className="mb-6 bg-green-50 border-green-200 text-green-800">
-          <CheckCircle className="h-4 w-4 mr-2" />
-          <AlertDescription>Welcome back! You have successfully logged in.</AlertDescription>
-        </Alert>
-      )}
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Welcome, {user.name || "User"}!</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Welcome, {user?.name || "User"}!</h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Your heart health journey begins here. Use our tools to monitor and improve your heart health.
           </p>

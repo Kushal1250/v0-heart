@@ -204,7 +204,7 @@ export async function verifyPassword(password: string, hashedPassword: string) {
 }
 
 // Session functions
-export async function createSession(userId: string, token: string, expiresAt: Date) {
+export async function createNewSession(userId: string, token: string, expiresAt: Date) {
   try {
     if (!userId || !token || !expiresAt) {
       throw new Error("User ID, token, and expiration date are required to create a session")
@@ -221,6 +221,11 @@ export async function createSession(userId: string, token: string, expiresAt: Da
     console.error("Database error in createSession:", error)
     throw new Error(`Failed to create session: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
+}
+
+// Add the createSession function that was missing
+export async function createSession(userId: string, token: string, expiresAt: Date) {
+  return createNewSession(userId, token, expiresAt)
 }
 
 export async function getSessionByToken(token: string) {
