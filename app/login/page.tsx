@@ -32,6 +32,13 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+
+    // Validate phone number is provided
+    if (!phone.trim()) {
+      setError("Phone number is required")
+      return
+    }
+
     setIsLoading(true)
 
     try {
@@ -141,6 +148,7 @@ export default function LoginPage() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="pl-10 bg-gray-700 border-gray-600 text-white"
+                  required
                 />
               </div>
             </div>

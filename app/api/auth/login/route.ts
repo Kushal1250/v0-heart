@@ -11,14 +11,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Email and password are required" }, { status: 400 })
     }
 
+    // Validate phone number is provided
+    if (!phone) {
+      return NextResponse.json({ message: "Phone number is required" }, { status: 400 })
+    }
+
     // Get user
     const user = await getUserByEmail(email)
     if (!user) {
       return NextResponse.json({ message: "Invalid email or password" }, { status: 401 })
     }
 
-    // Verify phone number if provided
-    if (phone && user.phone && phone !== user.phone) {
+    // Verify phone number
+    if (!user.phone || phone !== user.phone) {
       return NextResponse.json({ message: "Invalid phone number" }, { status: 401 })
     }
 
