@@ -50,7 +50,7 @@ import { ProfileImageUpload } from "@/components/profile-image-upload"
 import { SimpleProfileUpload } from "@/components/simple-profile-upload"
 
 export default function ProfilePage() {
-  const { user, isLoading } = useAuth()
+  const { user, isLoading, updateUserProfile } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
@@ -60,53 +60,46 @@ export default function ProfilePage() {
   // Profile data state
   const [profileData, setProfileData] = useState({
     // Personal Information
-    name: "John Doe",
-    email: "john.doe@example.com",
-    phone: "+1 (555) 123-4567",
-    dateOfBirth: "1985-06-15",
-    gender: "Male",
-    profile_picture: "/abstract-profile.png",
+    name: "",
+    email: "",
+    phone: "",
+    dateOfBirth: "",
+    gender: "",
+    profile_picture: "",
+    createdAt: "",
 
     // Health Information
-    height: "175",
-    weight: "70",
-    bloodType: "O+",
-    allergies: "Peanuts, Penicillin",
-    medicalConditions: "Hypertension",
-    medications: "Lisinopril 10mg",
-    emergencyContactName: "Jane Doe",
-    emergencyContactPhone: "+1 (555) 987-6543",
-    emergencyContactRelation: "Spouse",
+    height: "",
+    weight: "",
+    bloodType: "",
+    allergies: "",
+    medicalConditions: "",
+    medications: "",
+    emergencyContactName: "",
+    emergencyContactPhone: "",
+    emergencyContactRelation: "",
 
     // Account Information
-    accountType: "Premium",
-    createdAt: "2023-01-15T08:30:00Z",
-    lastLogin: "2023-04-27T14:22:14Z",
-    subscriptionStatus: "Active",
-    subscriptionRenewal: "2023-12-31",
+    accountType: "Standard",
+    lastLogin: "",
+    subscriptionStatus: "Free",
+    subscriptionRenewal: "",
     emailNotifications: true,
     smsNotifications: false,
     appNotifications: true,
 
     // Privacy & Security
     twoFactorEnabled: false,
-    emailVerified: true,
+    emailVerified: false,
     phoneVerified: false,
     dataSharing: true,
     anonymousDataCollection: true,
 
     // Activity Summary
-    recentAssessments: [
-      { id: 1, date: "2023-04-20", score: 85, risk: "Low" },
-      { id: 2, date: "2023-03-15", score: 78, risk: "Low" },
-      { id: 3, date: "2023-02-10", score: 72, risk: "Moderate" },
-    ],
-    heartHealthScores: [85, 78, 72, 75, 80, 82],
-    upcomingAppointments: [{ id: 1, date: "2023-05-15T10:30:00Z", doctor: "Dr. Smith", type: "Annual Checkup" }],
-    recentReports: [
-      { id: 1, date: "2023-04-20", title: "Heart Health Assessment", type: "PDF" },
-      { id: 2, date: "2023-03-15", title: "Cholesterol Test Results", type: "PDF" },
-    ],
+    recentAssessments: [],
+    heartHealthScores: [],
+    upcomingAppointments: [],
+    recentReports: [],
   })
 
   const [isEditing, setIsEditing] = useState(false)
@@ -142,6 +135,20 @@ export default function ProfilePage() {
     }
   }, [user, isLoading, router])
 
+  // Update profile data when user data changes
+  useEffect(() => {
+    if (user) {
+      setProfileData((prevData) => ({
+        ...prevData,
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        profile_picture: user.profile_picture || "",
+        emailVerified: true, // Assuming email is verified if user is logged in
+      }))
+    }
+  }, [user])
+
   const fetchUserProfile = async () => {
     if (isFetchingProfile) return
 
@@ -168,21 +175,81 @@ export default function ProfilePage() {
       const data = await response.json()
       console.log("Profile data received:", data)
 
-      // If we have real data, use it, otherwise keep the demo data
-      if (data && data.email) {
-        setProfileData((prev) => ({
-          ...prev,
-          name: data.name || prev.name,
-          email: data.email || prev.email,
-          phone: data.phone || prev.phone,
-          profile_picture: data.profile_picture || prev.profile_picture,
-          createdAt: data.created_at || prev.createdAt,
-        }))
+      // Update profile data with fetched data
+      setProfileData((prevData) => ({
+        ...prevData,
+        name: data.name || user?.name || "",
+        email: data.email || user?.email || "",
+        phone: data.phone || user?.phone || "",
+        profile_picture: data.profile_picture || user?.profile_picture || "",
+        createdAt: data.created_at || "",
+        // Add any other fields that might be returned from the API
+      }))
+
+      // Also fetch health data if available
+      try {
+        const healthResponse = await fetch("/api/user/health-metrics", {
+          method: "GET",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+          cache: "no-store",
+        })
+
+        if (healthResponse.ok) {
+          const healthData = await healthResponse.json()
+          setProfileData((prevData) => ({
+            ...prevData,
+            height: healthData.height || "",
+            weight: healthData.weight || "",
+            bloodType: healthData.bloodType || "",
+            // Add other health fields
+          }))
+        }
+      } catch (healthError) {
+        console.error("Error fetching health data:", healthError)
+        // Don't throw error here, just log it
       }
 
+      // Also fetch user predictions/assessments if available
+      try {
+        const predictionsResponse = await fetch("/api/user/predictions", {
+          method: "GET",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+          cache: "no-store",
+        })
+
+        if (predictionsResponse.ok) {
+          const predictionsData = await predictionsResponse.json()
+
+          // Format the predictions data for the UI
+          const formattedAssessments = predictionsData.map((pred: any) => ({
+            id: pred.id,
+            date: pred.created_at,
+            score: Math.round(pred.result * 100),
+            risk: getRiskLevel(pred.result * 100),
+          }))
+
+          // Extract scores for the chart
+          const scores = formattedAssessments.map((a: any) => a.score).reverse()
+
+          setProfileData((prevData) => ({
+            ...prevData,
+            recentAssessments: formattedAssessments,
+            heartHealthScores: scores,
+          }))
+        }
+      } catch (predictionsError) {
+        console.error("Error fetching predictions data:", predictionsError)
+        // Don't throw error here, just log it
+      }
+
+      // Initialize form data with profile data
       setFormData({
-        name: profileData.name,
-        phone: profileData.phone,
+        name: data.name || user?.name || "",
+        phone: data.phone || user?.phone || "",
         dateOfBirth: profileData.dateOfBirth,
         gender: profileData.gender,
         height: profileData.height,
@@ -209,6 +276,13 @@ export default function ProfilePage() {
     }
   }
 
+  // Helper function to determine risk level based on score
+  const getRiskLevel = (score: number) => {
+    if (score >= 80) return "Low"
+    if (score >= 60) return "Moderate"
+    return "High"
+  }
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({
@@ -232,12 +306,32 @@ export default function ProfilePage() {
     try {
       console.log("Submitting profile update:", formData)
 
-      // In a real app, you would send this to your API
-      // For demo purposes, we'll just update the local state
+      // Send the update to the API
+      const response = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          phone: formData.phone,
+          // Add other fields as needed
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || "Failed to update profile")
+      }
+
+      const updatedProfile = await response.json()
+
+      // Update the profile data state
       setProfileData((prev) => ({
         ...prev,
-        name: formData.name,
-        phone: formData.phone,
+        name: updatedProfile.name || formData.name,
+        phone: updatedProfile.phone || formData.phone,
+        // Update other fields from form data
         dateOfBirth: formData.dateOfBirth,
         gender: formData.gender,
         height: formData.height,
@@ -250,6 +344,14 @@ export default function ProfilePage() {
         emergencyContactPhone: formData.emergencyContactPhone,
         emergencyContactRelation: formData.emergencyContactRelation,
       }))
+
+      // Update the auth context if available
+      if (updateUserProfile) {
+        updateUserProfile({
+          name: formData.name,
+          phone: formData.phone,
+        })
+      }
 
       setIsEditing(false)
       setAlert({
@@ -285,6 +387,13 @@ export default function ProfilePage() {
       ...prev,
       profile_picture: imageUrl,
     }))
+
+    // Update the auth context if available
+    if (updateUserProfile) {
+      updateUserProfile({
+        profile_picture: imageUrl,
+      })
+    }
   }
 
   const handleAdvancedUploaderError = () => {
@@ -300,6 +409,8 @@ export default function ProfilePage() {
       ...prev,
       [setting]: !prev[setting as keyof typeof prev],
     }))
+
+    // In a real app, you would also send this update to the API
   }
 
   if (isLoading) {
@@ -358,7 +469,7 @@ export default function ProfilePage() {
           )}
 
           <div className="mb-6">
-            <h2 className="text-xl font-semibold mb-2">Welcome, {profileData.name}!</h2>
+            <h2 className="text-xl font-semibold mb-2">Welcome, {profileData.name || "User"}!</h2>
             <p className="text-gray-600">Manage your personal information and account settings below.</p>
           </div>
 
@@ -480,21 +591,21 @@ export default function ProfilePage() {
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <User className="h-4 w-4" /> Name
                         </div>
-                        <div className="font-medium">{profileData.name}</div>
+                        <div className="font-medium">{profileData.name || "Not provided"}</div>
                       </div>
 
                       <div className="space-y-2 profile-hover-item p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Mail className="h-4 w-4" /> Email
                         </div>
-                        <div className="font-medium">{profileData.email}</div>
+                        <div className="font-medium">{profileData.email || "Not provided"}</div>
                       </div>
 
                       <div className="space-y-2 profile-hover-item p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Phone className="h-4 w-4" /> Phone
                         </div>
-                        <div className="font-medium">{profileData.phone}</div>
+                        <div className="font-medium">{profileData.phone || "Not provided"}</div>
                       </div>
 
                       <div className="space-y-2 profile-hover-item p-3 rounded-md">
@@ -512,7 +623,7 @@ export default function ProfilePage() {
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <User className="h-4 w-4" /> Gender
                         </div>
-                        <div className="font-medium">{profileData.gender}</div>
+                        <div className="font-medium">{profileData.gender || "Not provided"}</div>
                       </div>
                     </div>
 
@@ -661,21 +772,25 @@ export default function ProfilePage() {
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Ruler className="h-4 w-4" /> Height
                         </div>
-                        <div className="font-medium">{profileData.height} cm</div>
+                        <div className="font-medium">
+                          {profileData.height ? `${profileData.height} cm` : "Not provided"}
+                        </div>
                       </div>
 
                       <div className="space-y-2 profile-hover-item p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Weight className="h-4 w-4" /> Weight
                         </div>
-                        <div className="font-medium">{profileData.weight} kg</div>
+                        <div className="font-medium">
+                          {profileData.weight ? `${profileData.weight} kg` : "Not provided"}
+                        </div>
                       </div>
 
                       <div className="space-y-2 profile-hover-item p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Droplet className="h-4 w-4" /> Blood Type
                         </div>
-                        <div className="font-medium">{profileData.bloodType}</div>
+                        <div className="font-medium">{profileData.bloodType || "Not provided"}</div>
                       </div>
 
                       <div className="space-y-2 profile-hover-item p-3 rounded-md">
@@ -708,17 +823,17 @@ export default function ProfilePage() {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2 profile-hover-item p-3 rounded-md">
                           <div className="text-sm font-medium text-muted-foreground">Name</div>
-                          <div className="font-medium">{profileData.emergencyContactName}</div>
+                          <div className="font-medium">{profileData.emergencyContactName || "Not provided"}</div>
                         </div>
 
                         <div className="space-y-2 profile-hover-item p-3 rounded-md">
                           <div className="text-sm font-medium text-muted-foreground">Phone</div>
-                          <div className="font-medium">{profileData.emergencyContactPhone}</div>
+                          <div className="font-medium">{profileData.emergencyContactPhone || "Not provided"}</div>
                         </div>
 
                         <div className="space-y-2 profile-hover-item p-3 rounded-md">
                           <div className="text-sm font-medium text-muted-foreground">Relationship</div>
-                          <div className="font-medium">{profileData.emergencyContactRelation}</div>
+                          <div className="font-medium">{profileData.emergencyContactRelation || "Not provided"}</div>
                         </div>
                       </div>
                     </div>
@@ -963,44 +1078,53 @@ export default function ProfilePage() {
                       <Heart className="h-5 w-5" /> Recent Health Assessments
                     </h3>
 
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-3 px-4">Date</th>
-                            <th className="text-left py-3 px-4">Score</th>
-                            <th className="text-left py-3 px-4">Risk Level</th>
-                            <th className="text-left py-3 px-4">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {profileData.recentAssessments.map((assessment) => (
-                            <tr key={assessment.id} className="border-b">
-                              <td className="py-3 px-4">{format(new Date(assessment.date), "MMM d, yyyy")}</td>
-                              <td className="py-3 px-4">{assessment.score}</td>
-                              <td className="py-3 px-4">
-                                <span
-                                  className={`px-2 py-1 rounded-full text-xs ${
-                                    assessment.risk === "Low"
-                                      ? "bg-green-100 text-green-800"
-                                      : assessment.risk === "Moderate"
-                                        ? "bg-yellow-100 text-yellow-800"
-                                        : "bg-red-100 text-red-800"
-                                  }`}
-                                >
-                                  {assessment.risk}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4">
-                                <Button variant="link" size="sm" className="p-0 h-auto">
-                                  View Details
-                                </Button>
-                              </td>
+                    {profileData.recentAssessments && profileData.recentAssessments.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-3 px-4">Date</th>
+                              <th className="text-left py-3 px-4">Score</th>
+                              <th className="text-left py-3 px-4">Risk Level</th>
+                              <th className="text-left py-3 px-4">Actions</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          </thead>
+                          <tbody>
+                            {profileData.recentAssessments.map((assessment: any) => (
+                              <tr key={assessment.id} className="border-b">
+                                <td className="py-3 px-4">{format(new Date(assessment.date), "MMM d, yyyy")}</td>
+                                <td className="py-3 px-4">{assessment.score}</td>
+                                <td className="py-3 px-4">
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs ${
+                                      assessment.risk === "Low"
+                                        ? "bg-green-100 text-green-800"
+                                        : assessment.risk === "Moderate"
+                                          ? "bg-yellow-100 text-yellow-800"
+                                          : "bg-red-100 text-red-800"
+                                    }`}
+                                  >
+                                    {assessment.risk}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <Button variant="link" size="sm" className="p-0 h-auto">
+                                    View Details
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 bg-gray-50 rounded-md border border-gray-200">
+                        <p className="text-muted-foreground">No health assessments found</p>
+                        <Button variant="link" className="mt-2">
+                          Take an assessment
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-4 border-t">
@@ -1011,7 +1135,9 @@ export default function ProfilePage() {
                     <div className="bg-gray-50 p-4 rounded-md border border-gray-200 h-48 flex items-center justify-center">
                       <div className="text-center">
                         <p className="text-muted-foreground">
-                          Heart Health Score: <span className="font-bold text-green-600">85</span>
+                          {profileData.heartHealthScores && profileData.heartHealthScores.length > 0
+                            ? `Heart Health Score: ${profileData.heartHealthScores[0]}`
+                            : "No heart health scores available"}
                         </p>
                         <p className="text-xs text-muted-foreground mt-2">
                           Score trend visualization would appear here
@@ -1025,9 +1151,9 @@ export default function ProfilePage() {
                       <CalendarIcon className="h-5 w-5" /> Upcoming Appointments
                     </h3>
 
-                    {profileData.upcomingAppointments.length > 0 ? (
+                    {profileData.upcomingAppointments && profileData.upcomingAppointments.length > 0 ? (
                       <div className="space-y-4">
-                        {profileData.upcomingAppointments.map((appointment) => (
+                        {profileData.upcomingAppointments.map((appointment: any) => (
                           <div key={appointment.id} className="bg-gray-50 p-4 rounded-md border border-gray-200">
                             <div className="flex justify-between items-start">
                               <div>
@@ -1065,27 +1191,33 @@ export default function ProfilePage() {
                       <FileText className="h-5 w-5" /> Recent Reports
                     </h3>
 
-                    <div className="space-y-3">
-                      {profileData.recentReports.map((report) => (
-                        <div
-                          key={report.id}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-gray-200"
-                        >
-                          <div className="flex items-center gap-3">
-                            <FileText className="h-5 w-5 text-blue-600" />
-                            <div>
-                              <p className="font-medium">{report.title}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {format(new Date(report.date), "MMMM d, yyyy")}
-                              </p>
+                    {profileData.recentReports && profileData.recentReports.length > 0 ? (
+                      <div className="space-y-3">
+                        {profileData.recentReports.map((report: any) => (
+                          <div
+                            key={report.id}
+                            className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-gray-200"
+                          >
+                            <div className="flex items-center gap-3">
+                              <FileText className="h-5 w-5 text-blue-600" />
+                              <div>
+                                <p className="font-medium">{report.title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(new Date(report.date), "MMMM d, yyyy")}
+                                </p>
+                              </div>
                             </div>
+                            <Button variant="outline" size="sm">
+                              Download
+                            </Button>
                           </div>
-                          <Button variant="outline" size="sm">
-                            Download
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 bg-gray-50 rounded-md border border-gray-200">
+                        <p className="text-muted-foreground">No reports available</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </TabsContent>
