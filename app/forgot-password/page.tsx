@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -10,44 +9,41 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Mail, ArrowLeft, Phone, CheckCircle, Loader2 } from "lucide-react"
+import { AlertCircle, Mail, ArrowLeft, Phone, CheckCircle, Loader2, RefreshCw } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isFixing, setIsFixing] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
   const [activeTab, setActiveTab] = useState("email")
-  const [retryCount, setRetryCount] = useState(0)
   const router = useRouter()
 
-  // Effect to run the database fix if we've had multiple failures
-  useEffect(() => {
-    if (retryCount >= 3) {
-      // After 3 failures, try to fix the database table
-      const fixDatabase = async () => {
-        try {
-          console.log("Attempting to fix database tables...")
-          const response = await fetch("/api/admin/fix-reset-tokens", {
-            method: "POST",
-          })
+  const handleFix = async () => {
+    setIsFixing(true)
+    setError("")
 
-          if (response.ok) {
-            console.log("Database fix completed successfully")
-            setRetryCount(0) // Reset retry count
-          } else {
-            console.error("Database fix failed")
-          }
-        } catch (err) {
-          console.error("Error fixing database:", err)
-        }
+    try {
+      const response = await fetch("/api/debug/reset-token-system", {
+        method: "POST",
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setError("Database fixed. Please try again.")
+      } else {
+        setError(`Fix failed: ${data.message}`)
       }
-
-      fixDatabase()
+    } catch (err) {
+      setError("Failed to fix database. Please contact support.")
+    } finally {
+      setIsFixing(false)
     }
-  }, [retryCount])
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -71,13 +67,10 @@ export default function ForgotPasswordPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        // Increment retry count on failure
-        setRetryCount((prev) => prev + 1)
         throw new Error(data.message || "Failed to send reset instructions")
       }
 
       setSuccess(true)
-      setRetryCount(0) // Reset retry count on success
 
       // If we're in development, we can show the reset link for testing
       if (process.env.NODE_ENV === "development" && data.previewUrl) {
@@ -104,7 +97,26 @@ export default function ForgotPasswordPage() {
           {error && (
             <Alert variant="destructive" className="mb-4 bg-red-900 border-red-800 text-red-200">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription className="flex justify-between items-center">
+                <span>{error}</span>
+                {error.includes("Failed to create reset token") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleFix}
+                    disabled={isFixing}
+                    className="ml-2 bg-transparent border-red-600 text-red-200 hover:bg-red-800"
+                  >
+                    {isFixing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-1" /> Fix
+                      </>
+                    )}
+                  </Button>
+                )}
+              </AlertDescription>
             </Alert>
           )}
 
@@ -195,10 +207,14 @@ export default function ForgotPasswordPage() {
             </TabsContent>
           </Tabs>
         </CardContent>
-        <CardFooter className="flex justify-center">
+        <CardFooter className="flex justify-between">
           <Link href="/login" className="flex items-center text-sm text-blue-400 hover:text-blue-300">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Login
+          </Link>
+
+          <Link href="/admin/reset-token-diagnostics" className="text-sm text-gray-400 hover:text-gray-300">
+            Admin Diagnostics
           </Link>
         </CardFooter>
       </Card>
