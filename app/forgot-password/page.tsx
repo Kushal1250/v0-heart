@@ -9,14 +9,38 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Mail, ArrowLeft, CheckCircle, Loader2 } from "lucide-react"
+import { AlertCircle, Mail, ArrowLeft, CheckCircle, Loader2, RefreshCw } from "lucide-react"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isFixing, setIsFixing] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
   const router = useRouter()
+
+  const handleFix = async () => {
+    setIsFixing(true)
+    setError("")
+
+    try {
+      const response = await fetch("/api/debug/reset-token-system", {
+        method: "POST",
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setError("Database fixed. Please try again.")
+      } else {
+        setError(`Fix failed: ${data.message}`)
+      }
+    } catch (err) {
+      setError("Failed to fix database. Please contact support.")
+    } finally {
+      setIsFixing(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -71,6 +95,23 @@ export default function ForgotPasswordPage() {
               <AlertCircle className="h-4 w-4" />
               <AlertDescription className="flex justify-between items-center">
                 <span>{error}</span>
+                {error.includes("Failed to create reset token") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleFix}
+                    disabled={isFixing}
+                    className="ml-2 bg-transparent border-red-600 text-red-200 hover:bg-red-800"
+                  >
+                    {isFixing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-1" /> Fix
+                      </>
+                    )}
+                  </Button>
+                )}
               </AlertDescription>
             </Alert>
           )}

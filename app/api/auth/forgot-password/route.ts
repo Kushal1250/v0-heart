@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     try {
       console.log(`Creating password reset token for user: ${user.id}`)
 
-      // Use the simple token creation function
+      // Use the improved token creation function
       const { token, expires } = await createSimpleResetToken(user.id)
 
       // Generate reset link
@@ -51,7 +51,13 @@ export async function POST(request: Request) {
       console.log(`Reset link generated: ${resetLink}`)
 
       // Send reset instructions via email
-      await sendPasswordResetEmail(user.email, resetLink, user.name)
+      const emailResult = await sendPasswordResetEmail(user.email, resetLink, user.name)
+
+      if (!emailResult.success) {
+        console.error("Failed to send email:", emailResult.error)
+        return NextResponse.json({ message: "Failed to send reset email. Please try again." }, { status: 500 })
+      }
+
       console.log(`Reset email sent to: ${user.email}`)
 
       return NextResponse.json({
@@ -61,7 +67,13 @@ export async function POST(request: Request) {
       })
     } catch (tokenError) {
       console.error("Error creating or sending password reset token:", tokenError)
-      return NextResponse.json({ message: "Failed to create reset token. Please try again." }, { status: 500 })
+      return NextResponse.json(
+        {
+          message: "Failed to create reset token. Please try again.",
+          error: tokenError instanceof Error ? tokenError.message : "Unknown error",
+        },
+        { status: 500 },
+      )
     }
   } catch (error) {
     console.error("Password reset request error:", error)
