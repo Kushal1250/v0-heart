@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getUserByEmail, getUserByPhone } from "@/lib/db"
-import { createPasswordResetToken } from "@/lib/token"
+import { createSimpleResetToken } from "@/lib/simple-token"
 import { isValidEmail } from "@/lib/auth-utils"
 import { sendPasswordResetEmail } from "@/lib/email-utils"
 import { sendPasswordResetSMS } from "@/lib/sms-utils"
@@ -57,8 +57,8 @@ export async function POST(request: Request) {
     try {
       console.log(`Creating password reset token for user: ${user.id}`)
 
-      // Create token with simplified function
-      const { token, expires } = await createPasswordResetToken(user.id)
+      // Use the simple token creation function
+      const { token, expires } = await createSimpleResetToken(user.id)
 
       // Generate reset link
       const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`

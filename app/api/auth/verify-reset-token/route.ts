@@ -1,22 +1,21 @@
 import { NextResponse } from "next/server"
-import { getPasswordResetByToken } from "@/lib/db"
+import { verifySimpleResetToken } from "@/lib/simple-token"
 
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   try {
-    const url = new URL(request.url)
-    const token = url.searchParams.get("token")
+    const { token } = await request.json()
 
     if (!token) {
       return NextResponse.json({ valid: false, message: "Token is required" }, { status: 400 })
     }
 
-    const resetToken = await getPasswordResetByToken(token)
+    const userId = await verifySimpleResetToken(token)
 
-    if (!resetToken) {
-      return NextResponse.json({ valid: false, message: "Invalid or expired token" }, { status: 400 })
+    if (!userId) {
+      return NextResponse.json({ valid: false, message: "Invalid or expired token" })
     }
 
-    return NextResponse.json({ valid: true })
+    return NextResponse.json({ valid: true, userId })
   } catch (error) {
     console.error("Error verifying reset token:", error)
     return NextResponse.json({ valid: false, message: "An error occurred while verifying the token" }, { status: 500 })
