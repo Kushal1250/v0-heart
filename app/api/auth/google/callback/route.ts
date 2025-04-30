@@ -24,10 +24,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=no_code`)
     }
 
+    // Get the base URL from the request
+    const baseUrl = request.headers.get("host") || process.env.NEXT_PUBLIC_APP_URL || "localhost:3000"
+    const protocol = baseUrl.includes("localhost") ? "http" : "https"
+
+    // Construct the redirect URI using the actual host
+    const redirectUri = `${protocol}://${baseUrl}/api/auth/google/callback`
+
     // Exchange code for token
     const clientId = process.env.GOOGLE_CLIENT_ID
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google/callback`
 
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -78,7 +84,7 @@ export async function GET(request: NextRequest) {
     await createSession(user.id, token, expiresAt)
 
     // Create response with session cookie
-    const response = NextResponse.redirect("https://heartguide2.vercel.app/")
+    const response = NextResponse.redirect(`${protocol}://${baseUrl}/dashboard`)
     response.cookies.set({
       name: "session",
       value: token,

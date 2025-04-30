@@ -65,14 +65,15 @@
     "axios": "latest",
     "crypto": "latest",
     "nodemailer": "latest",
-    "uuid": "latest",
     "jspdf-autotable": "latest",
     "html2canvas": "latest",
     "pdfkit": "latest",
     "@neondatabase/serverless": "latest",
     "twilio": "latest",
+    "uuid": "latest",
     "util": "latest",
-    "bcrypt-ts": "latest"
+    "bcrypt-ts": "latest",
+    "jsonwebtoken": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

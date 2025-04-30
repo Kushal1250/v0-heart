@@ -153,35 +153,23 @@ export async function getUserById(id: string) {
   }
 }
 
-export async function createUser(email: string, password: string, name?: string, phone?: string, provider?: string) {
+// Add this function to your existing db.ts file if it doesn't already have it
+// This is a simplified version - adjust according to your actual database schema
+
+export async function createUser(email: string, password: string, name: string, phone = "") {
   try {
-    if (!email || !password) {
-      throw new Error("Email and password are required to create a user")
-    }
-
     const hashedPassword = await hash(password, 10)
-    const userId = uuidv4()
 
-    const users = await sql`
-      INSERT INTO users (id, email, password, name, phone, role, provider)
-      VALUES (${userId}, ${email}, ${hashedPassword}, ${name || null}, ${phone || null}, 'user', ${provider || null})
-      RETURNING *
+    const result = await sql`
+      INSERT INTO users (email, password, name, phone)
+      VALUES (${email}, ${hashedPassword}, ${name}, ${phone})
+      RETURNING id, email, name, role, phone
     `
 
-    if (!users || users.length === 0) {
-      throw new Error("User creation failed - no user returned from database")
-    }
-
-    return users[0]
+    return result[0]
   } catch (error) {
-    console.error("Database error in createUser:", error)
-
-    // Check for unique constraint violation (email already exists)
-    if (error instanceof Error && error.message.includes("unique constraint")) {
-      throw new Error("Email address is already in use")
-    }
-
-    throw new Error(`Failed to create user: ${error instanceof Error ? error.message : "Unknown error"}`)
+    console.error("Error creating user:", error)
+    throw new Error("Failed to create user")
   }
 }
 

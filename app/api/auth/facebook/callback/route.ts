@@ -1,91 +1,40 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createUser, getUserByEmail, createSession } from "@/lib/db"
-import { generateToken } from "@/lib/auth-utils"
+import { exchangeCodeForToken, getUserProfile, normalizeUserData, handleSocialLogin } from "@/lib/social-auth"
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    // Get the authorization code from the URL
+    const searchParams = request.nextUrl.searchParams
     const code = searchParams.get("code")
-    const state = searchParams.get("state")
-    const error = searchParams.get("error")
-
-    // Check for errors
-    if (error) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=oauth_error`)
-    }
-
-    // Validate state to prevent CSRF
-    const storedState = request.cookies.get("oauth_state")?.value
-    if (!state || !storedState || state !== storedState) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=invalid_state`)
-    }
 
     if (!code) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=no_code`)
+      throw new Error("No authorization code provided")
     }
 
-    // Exchange code for token
-    const clientId = process.env.FACEBOOK_CLIENT_ID
-    const clientSecret = process.env.FACEBOOK_CLIENT_SECRET
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/facebook/callback`
+    // Exchange the code for access token
+    const tokenData = await exchangeCodeForToken("facebook", code)
 
-    const tokenResponse = await fetch(
-      `https://graph.facebook.com/v12.0/oauth/access_token?client_id=${clientId}&redirect_uri=${encodeURIComponent(
-        redirectUri,
-      )}&client_secret=${clientSecret}&code=${code}`,
-    )
-
-    const tokenData = await tokenResponse.json()
-
-    if (!tokenResponse.ok || !tokenData.access_token) {
-      console.error("Token exchange failed:", tokenData)
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=token_exchange`)
+    if (!tokenData.access_token) {
+      throw new Error("Failed to get access token")
     }
 
-    // Get user info
-    const userResponse = await fetch(
-      `https://graph.facebook.com/me?fields=id,name,email&access_token=${tokenData.access_token}`,
-    )
+    // Get user profile using the access token
+    const userData = await getUserProfile("facebook", tokenData.access_token)
 
-    const userData = await userResponse.json()
+    // Normalize the user data
+    const normalizedUserData = normalizeUserData("facebook", userData)
 
-    if (!userResponse.ok || !userData.email) {
-      console.error("Failed to get user data:", userData)
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=user_data`)
+    // Handle the login/registration process
+    const result = await handleSocialLogin(normalizedUserData)
+
+    if (result.success) {
+      // Redirect to dashboard or home page after successful login
+      return NextResponse.redirect(new URL("/dashboard", request.url))
+    } else {
+      throw new Error(result.error || "Authentication failed")
     }
-
-    // Check if user exists
-    let user = await getUserByEmail(userData.email)
-
-    // Create user if they don't exist
-    if (!user) {
-      user = await createUser(
-        userData.email,
-        generateToken(), // Generate random password for OAuth users
-        userData.name,
-      )
-    }
-
-    // Create session
-    const token = generateToken()
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
-    await createSession(user.id, token, expiresAt)
-
-    // Create response with session cookie
-    const response = NextResponse.redirect("https://heartguide2.vercel.app/")
-    response.cookies.set({
-      name: "session",
-      value: token,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-      path: "/",
-    })
-
-    return response
   } catch (error) {
-    console.error("OAuth callback error:", error)
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=server_error`)
+    console.error("Facebook callback error:", error)
+    return NextResponse.redirect(new URL("/signup?error=facebook_auth_failed", request.url))
   }
 }
