@@ -96,11 +96,7 @@ export default function PredictPage() {
           </TabsList>
 
           <TabsContent value="predict">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              {user.name === "Admin" || user.email === "admin@example.com"
-                ? "Welcome, Admin!"
-                : `Welcome, ${user.name || "User"}!`}
-            </h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome, {user.name || "User"}!</h1>
             <h2 className="text-xl font-semibold text-gray-700 mb-2">Here you can assess your heart disease risk.</h2>
             <p className="text-gray-600 mb-8">Fill out the form below to get a personalized heart health assessment.</p>
 

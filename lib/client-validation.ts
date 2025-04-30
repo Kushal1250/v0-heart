@@ -13,12 +13,12 @@ export function isValidEmail(email: string): boolean {
 
 /**
  * Validates if a phone number is in a valid format
- * This is a basic validation that just checks for minimum length and + prefix
+ * This is a basic validation that just checks for minimum length
  */
 export function isValidPhone(phone: string): boolean {
   // Basic phone validation - should have at least 10 digits and start with + for international format
-  const phoneRegex = /^\+[0-9]{10,15}$/
-  return phoneRegex.test(phone.replace(/\s/g, ""))
+  const phoneDigits = phone.replace(/\D/g, "")
+  return phoneDigits.length >= 10 && phone.includes("+")
 }
 
 /**

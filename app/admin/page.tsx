@@ -8,8 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-// First, add imports for Eye and EyeOff icons
-import { Search, Users, Shield, Activity, RefreshCw, Eye, EyeOff, Database, Trash2 } from "lucide-react"
+import { Search, Users, Shield, Activity, RefreshCw, Eye, Database } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 interface User {
@@ -54,8 +53,6 @@ export default function AdminPage() {
     newToday: 0,
   })
   const [activeTab, setActiveTab] = useState("users")
-  // In the component definition, add state variables for password visibility
-  const [passwordVisibility, setPasswordVisibility] = useState<{ [key: string]: boolean }>({})
 
   // Check if user is admin
   useEffect(() => {
@@ -137,13 +134,8 @@ export default function AdminPage() {
       setPredictionMessage("")
 
       const response = await fetch("/api/admin/predictions", {
-        method: "GET",
-        credentials: "include",
-        cache: "no-store",
-        headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-        },
+        credentials: "include", // Important: include cookies in the request
+        cache: "no-store", // Don't cache the response
       })
 
       if (!response.ok) {
@@ -157,7 +149,6 @@ export default function AdminPage() {
 
       if (data.predictions) {
         setPredictions(data.predictions)
-        console.log("Fetched predictions:", data.predictions.length)
       }
 
       if (data.message) {
@@ -231,49 +222,6 @@ export default function AdminPage() {
       console.error("Error fixing verification codes:", err)
       setMigrationMessage(err instanceof Error ? err.message : "Verification codes fix failed")
       setMigrating(false)
-    }
-  }
-
-  // Add a function to toggle password visibility
-  const togglePasswordVisibility = (userId: string) => {
-    setPasswordVisibility((prev) => ({
-      ...prev,
-      [userId]: !prev[userId],
-    }))
-  }
-
-  // Add a function to clear all users from display (not from database)
-  const clearAllUsers = () => {
-    if (
-      confirm("Are you sure you want to clear all users from display? This will not delete them from the database.")
-    ) {
-      setUsers([])
-      setFilteredUsers([])
-    }
-  }
-
-  // Add a function to delete a user from the database
-  const deleteUser = async (userId: string) => {
-    if (confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
-      try {
-        const response = await fetch(`/api/admin/users/${userId}`, {
-          method: "DELETE",
-          credentials: "include",
-        })
-
-        if (response.ok) {
-          // Remove the user from the local state
-          const updatedUsers = users.filter((user) => user.id !== userId)
-          setUsers(updatedUsers)
-          setFilteredUsers(updatedUsers)
-        } else {
-          const data = await response.json()
-          alert(`Failed to delete user: ${data.message || response.statusText}`)
-        }
-      } catch (error) {
-        console.error("Error deleting user:", error)
-        alert("An error occurred while deleting the user")
-      }
     }
   }
 
@@ -459,8 +407,6 @@ export default function AdminPage() {
         </Alert>
       )}
 
-      {/* Update the Users TabsContent section */}
-      {/* Add Clear All button above the table */}
       <Tabs defaultValue="users" className="mb-6" value={activeTab} onValueChange={(value) => setActiveTab(value)}>
         <TabsList>
           <TabsTrigger value="users">Users</TabsTrigger>
@@ -479,11 +425,6 @@ export default function AdminPage() {
                 className="pl-8"
               />
             </div>
-
-            <Button variant="destructive" onClick={clearAllUsers} className="ml-auto">
-              <Trash2 className="mr-2 h-4 w-4" />
-              Clear All
-            </Button>
           </div>
 
           <div className="rounded-md border">
@@ -496,14 +437,12 @@ export default function AdminPage() {
                   <TableHead>Role</TableHead>
                   <TableHead>Provider</TableHead>
                   <TableHead>Created</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                       No users found
                     </TableCell>
                   </TableRow>
@@ -512,23 +451,7 @@ export default function AdminPage() {
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.name || "N/A"}</TableCell>
                       <TableCell>{user.email}</TableCell>
-                      <TableCell className="relative">
-                        <div className="flex items-center">
-                          {passwordVisibility[user.id] ? user.password || "No password" : "••••••••"}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="p-0 h-6 w-6 ml-2"
-                            onClick={() => togglePasswordVisibility(user.id)}
-                          >
-                            {passwordVisibility[user.id] ? (
-                              <EyeOff className="h-4 w-4 text-gray-400" />
-                            ) : (
-                              <Eye className="h-4 w-4 text-gray-400" />
-                            )}
-                          </Button>
-                        </div>
-                      </TableCell>
+                      <TableCell>{user.password || "••••••••"}</TableCell>
                       <TableCell>
                         <Badge variant={user.role === "admin" ? "default" : "outline"}>{user.role}</Badge>
                       </TableCell>
@@ -536,17 +459,6 @@ export default function AdminPage() {
                         <Badge variant="secondary">{user.provider || "email"}</Badge>
                       </TableCell>
                       <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                      <TableCell>{user.phone || "N/A"}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="p-0 h-8 w-8 text-red-500"
-                          onClick={() => deleteUser(user.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -555,7 +467,6 @@ export default function AdminPage() {
           </div>
         </TabsContent>
 
-        {/* Update the Predictions TabsContent to add delete functionality */}
         <TabsContent value="predictions" className="space-y-4">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="relative w-full md:w-1/3">
@@ -577,13 +488,12 @@ export default function AdminPage() {
                   <TableHead>Prediction Result</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Details</TableHead>
-                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredPredictions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={4} className="h-24 text-center">
                       {predictionMessage ? (
                         <div className="flex flex-col items-center gap-2">
                           <p>{predictionMessage}</p>
@@ -618,24 +528,6 @@ export default function AdminPage() {
                         >
                           <Eye className="h-3.5 w-3.5" />
                           View Details
-                        </Button>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="p-0 h-8 w-8 text-red-500"
-                          onClick={() => {
-                            if (
-                              confirm("Are you sure you want to delete this prediction? This action cannot be undone.")
-                            ) {
-                              // Delete prediction logic would go here
-                              const updatedPredictions = predictions.filter((p) => p.id !== pred.id)
-                              setPredictions(updatedPredictions)
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>

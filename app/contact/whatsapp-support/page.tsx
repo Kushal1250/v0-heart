@@ -1,5 +1,3 @@
-"use client"
-
 import { Phone, MessageSquare, Clock, CheckCircle2, AlertCircle } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -208,16 +206,8 @@ export default function WhatsAppSupportPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-400 mb-2">For immediate assistance on our website</p>
-                <a
-                  href="#chat"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    window.open("/contact/chat", "_blank", "width=400,height=600")
-                  }}
-                  className="text-blue-400 hover:underline inline-flex items-center"
-                >
+                <a href="/contact/chat" className="text-blue-400 hover:underline">
                   Start Live Chat
-                  <span className="inline-block w-2 h-2 bg-green-500 rounded-full ml-2 animate-pulse"></span>
                 </a>
               </CardContent>
             </Card>

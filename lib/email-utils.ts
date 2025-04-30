@@ -1,4 +1,4 @@
-"\"use server"
+"use server"
 
 import nodemailer from "nodemailer"
 import { logError } from "./error-logger"
@@ -181,39 +181,6 @@ export async function verifyEmailConfig(): Promise<{
     return {
       success: false,
       message: error instanceof Error ? error.message : "Email configuration verification failed",
-    }
-  }
-}
-
-export async function sendVerificationEmail(
-  email: string,
-  code: string,
-): Promise<{
-  success: boolean
-  message: string
-  previewUrl?: string
-}> {
-  try {
-    const subject = "Your HeartPredict Verification Code"
-    const text = `Your HeartPredict verification code is: ${code}. It will expire in 15 minutes.`
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Your Verification Code</h2>
-        <p>Use the following code to verify your account:</p>
-        <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold;">
-          ${code}
-        </div>
-        <p>This code will expire in 15 minutes.</p>
-        <p>If you didn't request this code, please ignore this email.</p>
-      </div>
-    `
-
-    return await sendEmail({ to: email, subject, text, html })
-  } catch (error) {
-    console.error("Error sending verification email:", error)
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : "Failed to send verification email",
     }
   }
 }

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, Info, CheckCircle, Mail } from "lucide-react"
+import { AlertCircle, Info, CheckCircle } from "lucide-react"
 import { isValidEmail } from "@/lib/client-validation"
 
 export default function ForgotPasswordPage() {
@@ -27,21 +27,20 @@ export default function ForgotPasswordPage() {
     setLoading(true)
 
     try {
-      // Email validation
+      // Basic client-side validation
       if (!email.trim()) {
         setError("Please enter your email address")
         setLoading(false)
         return
       }
 
-      if (!isValidEmail(email.trim())) {
+      if (!isValidEmail(email)) {
         setError("Please enter a valid email address")
         setLoading(false)
         return
       }
 
-      const identifier = email.trim()
-      console.log(`Attempting to send verification code via email`, { identifier })
+      console.log(`Attempting to send verification code via email`, { email })
 
       const response = await fetch("/api/auth/send-verification-code", {
         method: "POST",
@@ -49,39 +48,42 @@ export default function ForgotPasswordPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: identifier,
-          method: "email",
+          email,
           isLoggedIn: false,
         }),
       })
 
-      const data = await response.json()
-
       if (response.ok) {
+        const data = await response.json()
         setLoading(false)
         setSuccess(true)
+        setError(data.message)
 
         // If there's a preview URL (development environment), show it
         if (data.previewUrl) {
+          setError(`${data.message} Preview available at: ${data.previewUrl}`)
           setPreviewUrl(data.previewUrl)
         }
 
         // Redirect after a short delay to show success message
         setTimeout(() => {
-          router.push(`/otp-verification?identifier=${encodeURIComponent(identifier)}&method=email`)
+          router.push(`/otp-verification?identifier=${encodeURIComponent(email)}&method=email`)
         }, 2000)
       } else {
+        const errorData = await response.json()
         setLoading(false)
-        setError(data.message || "An error occurred. Please try again.")
+        setError(errorData.message || "An error occurred. Please try again.")
 
         // If there's still a preview URL despite the error, show it for debugging
-        if (data.previewUrl) {
-          setPreviewUrl(data.previewUrl)
+        if (errorData.previewUrl) {
+          setError(`${errorData.message} Preview: ${errorData.previewUrl}`)
+          setPreviewUrl(errorData.previewUrl)
         }
       }
     } catch (err: any) {
       console.error("Error sending verification code:", err)
       setError(err.message || "An error occurred while sending the verification code. Please try again.")
+    } finally {
       setLoading(false)
     }
   }
@@ -96,17 +98,6 @@ export default function ForgotPasswordPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex justify-center mb-6">
-            <div className="bg-gray-900 rounded-md w-full max-w-xs">
-              <div className="flex">
-                <div className="flex-1 text-center py-2 px-4 bg-blue-600 rounded-md flex items-center justify-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  <span>Email</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <label htmlFor="email" className="block text-sm font-medium text-gray-300">

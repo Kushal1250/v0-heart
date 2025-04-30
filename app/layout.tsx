@@ -7,10 +7,9 @@ import { ThemeProvider } from "@/lib/theme-context"
 import Navbar from "@/components/navbar"
 import { NavigationTracker } from "@/components/navigation-tracker"
 import { Toaster } from "@/components/ui/toaster"
+import GlobalFooter from "@/components/global-footer"
 // Import the SessionKeeper component
 import { SessionKeeper } from "@/components/session-keeper"
-// Add import for the CommonFooter component
-import CommonFooter from "@/components/common-footer"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -30,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="flex flex-col min-h-screen">
               <Navbar />
               <main className="flex-grow">{children}</main>
-              <CommonFooter />
+              <GlobalFooter />
             </div>
             <NavigationTracker />
             <Toaster />

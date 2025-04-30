@@ -78,7 +78,7 @@ export default function Navbar() {
       { name: "History", href: "/history" },
       { name: "About", href: "/about" },
       { name: "How It Works", href: "/how-it-works" },
-      ...(isAdmin ? [{ name: "Admin Dashboard", href: "/admin" }] : []),
+      ...(isAdmin ? [{ name: "Admin", href: "/admin" }] : []),
     ]
   }
 
