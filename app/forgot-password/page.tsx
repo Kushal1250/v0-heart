@@ -9,41 +9,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Mail, ArrowLeft, Phone, CheckCircle, Loader2, RefreshCw } from "lucide-react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AlertCircle, Mail, ArrowLeft, CheckCircle, Loader2 } from "lucide-react"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
-  const [phone, setPhone] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [isFixing, setIsFixing] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
-  const [activeTab, setActiveTab] = useState("email")
   const router = useRouter()
-
-  const handleFix = async () => {
-    setIsFixing(true)
-    setError("")
-
-    try {
-      const response = await fetch("/api/debug/reset-token-system", {
-        method: "POST",
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setError("Database fixed. Please try again.")
-      } else {
-        setError(`Fix failed: ${data.message}`)
-      }
-    } catch (err) {
-      setError("Failed to fix database. Please contact support.")
-    } finally {
-      setIsFixing(false)
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,9 +31,8 @@ export default function ForgotPasswordPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: activeTab === "email" ? email : "",
-          phone: activeTab === "sms" ? phone : "",
-          method: activeTab,
+          email,
+          method: "email",
         }),
       })
 
@@ -99,23 +71,6 @@ export default function ForgotPasswordPage() {
               <AlertCircle className="h-4 w-4" />
               <AlertDescription className="flex justify-between items-center">
                 <span>{error}</span>
-                {error.includes("Failed to create reset token") && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleFix}
-                    disabled={isFixing}
-                    className="ml-2 bg-transparent border-red-600 text-red-200 hover:bg-red-800"
-                  >
-                    {isFixing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-1" /> Fix
-                      </>
-                    )}
-                  </Button>
-                )}
               </AlertDescription>
             </Alert>
           )}
@@ -124,97 +79,48 @@ export default function ForgotPasswordPage() {
             <Alert className="mb-4 bg-green-900 border-green-800 text-green-200">
               <CheckCircle className="h-4 w-4" />
               <AlertDescription>
-                If an account exists with this {activeTab === "email" ? "email" : "phone number"}, a reset link has been
-                sent. Please check your {activeTab === "email" ? "email" : "phone"} for instructions.
+                If an account exists with this email, a reset link has been sent. Please check your email for
+                instructions.
               </AlertDescription>
             </Alert>
           )}
 
-          <Tabs defaultValue="email" className="mb-4" onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2 bg-gray-700">
-              <TabsTrigger value="email" className="data-[state=active]:bg-blue-600">
-                Email
-              </TabsTrigger>
-              <TabsTrigger value="sms" className="data-[state=active]:bg-blue-600">
-                SMS
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="email">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-gray-300">
-                    Email Address
-                  </Label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Mail className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="you@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10 bg-gray-700 border-gray-600 text-white"
-                      required
-                    />
-                  </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-gray-300">
+                Email Address
+              </Label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-gray-400" />
                 </div>
-                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    "Send Verification Code"
-                  )}
-                </Button>
-              </form>
-            </TabsContent>
-            <TabsContent value="sms">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-gray-300">
-                    Phone Number
-                  </Label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Phone className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="+1 (555) 123-4567"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="pl-10 bg-gray-700 border-gray-600 text-white"
-                      required
-                    />
-                  </div>
-                </div>
-                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    "Send Verification Code"
-                  )}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10 bg-gray-700 border-gray-600 text-white"
+                  required
+                />
+              </div>
+            </div>
+            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send Verification Code"
+              )}
+            </Button>
+          </form>
         </CardContent>
-        <CardFooter className="flex justify-between">
+        <CardFooter className="flex justify-center">
           <Link href="/login" className="flex items-center text-sm text-blue-400 hover:text-blue-300">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Login
-          </Link>
-
-          <Link href="/admin/reset-token-diagnostics" className="text-sm text-gray-400 hover:text-gray-300">
-            Admin Diagnostics
           </Link>
         </CardFooter>
       </Card>
