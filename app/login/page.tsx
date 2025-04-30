@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
@@ -24,10 +24,41 @@ export default function LoginPage() {
   const router = useRouter()
   const { login } = useAuth()
 
+  // Load saved credentials when the component mounts
+  useEffect(() => {
+    const savedCredentials = localStorage.getItem("rememberedCredentials")
+    if (savedCredentials) {
+      try {
+        const { email: savedEmail, phone: savedPhone, rememberMe: savedRememberMe } = JSON.parse(savedCredentials)
+        setEmail(savedEmail || "")
+        setPhone(savedPhone || "")
+        setRememberMe(savedRememberMe || false)
+      } catch (err) {
+        console.error("Error parsing saved credentials:", err)
+        // Clear corrupted data
+        localStorage.removeItem("rememberedCredentials")
+      }
+    }
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setIsLoading(true)
+
+    // Save or clear credentials based on remember me checkbox
+    if (rememberMe) {
+      localStorage.setItem(
+        "rememberedCredentials",
+        JSON.stringify({
+          email,
+          phone,
+          rememberMe,
+        }),
+      )
+    } else {
+      localStorage.removeItem("rememberedCredentials")
+    }
 
     try {
       const result = await login(email, password, phone, rememberMe)

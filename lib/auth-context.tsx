@@ -16,7 +16,12 @@ interface AuthContextType {
   user: User | null
   isAdmin: boolean
   isLoading: boolean
-  login: (email: string, password: string, phone: string) => Promise<{ success: boolean; message: string }>
+  login: (
+    email: string,
+    password: string,
+    phone: string,
+    rememberMe?: boolean,
+  ) => Promise<{ success: boolean; message: string }>
   adminLogin: (email: string, password: string) => Promise<{ success: boolean; message: string }>
   signup: (
     name: string,
@@ -94,14 +99,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuthStatus()
   }, [checkAuthStatus])
 
-  const login = async (email: string, password: string, phone: string) => {
+  const login = async (email: string, password: string, phone: string, rememberMe = false) => {
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password, phone }),
+        body: JSON.stringify({ email, password, phone, rememberMe }),
       })
 
       if (!response.ok) {
@@ -127,6 +132,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Set flag for successful login
       sessionStorage.setItem("loginSuccess", "true")
+
+      // Set user data in localStorage with appropriate expiry based on rememberMe
+      localStorage.setItem("user", JSON.stringify(data.user))
+
+      // Set a longer expiry time if rememberMe is true (30 days vs 2 hours)
+      const expiryTime = rememberMe
+        ? new Date().getTime() + 30 * 24 * 60 * 60 * 1000 // 30 days
+        : new Date().getTime() + 2 * 60 * 60 * 1000 // 2 hours
+
+      localStorage.setItem("userExpiry", expiryTime.toString())
 
       return { success: true, message: "Login successful" }
     } catch (error: any) {
@@ -227,6 +242,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Clear cached user data
       localStorage.removeItem("user")
       localStorage.removeItem("userExpiry")
+
+      // Don't clear remembered credentials - we want to keep those for next login
+      // localStorage.removeItem("rememberedCredentials")
 
       // Clear admin cookie
       document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
