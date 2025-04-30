@@ -29,12 +29,6 @@ export async function POST(request: Request) {
     if (user) {
       userId = user.id
       console.log(`Found user ID ${userId} for identifier ${identifier}`)
-    } else {
-      console.log(`No user found for identifier ${identifier}`)
-      return NextResponse.json(
-        { success: false, message: "User not found. Please check your email and try again." },
-        { status: 404 },
-      )
     }
 
     // Check if the verification_codes table exists
@@ -84,44 +78,41 @@ export async function POST(request: Request) {
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour
 
     try {
-      // Check if password_reset_tokens table exists
-      const resetTableExists = await sql`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_name = 'password_reset_tokens'
-        );
-      `
+      // Use a simpler query to insert the token
+      console.log(`Inserting token for user ${userId}`)
 
-      if (!resetTableExists[0].exists) {
-        console.log("Creating password_reset_tokens table")
-        await sql`
-          CREATE TABLE IF NOT EXISTS password_reset_tokens (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id TEXT NOT NULL,
-            token TEXT NOT NULL,
-            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-            is_valid BOOLEAN DEFAULT true,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-          )
-        `
-      }
-
-      // Store the token in the database
+      // Use a more compatible approach for the token insertion
       await sql`
-        INSERT INTO password_reset_tokens (id, user_id, token, expires_at)
-        VALUES (${crypto.randomUUID()}, ${userId}, ${token}, ${expiresAt})
+        INSERT INTO password_reset_tokens (user_id, token, expires_at)
+        VALUES (${userId}, ${token}, ${expiresAt})
       `
 
       console.log(`Created password reset token for user ${userId}`)
     } catch (error) {
       console.error("Error creating password reset token:", error)
-      return NextResponse.json(
-        {
-          success: false,
-          message: "An error occurred while creating the password reset token",
-        },
-        { status: 500 },
-      )
+
+      // Try an alternative approach if the first one fails
+      try {
+        console.log("Trying alternative token insertion approach")
+        const tokenId = crypto.randomUUID()
+        const expiresAtStr = expiresAt.toISOString()
+
+        await sql`
+          INSERT INTO password_reset_tokens (id, user_id, token, expires_at)
+          VALUES (${tokenId}, ${userId.toString()}, ${token}, ${expiresAtStr})
+        `
+
+        console.log("Alternative token insertion successful")
+      } catch (altError) {
+        console.error("Alternative token insertion also failed:", altError)
+        return NextResponse.json(
+          {
+            success: false,
+            message: "An error occurred while creating the password reset token",
+          },
+          { status: 500 },
+        )
+      }
     }
 
     return NextResponse.json({
