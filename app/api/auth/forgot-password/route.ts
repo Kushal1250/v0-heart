@@ -1,67 +1,43 @@
 import { NextResponse } from "next/server"
-import { getUserByEmail } from "@/lib/db"
+import { getUserByEmail, getUserByPhone } from "@/lib/db"
+import { createSimpleResetToken } from "@/lib/simple-token"
 import { isValidEmail } from "@/lib/auth-utils"
 import { sendPasswordResetEmail } from "@/lib/email-utils"
-import { v4 as uuidv4 } from "uuid"
-
-// Simple function to create a reset token directly in the database
-async function createDirectResetToken(userId: string) {
-  const { sql } = await import("@vercel/postgres")
-
-  try {
-    // Generate a unique token
-    const token = uuidv4()
-
-    // Set expiration to 1 hour from now
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
-
-    // First, try to create the table if it doesn't exist
-    await sql`
-      CREATE TABLE IF NOT EXISTS password_reset_tokens (
-        id SERIAL PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        token TEXT NOT NULL UNIQUE,
-        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      )
-    `.catch((err) => {
-      console.error("Error creating password_reset_tokens table:", err)
-      // Continue even if table creation fails (it might already exist)
-    })
-
-    // Insert the new token
-    await sql`
-      INSERT INTO password_reset_tokens (user_id, token, expires_at)
-      VALUES (${userId}, ${token}, ${expiresAt})
-    `
-
-    return { token, expires: expiresAt }
-  } catch (error) {
-    console.error("Error creating reset token:", error)
-    throw error
-  }
-}
+import { sendPasswordResetSMS } from "@/lib/sms-utils"
 
 export async function POST(request: Request) {
   try {
-    const { email } = await request.json()
+    const { email, phone, method } = await request.json()
 
-    console.log(`Password reset request received for email: ${email}`)
+    console.log(`Password reset request received - Method: ${method}, Email: ${email}, Phone: ${phone}`)
 
-    // Validate email
-    if (!email) {
-      return NextResponse.json({ message: "Email is required" }, { status: 400 })
+    // Validate input based on method
+    if (method === "email") {
+      if (!email) {
+        return NextResponse.json({ message: "Email is required" }, { status: 400 })
+      }
+
+      if (!isValidEmail(email)) {
+        return NextResponse.json({ message: "Please enter a valid email address" }, { status: 400 })
+      }
+    } else if (method === "sms") {
+      if (!phone) {
+        return NextResponse.json({ message: "Phone number is required" }, { status: 400 })
+      }
+    } else {
+      return NextResponse.json({ message: "Invalid reset method" }, { status: 400 })
     }
 
-    if (!isValidEmail(email)) {
-      return NextResponse.json({ message: "Please enter a valid email address" }, { status: 400 })
-    }
-
-    // Find user by email
+    // Find user based on method
     let user
     try {
-      console.log(`Looking up user by email: ${email}`)
-      user = await getUserByEmail(email)
+      if (method === "email") {
+        console.log(`Looking up user by email: ${email}`)
+        user = await getUserByEmail(email)
+      } else {
+        console.log(`Looking up user by phone: ${phone}`)
+        user = await getUserByPhone(phone)
+      }
     } catch (dbError) {
       console.error("Database error when fetching user:", dbError)
       return NextResponse.json(
@@ -72,28 +48,33 @@ export async function POST(request: Request) {
 
     // Always return success even if user doesn't exist (security best practice)
     if (!user) {
-      console.log(`No user found with email: ${email}`)
+      console.log(`No user found with ${method === "email" ? "email" : "phone"}: ${method === "email" ? email : phone}`)
       return NextResponse.json({
-        message: "If an account exists with this email, a reset link has been sent",
+        message: `If an account exists with this ${method === "email" ? "email" : "phone number"}, a reset link has been sent`,
       })
     }
 
     try {
       console.log(`Creating password reset token for user: ${user.id}`)
 
-      // Create token directly in the database
-      const { token, expires } = await createDirectResetToken(user.id)
+      // Use the simple token creation function
+      const { token, expires } = await createSimpleResetToken(user.id)
 
       // Generate reset link
       const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`
       console.log(`Reset link generated: ${resetLink}`)
 
-      // Send reset email
-      const emailResult = await sendPasswordResetEmail(user.email, resetLink, user.name)
-      console.log(`Reset email sent to: ${user.email}, result:`, emailResult)
+      // Send reset instructions based on method
+      if (method === "email") {
+        await sendPasswordResetEmail(user.email, resetLink)
+        console.log(`Reset email sent to: ${user.email}`)
+      } else {
+        await sendPasswordResetSMS(user.phone, resetLink)
+        console.log(`Reset SMS sent to: ${user.phone}`)
+      }
 
       return NextResponse.json({
-        message: "If an account exists with this email, a reset link has been sent",
+        message: `If an account exists with this ${method === "email" ? "email" : "phone number"}, a reset link has been sent`,
         // Include previewUrl in development environment
         ...(process.env.NODE_ENV === "development" ? { previewUrl: resetLink } : {}),
       })

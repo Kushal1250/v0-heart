@@ -1,55 +1,56 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Mail, Lock, Phone, CheckCircle, Loader2, Eye, EyeOff } from "lucide-react"
+import { AlertCircle, User, Lock, Phone } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [phone, setPhone] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
-  const [successMessage, setSuccessMessage] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const searchParams = useSearchParams()
+  const { login } = useAuth()
 
   // Load saved credentials when the component mounts
   useEffect(() => {
     const savedCredentials = localStorage.getItem("rememberedCredentials")
     if (savedCredentials) {
       try {
-        const { email: savedEmail, phone: savedPhone } = JSON.parse(savedCredentials)
+        const { email: savedEmail, phone: savedPhone, rememberMe: savedRememberMe } = JSON.parse(savedCredentials)
         setEmail(savedEmail || "")
         setPhone(savedPhone || "")
-        setRememberMe(true)
+        setRememberMe(savedRememberMe || false)
       } catch (err) {
         console.error("Error parsing saved credentials:", err)
         // Clear corrupted data
         localStorage.removeItem("rememberedCredentials")
       }
     }
-
-    // Check for reset=success in URL
-    const resetParam = searchParams?.get("reset")
-    if (resetParam === "success") {
-      setSuccessMessage("Your password has been reset successfully. Please log in with your new password.")
-    }
-  }, [searchParams])
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+
+    // Validate phone number is provided
+    if (!phone.trim()) {
+      setError("Phone number is required")
+      return
+    }
+
     setIsLoading(true)
 
     // Save or clear credentials based on remember me checkbox
@@ -59,6 +60,7 @@ export default function LoginPage() {
         JSON.stringify({
           email,
           phone,
+          rememberMe,
         }),
       )
     } else {
@@ -66,36 +68,16 @@ export default function LoginPage() {
     }
 
     try {
-      console.log("Submitting login form:", { email, phoneProvided: !!phone, rememberMe })
-
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          phone,
-          rememberMe,
-        }),
-      })
-
-      const data = await response.json()
-      console.log("Login response:", { status: response.status, success: response.ok })
-
-      if (!response.ok) {
-        throw new Error(data.message || "Login failed")
+      const result = await login(email, password, phone, rememberMe)
+      if (result.success) {
+        // Set success flag in session storage for dashboard to display welcome message
+        sessionStorage.setItem("loginSuccess", "true")
+        // Redirect to the new home page
+        router.push("/home")
+      } else {
+        setError(result.message)
       }
-
-      // Set success flag in session storage for home page to display welcome message
-      sessionStorage.setItem("loginSuccess", "true")
-      console.log("Login successful, redirecting to /home")
-
-      // Force a hard navigation instead of client-side navigation
-      window.location.href = "/home"
     } catch (err: any) {
-      console.error("Error in login:", err)
       setError(err.message || "An unexpected error occurred")
     } finally {
       setIsLoading(false)
@@ -103,33 +85,26 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="login-bg-animation"></div>
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-center text-2xl font-bold">Login</CardTitle>
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center">Login</CardTitle>
           <CardDescription className="text-center">Enter your credentials to access your account</CardDescription>
         </CardHeader>
         <CardContent>
           {error && (
             <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4 mr-2" />
+              <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-
-          {successMessage && (
-            <Alert className="mb-4 bg-green-50 border-green-200 text-green-800">
-              <CheckCircle className="h-4 w-4 mr-2" />
-              <AlertDescription>{successMessage}</AlertDescription>
-            </Alert>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
+                  <User className="h-5 w-5 text-gray-400" />
                 </div>
                 <Input
                   id="email"
@@ -150,24 +125,13 @@ export default function LoginPage() {
                 </div>
                 <Input
                   id="password"
-                  type={showPassword ? "text" : "password"}
+                  type="password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10"
+                  className="pl-10"
                   required
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-gray-400" />
-                  )}
-                </button>
               </div>
             </div>
             <div className="space-y-2">
@@ -183,6 +147,7 @@ export default function LoginPage() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="pl-10"
+                  required
                 />
               </div>
             </div>
@@ -200,29 +165,24 @@ export default function LoginPage() {
                   Remember me
                 </Label>
               </div>
-              <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-500">
-                Forgot your password?
-              </Link>
+              <div className="text-sm">
+                <Link href="/forgot-password" className="text-primary hover:text-primary/90">
+                  Forgot password?
+                </Link>
+              </div>
             </div>
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Logging in...
-                </>
-              ) : (
-                "Login"
-              )}
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Logging in..." : "Login"}
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex justify-center">
-          <p className="text-sm text-gray-600">
+        <CardFooter className="flex flex-col space-y-4">
+          <div className="text-sm text-center">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-blue-600 hover:text-blue-500">
+            <Link href="/signup" className="text-primary hover:text-primary/90">
               Sign up
             </Link>
-          </p>
+          </div>
         </CardFooter>
       </Card>
     </div>

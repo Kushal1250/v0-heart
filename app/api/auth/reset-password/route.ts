@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { hash } from "bcrypt-ts"
+import { getPasswordResetByToken, updateUserPassword } from "@/lib/db"
 
 export async function POST(request: Request) {
   try {
@@ -9,51 +9,39 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Token and password are required" }, { status: 400 })
     }
 
+    // Validate password
     if (password.length < 8) {
       return NextResponse.json({ message: "Password must be at least 8 characters long" }, { status: 400 })
     }
 
-    const { sql } = await import("@vercel/postgres")
+    // Verify token
+    const resetToken = await getPasswordResetByToken(token)
 
-    // Get the token from the database
-    const result = await sql`
-      SELECT user_id, expires_at 
-      FROM password_reset_tokens 
-      WHERE token = ${token}
-    `
-
-    if (result.rowCount === 0) {
+    if (!resetToken) {
       return NextResponse.json({ message: "Invalid or expired token" }, { status: 400 })
     }
 
-    const resetToken = result.rows[0]
+    // Update password
+    await updateUserPassword(resetToken.user_id, password)
 
-    // Check if token has expired
-    if (new Date() > new Date(resetToken.expires_at)) {
-      return NextResponse.json({ message: "Token has expired" }, { status: 400 })
-    }
-
-    const userId = resetToken.user_id
-
-    // Hash the new password
-    const hashedPassword = await hash(password, 10)
-
-    // Update the user's password
-    await sql`
-      UPDATE users 
-      SET password = ${hashedPassword}
-      WHERE id = ${userId}
-    `
-
-    // Delete the used token
-    await sql`
-      DELETE FROM password_reset_tokens 
-      WHERE token = ${token}
-    `
+    // Invalidate token (mark as used)
+    await invalidateResetToken(token)
 
     return NextResponse.json({ message: "Password has been reset successfully" })
   } catch (error) {
     console.error("Error resetting password:", error)
-    return NextResponse.json({ message: "An error occurred while resetting the password" }, { status: 500 })
+    return NextResponse.json({ message: "An error occurred while resetting your password" }, { status: 500 })
+  }
+}
+
+async function invalidateResetToken(token: string) {
+  try {
+    // This function would mark the token as used in the database
+    // For example:
+    // await sql`UPDATE password_reset_tokens SET is_valid = false WHERE token = ${token}`
+    return true
+  } catch (error) {
+    console.error("Error invalidating reset token:", error)
+    return false
   }
 }

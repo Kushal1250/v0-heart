@@ -6,13 +6,11 @@ import {
   createVerificationCode,
   getVerificationCode,
   deleteVerificationCode,
-  createNewSession,
 } from "@/lib/db"
 import type { NextRequest } from "next/server"
 import { sendSMS } from "@/lib/sms-utils"
 import { logError } from "@/lib/error-logger"
 import { sendEmail } from "@/lib/email-utils"
-import bcrypt from "bcryptjs"
 
 export function getSessionToken(): string | undefined {
   return cookies().get("session")?.value
@@ -45,38 +43,16 @@ export function isStrongPassword(password: string): boolean {
   return password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password)
 }
 
-export async function hashPassword(password: string): Promise<string> {
-  return await bcrypt.hash(password, 10)
-}
-
-/**
- * Verify a password against a hashed password
- * @param password The plain text password to verify
- * @param hashedPassword The hashed password to compare against
- * @returns Boolean indicating if the password matches
- */
-export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
-  try {
-    return await bcrypt.compare(password, hashedPassword)
-  } catch (error) {
-    console.error("Error verifying password:", error)
-    return false
-  }
-}
-
-export function createResponseWithCookie(data: any, token: string, rememberMe = false): any {
+export function createResponseWithCookie(data: any, token: string): any {
   const response = new Response(JSON.stringify(data), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   })
 
-  // Set cookie expiration based on rememberMe flag
-  const maxAge = rememberMe ? 30 * 24 * 60 * 60 : 24 * 60 * 60 // 30 days or 24 hours
-
   // Set cookie with proper configuration
   response.headers.set(
     "Set-Cookie",
-    `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`, // Adjust secure based on your environment
+    `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax`, // Adjust secure based on your environment
   )
 
   return response
@@ -212,37 +188,6 @@ export async function getUserFromSession(sessionToken: string | undefined): Prom
   } catch (error) {
     console.error("Error getting user from session:", error)
     return null
-  }
-}
-
-/**
- * Creates a new session for a user
- * @param userId The ID of the user to create a session for
- * @param rememberMe Whether to create a long-lived session
- * @returns The session token
- */
-export async function createSession(userId: string, rememberMe = false): Promise<string> {
-  try {
-    // Generate a new session token
-    const token = generateToken()
-
-    // Calculate expiration time based on rememberMe flag
-    const expiresAt = new Date()
-    if (rememberMe) {
-      // 30 days if remember me is checked
-      expiresAt.setDate(expiresAt.getDate() + 30)
-    } else {
-      // 24 hours if remember me is not checked
-      expiresAt.setHours(expiresAt.getHours() + 24)
-    }
-
-    // Create the session in the database
-    await createNewSession(userId, token, expiresAt)
-
-    return token
-  } catch (error) {
-    console.error("Error creating session:", error)
-    throw new Error("Failed to create session")
   }
 }
 
