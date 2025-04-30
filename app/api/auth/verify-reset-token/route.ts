@@ -3,22 +3,22 @@ import { getPasswordResetByToken } from "@/lib/db"
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url)
-    const token = searchParams.get("token")
+    const url = new URL(request.url)
+    const token = url.searchParams.get("token")
 
     if (!token) {
-      return NextResponse.json({ message: "Token is required" }, { status: 400 })
+      return NextResponse.json({ valid: false, message: "Token is required" }, { status: 400 })
     }
 
-    const resetRecord = await getPasswordResetByToken(token)
+    const resetToken = await getPasswordResetByToken(token)
 
-    if (!resetRecord) {
-      return NextResponse.json({ message: "Invalid or expired token" }, { status: 400 })
+    if (!resetToken) {
+      return NextResponse.json({ valid: false, message: "Invalid or expired token" }, { status: 400 })
     }
 
-    return NextResponse.json({ message: "Token is valid" })
+    return NextResponse.json({ valid: true })
   } catch (error) {
-    console.error("Token verification error:", error)
-    return NextResponse.json({ message: "An error occurred" }, { status: 500 })
+    console.error("Error verifying reset token:", error)
+    return NextResponse.json({ valid: false, message: "An error occurred while verifying the token" }, { status: 500 })
   }
 }

@@ -184,3 +184,62 @@ export async function verifyEmailConfig(): Promise<{
     }
   }
 }
+
+// Add the sendPasswordResetEmail function after the verifyEmailConfig function
+
+/**
+ * Send a password reset email with a reset link
+ */
+export async function sendPasswordResetEmail(
+  to: string,
+  resetToken: string,
+  username?: string,
+): Promise<{
+  success: boolean
+  message: string
+  previewUrl?: string
+}> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  const resetLink = `${appUrl}/reset-password?token=${resetToken}`
+  const greeting = username ? `Hello ${username},` : "Hello,"
+
+  return sendEmail({
+    to,
+    subject: "Reset Your HeartPredict Password",
+    text: `
+      ${greeting}
+      
+      We received a request to reset your HeartPredict password. 
+      
+      To reset your password, click on the following link:
+      ${resetLink}
+      
+      This link will expire in 1 hour.
+      
+      If you did not request a password reset, please ignore this email or contact support if you have concerns.
+      
+      Thank you,
+      The HeartPredict Team
+    `,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <h2 style="color: #e53e3e;">HeartPredict</h2>
+        </div>
+        <p style="margin-bottom: 15px;">${greeting}</p>
+        <p style="margin-bottom: 15px;">We received a request to reset your HeartPredict password.</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetLink}" style="background-color: #e53e3e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Reset Your Password</a>
+        </div>
+        <p style="margin-bottom: 15px;">This link will expire in 1 hour.</p>
+        <p style="margin-bottom: 15px;">If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
+        <p style="margin-bottom: 5px;">Thank you,</p>
+        <p style="margin-top: 0;">The HeartPredict Team</p>
+        <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #666;">
+          <p>If the button above doesn't work, copy and paste this link into your browser:</p>
+          <p style="word-break: break-all;">${resetLink}</p>
+        </div>
+      </div>
+    `,
+  })
+}

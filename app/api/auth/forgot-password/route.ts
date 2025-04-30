@@ -1,65 +1,77 @@
 import { NextResponse } from "next/server"
-import { getUserByEmail } from "@/lib/db"
-import { createResetToken } from "@/lib/password-reset"
-import { isValidEmail } from "@/lib/auth-utils"
-import { v4 as uuidv4 } from "uuid"
+import { getUserByEmail, getUserByPhone, createPasswordResetToken } from "@/lib/db"
+import { generateToken, isValidEmail } from "@/lib/auth-utils"
+import { sendPasswordResetEmail } from "@/lib/email-utils"
+import { sendPasswordResetSMS } from "@/lib/sms-utils"
 
 export async function POST(request: Request) {
   try {
-    const { email } = await request.json()
+    const { email, phone, method } = await request.json()
 
-    // Validate input
-    if (!email) {
-      return NextResponse.json({ message: "Email is required" }, { status: 400 })
+    // Validate input based on method
+    if (method === "email") {
+      if (!email) {
+        return NextResponse.json({ message: "Email is required" }, { status: 400 })
+      }
+
+      if (!isValidEmail(email)) {
+        return NextResponse.json({ message: "Please enter a valid email address" }, { status: 400 })
+      }
+    } else if (method === "sms") {
+      if (!phone) {
+        return NextResponse.json({ message: "Phone number is required" }, { status: 400 })
+      }
+    } else {
+      return NextResponse.json({ message: "Invalid reset method" }, { status: 400 })
     }
 
-    if (!isValidEmail(email)) {
-      return NextResponse.json({ message: "Please enter a valid email address" }, { status: 400 })
-    }
-
-    console.log(`Processing password reset request for email: ${email}`)
-
-    // Check if user exists
+    // Find user based on method
     let user
-    try {
+    if (method === "email") {
+      console.log(`Processing password reset request for email: ${email}`)
       user = await getUserByEmail(email)
-    } catch (dbError) {
-      console.error("Database error when fetching user:", dbError)
-      return NextResponse.json(
-        {
-          message: "Unable to connect to the database. Please try again later.",
-        },
-        { status: 500 },
-      )
+    } else {
+      console.log(`Processing password reset request for phone: ${phone}`)
+      user = await getUserByPhone(phone)
     }
 
     // Always return success even if user doesn't exist (security best practice)
     if (!user) {
-      console.log(`No user found with email: ${email}, but returning success message`)
+      console.log(
+        `No user found with ${method === "email" ? "email" : "phone"}: ${method === "email" ? email : phone}, but returning success message`,
+      )
       return NextResponse.json({
-        message: "If an account exists with this email, a reset link has been sent",
+        message: `If an account exists with this ${method === "email" ? "email" : "phone number"}, a reset link has been sent`,
       })
     }
 
     try {
       // Generate token and expiration
-      const token = uuidv4() // Using UUID for more secure tokens
+      const token = generateToken()
       const expiresAt = new Date(Date.now() + 1 * 60 * 60 * 1000) // 1 hour
 
       console.log(`Creating password reset token for user: ${user.id}`)
 
-      // Save token to database using our resilient function
-      await createResetToken(user.id, token, expiresAt)
+      // Save token to database
+      await createPasswordResetToken(user.id, token, expiresAt)
 
-      // In a real application, send email with reset link
-      console.log(`Reset link: ${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`)
+      // Send reset instructions based on method
+      const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`
+
+      if (method === "email") {
+        await sendPasswordResetEmail(user.email, resetLink)
+      } else {
+        await sendPasswordResetSMS(user.phone, resetLink)
+      }
+
+      console.log(`Reset link: ${resetLink}`)
 
       return NextResponse.json({
-        message: "If an account exists with this email, a reset link has been sent",
+        message: `If an account exists with this ${method === "email" ? "email" : "phone number"}, a reset link has been sent`,
         // Include previewUrl in development environment
         ...(process.env.NODE_ENV === "development"
           ? {
-              previewUrl: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`,
+              previewUrl: resetLink,
             }
           : {}),
       })

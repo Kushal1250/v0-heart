@@ -318,3 +318,18 @@ export async function sendVerificationWithFallback(
     method: "none",
   }
 }
+
+/**
+ * Send a password reset SMS with a reset code or link
+ */
+export async function sendPasswordResetSMS(to: string, resetToken: string, shortCode?: string): Promise<SMSResponse> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+
+  // If a short code is provided, use it instead of the full token
+  const resetCode = shortCode || resetToken.substring(0, 6).toUpperCase()
+  const resetLink = `${appUrl}/reset-password?token=${resetToken}`
+
+  const message = `HeartPredict: Your password reset code is ${resetCode}. Or use this link: ${resetLink} (Valid for 1 hour)`
+
+  return await sendSMS(to, message)
+}
