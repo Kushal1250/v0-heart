@@ -9,7 +9,10 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react"
+// Import the checkPasswordRequirements function
+import { checkPasswordRequirements } from "@/lib/client-validation"
 
+// Update the component to include password requirements
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -20,6 +23,13 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false)
   const [isTokenValid, setIsTokenValid] = useState(false)
   const [isValidating, setIsValidating] = useState(true)
+  const [passwordRequirements, setPasswordRequirements] = useState({
+    minLength: false,
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false,
+    hasSpecialChar: false,
+  })
 
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -63,13 +73,30 @@ export default function ResetPasswordPage() {
     validateToken()
   }, [token, router])
 
+  // Add effect to check password requirements when password changes
+  useEffect(() => {
+    if (password) {
+      setPasswordRequirements(checkPasswordRequirements(password))
+    } else {
+      setPasswordRequirements({
+        minLength: false,
+        hasUppercase: false,
+        hasLowercase: false,
+        hasNumber: false,
+        hasSpecialChar: false,
+      })
+    }
+  }, [password])
+
+  // Update the handleSubmit function to check all password requirements
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
-    // Validate passwords
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters long")
+    // Check if all password requirements are met
+    const requirements = checkPasswordRequirements(password)
+    if (!Object.values(requirements).every(Boolean)) {
+      setError("Password does not meet all requirements")
       return
     }
 
@@ -193,7 +220,27 @@ export default function ResetPasswordPage() {
                     )}
                   </button>
                 </div>
-                <p className="text-sm text-gray-400">Password must be at least 8 characters long</p>
+
+                <div className="space-y-1 text-sm">
+                  <p className="text-gray-400">Password must contain:</p>
+                  <ul className="space-y-1 pl-5 list-disc">
+                    <li className={passwordRequirements.minLength ? "text-green-500" : "text-gray-400"}>
+                      At least 8 characters
+                    </li>
+                    <li className={passwordRequirements.hasUppercase ? "text-green-500" : "text-gray-400"}>
+                      At least one uppercase letter (A–Z)
+                    </li>
+                    <li className={passwordRequirements.hasLowercase ? "text-green-500" : "text-gray-400"}>
+                      At least one lowercase letter (a–z)
+                    </li>
+                    <li className={passwordRequirements.hasNumber ? "text-green-500" : "text-gray-400"}>
+                      At least one number (0–9)
+                    </li>
+                    <li className={passwordRequirements.hasSpecialChar ? "text-green-500" : "text-gray-400"}>
+                      At least one special character (e.g., !@#$%^&*)
+                    </li>
+                  </ul>
+                </div>
               </div>
 
               <div className="space-y-2">

@@ -44,6 +44,30 @@ export function formatPhoneForDisplay(phone: string): string {
   return phone
 }
 
+// Update the isStrongPassword function to check for all requirements
 export function isStrongPassword(password: string): boolean {
-  return password.length >= 8
+  const minLength = password.length >= 8
+  const hasUppercase = /[A-Z]/.test(password)
+  const hasLowercase = /[a-z]/.test(password)
+  const hasNumber = /[0-9]/.test(password)
+  const hasSpecialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)
+
+  return minLength && hasUppercase && hasLowercase && hasNumber && hasSpecialChar
+}
+
+// Add a function to check individual password requirements
+export function checkPasswordRequirements(password: string): {
+  minLength: boolean
+  hasUppercase: boolean
+  hasLowercase: boolean
+  hasNumber: boolean
+  hasSpecialChar: boolean
+} {
+  return {
+    minLength: password.length >= 8,
+    hasUppercase: /[A-Z]/.test(password),
+    hasLowercase: /[a-z]/.test(password),
+    hasNumber: /[0-9]/.test(password),
+    hasSpecialChar: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+  }
 }
