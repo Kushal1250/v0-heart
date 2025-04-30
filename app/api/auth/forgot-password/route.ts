@@ -1,8 +1,60 @@
 import { NextResponse } from "next/server"
 import { getUserByEmail } from "@/lib/db"
-import { createSimpleResetToken } from "@/lib/simple-token"
 import { isValidEmail } from "@/lib/auth-utils"
 import { sendPasswordResetEmail } from "@/lib/email-utils"
+import { neon } from "@neondatabase/serverless"
+
+// Function to generate a random 6-digit code
+function generateVerificationCode() {
+  // Generate a random number between 100000 and 999999
+  return Math.floor(100000 + Math.random() * 900000).toString()
+}
+
+// Function to store verification code in database
+async function storeVerificationCode(userId: number, code: string, expiresAt: Date) {
+  const sql = neon(process.env.DATABASE_URL!)
+
+  try {
+    // Check if verification_codes table exists
+    const tableExists = await sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'verification_codes'
+      );
+    `
+
+    // Create table if it doesn't exist
+    if (!tableExists[0].exists) {
+      await sql`
+        CREATE TABLE verification_codes (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          code VARCHAR(10) NOT NULL,
+          type VARCHAR(20) NOT NULL DEFAULT 'password_reset',
+          expires_at TIMESTAMP NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `
+    }
+
+    // Delete any existing codes for this user
+    await sql`
+      DELETE FROM verification_codes 
+      WHERE user_id = ${userId} AND type = 'password_reset'
+    `
+
+    // Insert new code
+    await sql`
+      INSERT INTO verification_codes (user_id, code, expires_at, type)
+      VALUES (${userId}, ${code}, ${expiresAt}, 'password_reset')
+    `
+
+    return true
+  } catch (error) {
+    console.error("Error storing verification code:", error)
+    return false
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -36,44 +88,34 @@ export async function POST(request: Request) {
     if (!user) {
       console.log(`No user found with email: ${email}`)
       return NextResponse.json({
-        message: "If an account exists with this email, a reset link has been sent",
+        message: "If an account exists with this email, a verification code has been sent",
       })
     }
 
     try {
-      console.log(`Creating password reset token for user: ${user.id}`)
+      // Generate a verification code
+      const verificationCode = generateVerificationCode()
 
-      // Use the improved token creation function
-      const { token, expires } = await createSimpleResetToken(user.id)
+      // Set expiration time (30 minutes from now)
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000)
 
-      // Generate reset link
-      const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`
-      console.log(`Reset link generated: ${resetLink}`)
+      // Store the code in the database
+      const stored = await storeVerificationCode(user.id, verificationCode, expiresAt)
 
-      // Send reset instructions via email
-      const emailResult = await sendPasswordResetEmail(user.email, resetLink, user.name)
-
-      if (!emailResult.success) {
-        console.error("Failed to send email:", emailResult.error)
-        return NextResponse.json({ message: "Failed to send reset email. Please try again." }, { status: 500 })
+      if (!stored) {
+        throw new Error("Failed to store verification code")
       }
 
-      console.log(`Reset email sent to: ${user.email}`)
+      // Send verification code via email
+      await sendPasswordResetEmail(user.email, verificationCode, user.name)
+      console.log(`Verification code sent to: ${user.email}`)
 
       return NextResponse.json({
-        message: "If an account exists with this email, a reset link has been sent",
-        // Include previewUrl in development environment
-        ...(process.env.NODE_ENV === "development" ? { previewUrl: resetLink } : {}),
+        message: "If an account exists with this email, a verification code has been sent",
       })
-    } catch (tokenError) {
-      console.error("Error creating or sending password reset token:", tokenError)
-      return NextResponse.json(
-        {
-          message: "Failed to create reset token. Please try again.",
-          error: tokenError instanceof Error ? tokenError.message : "Unknown error",
-        },
-        { status: 500 },
-      )
+    } catch (error) {
+      console.error("Error creating or sending verification code:", error)
+      return NextResponse.json({ message: "Failed to send verification code. Please try again." }, { status: 500 })
     }
   } catch (error) {
     console.error("Password reset request error:", error)
