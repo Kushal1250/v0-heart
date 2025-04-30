@@ -201,11 +201,12 @@ export default function SignupPage() {
                   type="text"
                   autoComplete="name"
                   required
-                  className={`form-input pl-12 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                  className={`form-input pl-14 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
                     fieldErrors.name
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                       : "focus:border-primary focus:ring-primary"
                   }`}
+                  style={{ caretColor: "white" }}
                   placeholder="John Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -228,11 +229,12 @@ export default function SignupPage() {
                   type="email"
                   autoComplete="email"
                   required
-                  className={`form-input pl-12 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                  className={`form-input pl-14 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
                     fieldErrors.email
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                       : "focus:border-primary focus:ring-primary"
                   }`}
+                  style={{ caretColor: "white" }}
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -255,11 +257,12 @@ export default function SignupPage() {
                   type="tel"
                   autoComplete="tel"
                   required
-                  className={`form-input pl-12 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                  className={`form-input pl-14 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
                     fieldErrors.phone
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                       : "focus:border-primary focus:ring-primary"
                   }`}
+                  style={{ caretColor: "white" }}
                   placeholder="+1 (555) 123-4567"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -282,11 +285,12 @@ export default function SignupPage() {
                   type="password"
                   autoComplete="new-password"
                   required
-                  className={`form-input pl-12 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                  className={`form-input pl-14 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
                     fieldErrors.password
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                       : "focus:border-primary focus:ring-primary"
                   }`}
+                  style={{ caretColor: "white" }}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -329,11 +333,12 @@ export default function SignupPage() {
                   type="password"
                   autoComplete="new-password"
                   required
-                  className={`form-input pl-12 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                  className={`form-input pl-14 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
                     fieldErrors.confirmPassword
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                       : "focus:border-primary focus:ring-primary"
                   }`}
+                  style={{ caretColor: "white" }}
                   placeholder="••••••••"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
