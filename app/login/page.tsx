@@ -9,11 +9,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Mail, Lock, CheckCircle, Loader2 } from "lucide-react"
+import { AlertCircle, Mail, Lock, Phone, CheckCircle, Loader2 } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [phone, setPhone] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
@@ -42,6 +43,7 @@ export default function LoginPage() {
         body: JSON.stringify({
           email,
           password,
+          phone,
         }),
       })
 
@@ -52,7 +54,7 @@ export default function LoginPage() {
       }
 
       // Redirect to dashboard or home page
-      router.push("/dashboard")
+      router.push("/home")
     } catch (err: any) {
       console.error("Error in login:", err)
       setError(err.message || "An unexpected error occurred")
@@ -106,14 +108,9 @@ export default function LoginPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="password" className="text-gray-300">
-                  Password
-                </Label>
-                <Link href="/forgot-password" className="text-sm text-blue-400 hover:text-blue-300">
-                  Forgot password?
-                </Link>
-              </div>
+              <Label htmlFor="password" className="text-gray-300">
+                Password
+              </Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-gray-400" />
@@ -128,6 +125,29 @@ export default function LoginPage() {
                   required
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-gray-300">
+                Phone Number
+              </Label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Phone className="h-5 w-5 text-gray-400" />
+                </div>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="+1 (555) 123-4567"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="pl-10 bg-gray-700 border-gray-600 text-white"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Link href="/forgot-password" className="text-sm text-blue-400 hover:text-blue-300">
+                Forgot password?
+              </Link>
             </div>
             <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
               {isLoading ? (
