@@ -2,14 +2,15 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { User, Mail, Lock, Phone, ArrowRight, AlertCircle, CheckCircle } from "lucide-react"
+import { User, Mail, Lock, Phone, ArrowRight, AlertCircle, CheckCircle, X, Check } from "lucide-react"
+import { checkPasswordRequirements } from "@/lib/client-validation"
 
 export default function SignupPage() {
   const [name, setName] = useState("")
@@ -21,7 +22,29 @@ export default function SignupPage() {
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({})
   const [success, setSuccess] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [passwordRequirements, setPasswordRequirements] = useState({
+    minLength: false,
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false,
+    hasSpecialChar: false,
+  })
   const router = useRouter()
+
+  // Update password requirements as user types
+  useEffect(() => {
+    if (password) {
+      setPasswordRequirements(checkPasswordRequirements(password))
+    } else {
+      setPasswordRequirements({
+        minLength: false,
+        hasUppercase: false,
+        hasLowercase: false,
+        hasNumber: false,
+        hasSpecialChar: false,
+      })
+    }
+  }, [password])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,8 +68,10 @@ export default function SignupPage() {
       return
     }
 
-    if (password.length < 8) {
-      setFieldErrors((prev) => ({ ...prev, password: "Password must be at least 8 characters long" }))
+    // Check all password requirements
+    const requirements = checkPasswordRequirements(password)
+    if (!Object.values(requirements).every(Boolean)) {
+      setFieldErrors((prev) => ({ ...prev, password: "Password does not meet all requirements" }))
       return
     }
 
@@ -109,6 +134,14 @@ export default function SignupPage() {
       setIsLoading(false)
     }
   }
+
+  // Password requirement item component
+  const PasswordRequirement = ({ met, text }: { met: boolean; text: string }) => (
+    <div className="flex items-center space-x-2 text-sm">
+      {met ? <Check className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-gray-400" />}
+      <span className={met ? "text-green-500" : "text-gray-500"}>{text}</span>
+    </div>
+  )
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
@@ -243,11 +276,27 @@ export default function SignupPage() {
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
-              {fieldErrors.password ? (
-                <p className="mt-1 text-xs text-red-500">{fieldErrors.password}</p>
-              ) : (
-                <p className="mt-1 text-xs text-gray-500">Must be at least 8 characters</p>
-              )}
+              {fieldErrors.password && <p className="mt-1 text-xs text-red-500">{fieldErrors.password}</p>}
+
+              <div className="mt-3 p-3 bg-gray-50 rounded-md border border-gray-200">
+                <p className="text-sm font-medium text-gray-700 mb-2">Password must contain:</p>
+                <div className="space-y-1">
+                  <PasswordRequirement met={passwordRequirements.minLength} text="At least 8 characters" />
+                  <PasswordRequirement
+                    met={passwordRequirements.hasUppercase}
+                    text="At least one uppercase letter (A–Z)"
+                  />
+                  <PasswordRequirement
+                    met={passwordRequirements.hasLowercase}
+                    text="At least one lowercase letter (a–z)"
+                  />
+                  <PasswordRequirement met={passwordRequirements.hasNumber} text="At least one number (0–9)" />
+                  <PasswordRequirement
+                    met={passwordRequirements.hasSpecialChar}
+                    text="At least one special character (e.g., !@#$%^&*)"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="form-group">
