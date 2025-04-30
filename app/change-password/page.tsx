@@ -2,16 +2,17 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle2, Eye, EyeOff, ArrowLeft } from "lucide-react"
+import { AlertCircle, CheckCircle2, Eye, EyeOff, ArrowLeft, Check, X } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
+import { checkPasswordRequirements } from "@/lib/client-validation"
 
 export default function ChangePasswordPage() {
   const router = useRouter()
@@ -30,6 +31,22 @@ export default function ChangePasswordPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
+
+  // Password requirements state
+  const [passwordRequirements, setPasswordRequirements] = useState({
+    minLength: false,
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false,
+    hasSpecialChar: false,
+  })
+
+  // Update password requirements check when password changes
+  useEffect(() => {
+    if (formData.newPassword) {
+      setPasswordRequirements(checkPasswordRequirements(formData.newPassword))
+    }
+  }, [formData.newPassword])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -50,8 +67,30 @@ export default function ChangePasswordPage() {
       return false
     }
 
-    if (formData.newPassword.length < 8) {
-      setError("New password must be at least 8 characters long")
+    // Check all password requirements
+    const requirements = checkPasswordRequirements(formData.newPassword)
+    if (!requirements.minLength) {
+      setError("Password must be at least 8 characters long")
+      return false
+    }
+
+    if (!requirements.hasUppercase) {
+      setError("Password must contain at least one uppercase letter (A-Z)")
+      return false
+    }
+
+    if (!requirements.hasLowercase) {
+      setError("Password must contain at least one lowercase letter (a-z)")
+      return false
+    }
+
+    if (!requirements.hasNumber) {
+      setError("Password must contain at least one number (0-9)")
+      return false
+    }
+
+    if (!requirements.hasSpecialChar) {
+      setError("Password must contain at least one special character (e.g., !@#$%^&*)")
       return false
     }
 
@@ -162,6 +201,11 @@ export default function ChangePasswordPage() {
                   {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              <div className="mt-1">
+                <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-800">
+                  Forgot Password?
+                </Link>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -183,7 +227,63 @@ export default function ChangePasswordPage() {
                   {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">Password must be at least 8 characters long</p>
+
+              {/* Password requirements checklist */}
+              <div className="mt-2 space-y-1 text-sm">
+                <p className="font-medium text-gray-700">Password must contain:</p>
+                <ul className="space-y-1 pl-1">
+                  <li className="flex items-center gap-2">
+                    {passwordRequirements.minLength ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <X className="h-4 w-4 text-gray-400" />
+                    )}
+                    <span className={passwordRequirements.minLength ? "text-green-600" : "text-gray-600"}>
+                      At least 8 characters
+                    </span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    {passwordRequirements.hasUppercase ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <X className="h-4 w-4 text-gray-400" />
+                    )}
+                    <span className={passwordRequirements.hasUppercase ? "text-green-600" : "text-gray-600"}>
+                      At least one uppercase letter (A–Z)
+                    </span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    {passwordRequirements.hasLowercase ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <X className="h-4 w-4 text-gray-400" />
+                    )}
+                    <span className={passwordRequirements.hasLowercase ? "text-green-600" : "text-gray-600"}>
+                      At least one lowercase letter (a–z)
+                    </span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    {passwordRequirements.hasNumber ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <X className="h-4 w-4 text-gray-400" />
+                    )}
+                    <span className={passwordRequirements.hasNumber ? "text-green-600" : "text-gray-600"}>
+                      At least one number (0–9)
+                    </span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    {passwordRequirements.hasSpecialChar ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <X className="h-4 w-4 text-gray-400" />
+                    )}
+                    <span className={passwordRequirements.hasSpecialChar ? "text-green-600" : "text-gray-600"}>
+                      At least one special character (e.g., !@#$%^&*)
+                    </span>
+                  </li>
+                </ul>
+              </div>
             </div>
 
             <div className="space-y-2">
