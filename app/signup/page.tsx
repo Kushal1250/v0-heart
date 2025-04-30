@@ -201,7 +201,7 @@ export default function SignupPage() {
                   type="text"
                   autoComplete="name"
                   required
-                  className={`form-input pl-16 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                  className={`form-input pl-20 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
                     fieldErrors.name
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                       : "focus:border-primary focus:ring-primary"
@@ -232,7 +232,7 @@ export default function SignupPage() {
                   type="email"
                   autoComplete="email"
                   required
-                  className={`form-input pl-16 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                  className={`form-input pl-20 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
                     fieldErrors.email
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                       : "focus:border-primary focus:ring-primary"
@@ -263,7 +263,7 @@ export default function SignupPage() {
                   type="tel"
                   autoComplete="tel"
                   required
-                  className={`form-input pl-16 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                  className={`form-input pl-20 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
                     fieldErrors.phone
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                       : "focus:border-primary focus:ring-primary"
@@ -294,7 +294,7 @@ export default function SignupPage() {
                   type="password"
                   autoComplete="new-password"
                   required
-                  className={`form-input pl-16 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                  className={`form-input pl-20 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
                     fieldErrors.password
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                       : "focus:border-primary focus:ring-primary"
@@ -345,7 +345,7 @@ export default function SignupPage() {
                   type="password"
                   autoComplete="new-password"
                   required
-                  className={`form-input pl-16 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
+                  className={`form-input pl-20 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
                     fieldErrors.confirmPassword
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                       : "focus:border-primary focus:ring-primary"
