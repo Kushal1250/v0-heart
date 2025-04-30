@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
-import { getUserByEmail, createPasswordResetToken } from "@/lib/db"
-import { generateToken, isValidEmail } from "@/lib/auth-utils"
+import { getUserByEmail } from "@/lib/db"
+import { createResetToken } from "@/lib/password-reset"
+import { isValidEmail } from "@/lib/auth-utils"
+import { v4 as uuidv4 } from "uuid"
 
 export async function POST(request: Request) {
   try {
@@ -41,13 +43,13 @@ export async function POST(request: Request) {
 
     try {
       // Generate token and expiration
-      const token = generateToken()
+      const token = uuidv4() // Using UUID for more secure tokens
       const expiresAt = new Date(Date.now() + 1 * 60 * 60 * 1000) // 1 hour
 
       console.log(`Creating password reset token for user: ${user.id}`)
 
-      // Save token to database
-      await createPasswordResetToken(user.id, token, expiresAt)
+      // Save token to database using our resilient function
+      await createResetToken(user.id, token, expiresAt)
 
       // In a real application, send email with reset link
       console.log(`Reset link: ${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`)
