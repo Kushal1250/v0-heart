@@ -94,8 +94,11 @@ export default function LoginPage() {
       // Set success flag in session storage for home page to display welcome message
       sessionStorage.setItem("loginSuccess", "true")
 
-      // Redirect to the home page
-      router.push("/home")
+      // Add a console log to debug
+      console.log("Login successful, redirecting to /home")
+
+      // Force a hard navigation instead of client-side navigation
+      window.location.href = "/home"
     } catch (err: any) {
       console.error("Error in login:", err)
       setError(err.message || "An unexpected error occurred")
