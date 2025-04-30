@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Mail, ArrowLeft, CheckCircle, Loader2 } from "lucide-react"
+import { Mail, ArrowLeft, CheckCircle, Loader2 } from "lucide-react"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -25,29 +25,34 @@ export default function ForgotPasswordPage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/auth/forgot-password", {
+      const response = await fetch("/api/auth/send-verification-code", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           email,
-          method: "email",
+          purpose: "password-reset",
         }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to send reset instructions")
+        throw new Error(data.message || "Failed to send verification code")
       }
 
       setSuccess(true)
 
-      // If we're in development, we can show the reset link for testing
-      if (process.env.NODE_ENV === "development" && data.previewUrl) {
-        console.log("Reset link:", data.previewUrl)
+      // If we're in development, we can show the code for testing
+      if (process.env.NODE_ENV === "development" && data.previewCode) {
+        console.log("Verification code:", data.previewCode)
       }
+
+      // Redirect to verification page after 2 seconds
+      setTimeout(() => {
+        router.push(`/verify-reset-code?email=${encodeURIComponent(email)}`)
+      }, 2000)
     } catch (err: any) {
       console.error("Error in forgot password:", err)
       setError(err.message || "An unexpected error occurred")
@@ -68,16 +73,15 @@ export default function ForgotPasswordPage() {
         <CardContent>
           {error && (
             <Alert variant="destructive" className="mb-4 bg-red-900 border-red-800 text-red-200">
-              <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
           {success && (
             <Alert className="mb-4 bg-green-900 border-green-800 text-green-200">
-              <CheckCircle className="h-4 w-4" />
+              <CheckCircle className="h-4 w-4 mr-2" />
               <AlertDescription>
-                If an account exists with this email, a reset link has been sent. Please check your email for
+                If an account exists with this email, a verification code has been sent. Please check your email for
                 instructions.
               </AlertDescription>
             </Alert>
@@ -110,7 +114,7 @@ export default function ForgotPasswordPage() {
                   Sending...
                 </>
               ) : (
-                "Send Reset Link"
+                "Send Verification Code"
               )}
             </Button>
           </form>

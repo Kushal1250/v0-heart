@@ -1,83 +1,60 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, User, Lock, Phone } from "lucide-react"
-import { Checkbox } from "@/components/ui/checkbox"
+import { AlertCircle, Mail, Lock, CheckCircle, Loader2 } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [phone, setPhone] = useState("")
-  const [rememberMe, setRememberMe] = useState(false)
-  const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [successMessage, setSuccessMessage] = useState("")
   const router = useRouter()
-  const { login } = useAuth()
+  const searchParams = useSearchParams()
 
-  // Load saved credentials when the component mounts
   useEffect(() => {
-    const savedCredentials = localStorage.getItem("rememberedCredentials")
-    if (savedCredentials) {
-      try {
-        const { email: savedEmail, phone: savedPhone, rememberMe: savedRememberMe } = JSON.parse(savedCredentials)
-        setEmail(savedEmail || "")
-        setPhone(savedPhone || "")
-        setRememberMe(savedRememberMe || false)
-      } catch (err) {
-        console.error("Error parsing saved credentials:", err)
-        // Clear corrupted data
-        localStorage.removeItem("rememberedCredentials")
-      }
+    // Check for reset=success in URL
+    const resetParam = searchParams?.get("reset")
+    if (resetParam === "success") {
+      setSuccessMessage("Your password has been reset successfully. Please log in with your new password.")
     }
-  }, [])
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
-
-    // Validate phone number is provided
-    if (!phone.trim()) {
-      setError("Phone number is required")
-      return
-    }
-
     setIsLoading(true)
 
-    // Save or clear credentials based on remember me checkbox
-    if (rememberMe) {
-      localStorage.setItem(
-        "rememberedCredentials",
-        JSON.stringify({
-          email,
-          phone,
-          rememberMe,
-        }),
-      )
-    } else {
-      localStorage.removeItem("rememberedCredentials")
-    }
-
     try {
-      const result = await login(email, password, phone, rememberMe)
-      if (result.success) {
-        // Set success flag in session storage for dashboard to display welcome message
-        sessionStorage.setItem("loginSuccess", "true")
-        // Redirect to the new home page
-        router.push("/home")
-      } else {
-        setError(result.message)
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || "Login failed")
       }
+
+      // Redirect to dashboard or home page
+      router.push("/dashboard")
     } catch (err: any) {
+      console.error("Error in login:", err)
       setError(err.message || "An unexpected error occurred")
     } finally {
       setIsLoading(false)
@@ -85,26 +62,37 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="login-bg-animation"></div>
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Login</CardTitle>
-          <CardDescription className="text-center">Enter your credentials to access your account</CardDescription>
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 px-4 py-12 sm:px-6 lg:px-8 text-white">
+      <Card className="w-full max-w-md bg-gray-800 border-gray-700">
+        <CardHeader>
+          <CardTitle className="text-center text-2xl font-bold text-white">Sign In</CardTitle>
+          <CardDescription className="text-center text-gray-300">
+            Enter your credentials to access your account
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
+            <Alert variant="destructive" className="mb-4 bg-red-900 border-red-800 text-red-200">
+              <AlertCircle className="h-4 w-4 mr-2" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+
+          {successMessage && (
+            <Alert className="mb-4 bg-green-900 border-green-800 text-green-200">
+              <CheckCircle className="h-4 w-4 mr-2" />
+              <AlertDescription>{successMessage}</AlertDescription>
+            </Alert>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-gray-300">
+                Email Address
+              </Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-gray-400" />
+                  <Mail className="h-5 w-5 text-gray-400" />
                 </div>
                 <Input
                   id="email"
@@ -112,13 +100,20 @@ export default function LoginPage() {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 bg-gray-700 border-gray-600 text-white"
                   required
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex justify-between">
+                <Label htmlFor="password" className="text-gray-300">
+                  Password
+                </Label>
+                <Link href="/forgot-password" className="text-sm text-blue-400 hover:text-blue-300">
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-gray-400" />
@@ -129,60 +124,30 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 bg-gray-700 border-gray-600 text-white"
                   required
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Phone className="h-5 w-5 text-gray-400" />
-                </div>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+1 (555) 123-4567"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="pl-10"
-                  required
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="remember-me"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked === true)}
-                />
-                <Label
-                  htmlFor="remember-me"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Remember me
-                </Label>
-              </div>
-              <div className="text-sm">
-                <Link href="/forgot-password" className="text-primary hover:text-primary/90">
-                  Forgot password?
-                </Link>
-              </div>
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Logging in..." : "Login"}
+            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                "Sign In"
+              )}
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <div className="text-sm text-center">
+        <CardFooter className="flex justify-center">
+          <p className="text-sm text-gray-400">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-primary hover:text-primary/90">
+            <Link href="/signup" className="text-blue-400 hover:text-blue-300">
               Sign up
             </Link>
-          </div>
+          </p>
         </CardFooter>
       </Card>
     </div>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { hashPassword } from "@/lib/auth-utils"
+import { hash } from "bcrypt-ts"
 
 export async function POST(request: Request) {
   try {
@@ -36,12 +36,12 @@ export async function POST(request: Request) {
     const userId = resetToken.user_id
 
     // Hash the new password
-    const hashedPassword = await hashPassword(password)
+    const hashedPassword = await hash(password, 10)
 
     // Update the user's password
     await sql`
       UPDATE users 
-      SET password = ${hashedPassword}, updated_at = NOW() 
+      SET password = ${hashedPassword}
       WHERE id = ${userId}
     `
 
