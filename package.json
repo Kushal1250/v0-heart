@@ -73,7 +73,6 @@
     "uuid": "latest",
     "util": "latest",
     "jsonwebtoken": "latest",
-    "@vercel/postgres": "latest",
     "bcrypt-ts": "latest"
   },
   "devDependencies": {

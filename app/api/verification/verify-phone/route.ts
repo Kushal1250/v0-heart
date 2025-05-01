@@ -1,13 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@vercel/postgres"
-import { getSession } from "@/lib/auth-utils"
+import { sql } from "@neondatabase/serverless"
+import { getSessionToken, getUserFromSession } from "@/lib/auth-utils"
 
 export async function POST(request: NextRequest) {
   try {
     // Get the user session
-    const session = await getSession()
+    const sessionToken = getSessionToken()
+    const user = await getUserFromSession(sessionToken)
 
-    if (!session || !session.user) {
+    if (!user) {
       return NextResponse.json({ message: "Authentication required" }, { status: 401 })
     }
 
@@ -20,11 +21,10 @@ export async function POST(request: NextRequest) {
     // Check if the verification code exists and is valid
     const result = await sql`
       SELECT * FROM verification_codes
-      WHERE user_id = ${session.user.id}
+      WHERE user_id = ${user.id}
         AND code = ${code}
         AND expires_at > NOW()
         AND type = 'phone_verification'
-        AND used = false
       ORDER BY created_at DESC
       LIMIT 1
     `
@@ -35,8 +35,7 @@ export async function POST(request: NextRequest) {
 
     // Mark the verification code as used
     await sql`
-      UPDATE verification_codes
-      SET used = true
+      DELETE FROM verification_codes
       WHERE id = ${result.rows[0].id}
     `
 
@@ -44,7 +43,7 @@ export async function POST(request: NextRequest) {
     await sql`
       UPDATE users
       SET phone_verified = true
-      WHERE id = ${session.user.id}
+      WHERE id = ${user.id}
     `
 
     return NextResponse.json({ success: true })

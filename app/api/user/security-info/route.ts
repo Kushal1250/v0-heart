@@ -1,25 +1,27 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@vercel/postgres"
-import { getSession } from "@/lib/auth-utils"
+import { sql } from "@neondatabase/serverless"
+import { getSessionToken, getUserFromSession } from "@/lib/auth-utils"
 
 export async function GET(request: NextRequest) {
   try {
     // Get the user session
-    const session = await getSession()
+    const sessionToken = getSessionToken()
+    const user = await getUserFromSession(sessionToken)
 
-    if (!session || !session.user) {
+    if (!user) {
       return NextResponse.json({ message: "Authentication required" }, { status: 401 })
     }
 
     // Fetch the user's security information
     const result = await sql`
       SELECT 
-        email_verified AS "emailVerified", 
-        phone_verified AS "phoneVerified", 
-        two_factor_enabled AS "twoFactorEnabled",
-        two_factor_method AS "twoFactorMethod"
+        COALESCE(email_verified, true) AS "emailVerified", 
+        COALESCE(phone_verified, false) AS "phoneVerified",   true) AS "emailVerified", 
+        COALESCE(phone_verified, false) AS "phoneVerified", 
+        COALESCE(two_factor_enabled, false) AS "twoFactorEnabled",
+        COALESCE(two_factor_method, 'sms') AS "twoFactorMethod"
       FROM users
-      WHERE id = ${session.user.id}
+      WHERE id = ${user.id}
     `
 
     if (result.rowCount === 0) {
