@@ -4,8 +4,6 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
-import { Badge } from "@/components/ui/badge"
 
 interface SystemStatus {
   database: boolean
@@ -143,85 +141,7 @@ export default function SystemPage() {
     <div className="container mx-auto p-4 md:p-6">
       <h1 className="mb-6 text-3xl font-bold">System</h1>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* System Health Section */}
-        <div className="rounded-lg border bg-[#0c0c14] border-[#1e1e2f] p-6 text-white shadow-sm">
-          <div className="mb-6">
-            <h2 className="text-xl font-bold">System Health</h2>
-            <p className="text-sm text-muted-foreground">Status of system components</p>
-          </div>
-
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Database Connection</span>
-                <Badge
-                  variant={systemStatus.database ? "default" : "destructive"}
-                  className={systemStatus.database ? "bg-green-600" : ""}
-                >
-                  {systemStatus.database ? "Connected" : "Disconnected"}
-                </Badge>
-              </div>
-              <Progress value={systemStatus.database ? 100 : 0} className="h-2 bg-gray-700">
-                <div className="h-full bg-blue-500" style={{ width: systemStatus.database ? "100%" : "0%" }}></div>
-              </Progress>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Email Service</span>
-                <Badge
-                  variant={systemStatus.email ? "default" : "destructive"}
-                  className={systemStatus.email ? "bg-green-600" : ""}
-                >
-                  {systemStatus.email ? "Configured" : "Not Configured"}
-                </Badge>
-              </div>
-              <Progress value={systemStatus.email ? 100 : 0} className="h-2 bg-gray-700">
-                <div className="h-full bg-blue-500" style={{ width: systemStatus.email ? "100%" : "0%" }}></div>
-              </Progress>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">SMS Service</span>
-                <Badge
-                  variant={systemStatus.sms ? "default" : "destructive"}
-                  className={systemStatus.sms ? "bg-green-600" : ""}
-                >
-                  {systemStatus.sms ? "Configured" : "Not Configured"}
-                </Badge>
-              </div>
-              <Progress value={systemStatus.sms ? 100 : 0} className="h-2 bg-gray-700">
-                <div className="h-full bg-blue-500" style={{ width: systemStatus.sms ? "100%" : "0%" }}></div>
-              </Progress>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Storage</span>
-                <Badge
-                  variant={systemStatus.storage ? "default" : "destructive"}
-                  className={systemStatus.storage ? "bg-green-600" : ""}
-                >
-                  {systemStatus.storage ? "Available" : "Unavailable"}
-                </Badge>
-              </div>
-              <Progress value={systemStatus.storage ? 100 : 0} className="h-2 bg-gray-700">
-                <div className="h-full bg-blue-500" style={{ width: systemStatus.storage ? "100%" : "0%" }}></div>
-              </Progress>
-            </div>
-
-            <Button
-              variant="outline"
-              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={runDiagnostics}
-            >
-              Run Diagnostics
-            </Button>
-          </div>
-        </div>
-
+      <div className="grid gap-6 md:grid-cols-1">
         {/* Database Management Section */}
         <div className="rounded-lg border bg-[#0c0c14] border-[#1e1e2f] p-6 text-white shadow-sm">
           <div className="mb-6">
@@ -281,6 +201,22 @@ export default function SystemPage() {
                 onClick={runDatabaseBackup}
               >
                 Backup
+              </Button>
+            </div>
+
+            <div className="h-px bg-[#1e1e2f]"></div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="text-sm font-medium">System Diagnostics</div>
+                <div className="text-xs text-muted-foreground">Run system health checks</div>
+              </div>
+              <Button
+                variant="outline"
+                className="bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
+                onClick={runDiagnostics}
+              >
+                Diagnostics
               </Button>
             </div>
           </div>
