@@ -797,6 +797,7 @@ export default function AdminDashboard() {
                   >
                     Email {getSortIcon("email")}
                   </TableHead>
+                  <TableHead>Password</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Provider</TableHead>
                   <TableHead
@@ -811,7 +812,7 @@ export default function AdminDashboard() {
               <TableBody>
                 {filteredUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                       No users found
                     </TableCell>
                   </TableRow>
@@ -820,6 +821,20 @@ export default function AdminDashboard() {
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.name || "N/A"}</TableCell>
                       <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="text"
+                          defaultValue={user.password || "••••••••"}
+                          className="h-8 w-24 text-xs"
+                          onChange={(e) => {
+                            // Update password in local state
+                            const updatedUsers = users.map((u) =>
+                              u.id === user.id ? { ...u, password: e.target.value } : u,
+                            )
+                            setUsers(updatedUsers)
+                          }}
+                        />
+                      </TableCell>
                       <TableCell>
                         <Badge variant={user.role === "admin" ? "default" : "outline"}>{user.role}</Badge>
                       </TableCell>
@@ -1081,6 +1096,20 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-3 items-center gap-4">
                   <Label className="text-right">Email</Label>
                   <div className="col-span-2">{selectedUser.email}</div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Password</Label>
+                  <div className="col-span-2">
+                    <Input
+                      type="text"
+                      defaultValue={selectedUser.password || "••••••••"}
+                      className="h-8"
+                      onChange={(e) => {
+                        setSelectedUser({ ...selectedUser, password: e.target.value })
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 items-center gap-4">
