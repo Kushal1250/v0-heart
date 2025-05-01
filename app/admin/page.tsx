@@ -114,6 +114,12 @@ export default function AdminDashboard() {
   })
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({})
 
+  const [showResetDialog, setShowResetDialog] = useState(false)
+  const [resetUserId, setResetUserId] = useState("")
+  const [resetUserEmail, setResetUserEmail] = useState("")
+  const [resetMessage, setResetMessage] = useState("")
+  const [isResetting, setIsResetting] = useState(false)
+
   // Check if user is admin
   useEffect(() => {
     const checkAdmin = () => {
@@ -409,26 +415,42 @@ export default function AdminDashboard() {
   }
 
   const handleResetPassword = async (userId: string, email: string) => {
+    setResetUserId(userId)
+    setResetUserEmail(email)
+    setResetMessage("")
+    setShowResetDialog(true)
+  }
+
+  const confirmResetPassword = async () => {
     try {
+      setIsResetting(true)
+      setResetMessage("")
+
       const response = await fetch("/api/admin/users/reset-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({ userId, email }),
+        body: JSON.stringify({ userId: resetUserId, email: resetUserEmail }),
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to reset password")
-      }
-
       const data = await response.json()
-      alert(data.message || "Password reset link has been sent to the user's email")
-      setShowUserDialog(false)
+
+      if (response.ok) {
+        setResetMessage(data.message || "Password reset link has been sent to the user's email")
+        setTimeout(() => {
+          setShowResetDialog(false)
+          setShowUserDialog(false)
+        }, 2000)
+      } else {
+        setResetMessage(`Error: ${data.message || "Failed to reset password"}`)
+      }
     } catch (err) {
       console.error("Error resetting password:", err)
-      setError(err instanceof Error ? err.message : "Failed to reset password")
+      setResetMessage(err instanceof Error ? err.message : "Failed to reset password")
+    } finally {
+      setIsResetting(false)
     }
   }
 
@@ -1304,6 +1326,59 @@ export default function AdminDashboard() {
               </Button>
               <Button variant="destructive" onClick={() => handleDeleteUser(deleteConfirmation)}>
                 Delete User
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Reset Password Dialog */}
+      {showResetDialog && (
+        <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Reset User Password</DialogTitle>
+              <DialogDescription>Send a password reset link to the user's email address.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid gap-2">
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Email</Label>
+                  <div className="col-span-2">
+                    <Input
+                      value={resetUserEmail}
+                      onChange={(e) => setResetUserEmail(e.target.value)}
+                      placeholder="user@example.com"
+                    />
+                  </div>
+                </div>
+              </div>
+              {resetMessage && (
+                <div className={`text-sm ${resetMessage.includes("Error") ? "text-red-500" : "text-green-500"}`}>
+                  {resetMessage}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowResetDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmResetPassword}
+                disabled={isResetting || !resetUserEmail}
+                className="flex items-center gap-2"
+              >
+                {isResetting ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Key className="h-4 w-4" />
+                    Send Reset Link
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
