@@ -1,56 +1,20 @@
 "use client"
 
 import { useEffect } from "react"
-import { refreshSessionExpiry, isSessionValid } from "@/lib/auth-persistence"
-import { useAuth } from "@/lib/auth-context"
+import { persistAuthState, setupAuthPersistence } from "@/lib/auth-persistence"
 
-/**
- * This component helps maintain the user's session by refreshing
- * the session expiry time when the user is active on the site.
- */
 export function SessionKeeper() {
-  const { user } = useAuth()
-
   useEffect(() => {
-    if (!user) return
+    // Set up auth persistence mechanisms
+    const cleanupPersistence = persistAuthState()
+    const cleanupVisibility = setupAuthPersistence()
 
-    // Refresh session expiry on initial load if session is valid
-    if (isSessionValid()) {
-      refreshSessionExpiry()
-    }
-
-    // Set up event listeners to refresh session on user activity
-    const refreshOnActivity = () => {
-      if (user && isSessionValid()) {
-        refreshSessionExpiry()
-      }
-    }
-
-    // Add event listeners for user activity
-    window.addEventListener("click", refreshOnActivity)
-    window.addEventListener("keypress", refreshOnActivity)
-    window.addEventListener("scroll", refreshOnActivity)
-    window.addEventListener("mousemove", refreshOnActivity)
-
-    // Set up periodic check (every 5 minutes)
-    const intervalId = setInterval(
-      () => {
-        if (user && isSessionValid()) {
-          refreshSessionExpiry()
-        }
-      },
-      5 * 60 * 1000,
-    )
-
+    // Clean up when component unmounts
     return () => {
-      // Clean up event listeners
-      window.removeEventListener("click", refreshOnActivity)
-      window.removeEventListener("keypress", refreshOnActivity)
-      window.removeEventListener("scroll", refreshOnActivity)
-      window.removeEventListener("mousemove", refreshOnActivity)
-      clearInterval(intervalId)
+      if (typeof cleanupPersistence === "function") cleanupPersistence()
+      if (typeof cleanupVisibility === "function") cleanupVisibility()
     }
-  }, [user])
+  }, [])
 
   // This component doesn't render anything
   return null

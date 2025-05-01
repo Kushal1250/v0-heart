@@ -36,11 +36,11 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
       return
     }
 
-    // Validate file size (max 50MB)
-    if (file.size > 50 * 1024 * 1024) {
+    // Validate file size (max 5MB instead of 50MB to prevent issues)
+    if (file.size > 5 * 1024 * 1024) {
       toast({
         title: "File too large",
-        description: "Please upload an image smaller than 50MB.",
+        description: "Please upload an image smaller than 5MB.",
         variant: "destructive",
       })
       return
@@ -63,44 +63,101 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
     try {
       console.log("Starting profile picture upload:", selectedFile.name, selectedFile.size, selectedFile.type)
 
-      // Create a FormData object to send the file
-      const formData = new FormData()
-      formData.append("profile_picture", selectedFile)
+      // Try the alternative upload method first
+      try {
+        // Create a FormData object to send the file
+        const formData = new FormData()
+        formData.append("profile_picture", selectedFile)
 
-      console.log("Sending request to upload endpoint")
-      const response = await fetch("/api/user/profile/upload-photo", {
-        method: "POST",
-        body: formData,
-        credentials: "include", // Ensure cookies are sent for authentication
-      })
+        console.log("Sending request to alternative upload endpoint")
+        const response = await fetch("/api/user/profile/upload-photo-alternative", {
+          method: "POST",
+          body: formData,
+          credentials: "include", // Ensure cookies are sent for authentication
+        })
 
-      console.log("Upload response status:", response.status)
+        console.log("Upload response status:", response.status)
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || "Failed to upload profile picture")
+        if (response.ok) {
+          const data = await response.json()
+          console.log("Upload response data:", data)
+
+          if (data.profile_picture) {
+            // Update the parent component with the new image URL
+            onImageUpdate(data.profile_picture)
+
+            toast({
+              title: "Success",
+              description: "Profile picture updated successfully!",
+            })
+
+            // Close the dialog
+            setIsDialogOpen(false)
+            // Reset state
+            setPreviewImage(null)
+            setSelectedFile(null)
+            return
+          }
+        }
+      } catch (alternativeError) {
+        console.error("Alternative upload method failed, trying direct method:", alternativeError)
       }
 
-      const data = await response.json()
-      console.log("Upload response data:", data)
+      // Fall back to direct upload method
+      // Convert file to base64 directly
+      const reader = new FileReader()
+      reader.readAsDataURL(selectedFile)
+      reader.onload = async () => {
+        const base64data = reader.result as string
 
-      if (!data.profile_picture) {
-        throw new Error("No profile picture URL returned from server")
+        try {
+          // Send the base64 data directly
+          const response = await fetch("/api/user/profile/direct-upload", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              profile_picture: base64data,
+              filename: selectedFile.name,
+              type: selectedFile.type,
+            }),
+            credentials: "include",
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}))
+            throw new Error(errorData.message || "Failed to upload profile picture")
+          }
+
+          const data = await response.json()
+
+          if (!data.profile_picture) {
+            throw new Error("No profile picture URL returned from server")
+          }
+
+          // Update the parent component with the new image URL
+          onImageUpdate(data.profile_picture)
+
+          toast({
+            title: "Success",
+            description: "Profile picture updated successfully!",
+          })
+
+          // Close the dialog
+          setIsDialogOpen(false)
+          // Reset state
+          setPreviewImage(null)
+          setSelectedFile(null)
+        } catch (error: any) {
+          console.error("Error in direct upload:", error)
+          toast({
+            title: "Error",
+            description: error.message || "Failed to upload profile picture",
+            variant: "destructive",
+          })
+        }
       }
-
-      // Update the parent component with the new image URL
-      onImageUpdate(data.profile_picture)
-
-      toast({
-        title: "Success",
-        description: "Profile picture updated successfully!",
-      })
-
-      // Close the dialog
-      setIsDialogOpen(false)
-      // Reset state
-      setPreviewImage(null)
-      setSelectedFile(null)
     } catch (error: any) {
       console.error("Error uploading profile picture:", error)
       toast({
@@ -205,7 +262,7 @@ export function ProfileImageUpload({ currentImage, onImageUpdate }: ProfileImage
 
           <div className="text-xs text-gray-500 text-center">
             <p>Supported formats: JPEG, PNG, GIF</p>
-            <p>Maximum file size: 50MB</p>
+            <p>Maximum file size: 5MB</p>
           </div>
 
           <div className="flex justify-end gap-2">
