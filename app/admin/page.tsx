@@ -15,6 +15,7 @@ import {
   UserCheck,
   UserX,
   Shield,
+  Key,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -383,6 +384,30 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleResetPassword = async (userId: string, email: string) => {
+    try {
+      const response = await fetch("/api/admin/users/reset-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ userId, email }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to reset password")
+      }
+
+      const data = await response.json()
+      alert(data.message || "Password reset link has been sent to the user's email")
+      setShowUserDialog(false)
+    } catch (err) {
+      console.error("Error resetting password:", err)
+      setError(err instanceof Error ? err.message : "Failed to reset password")
+    }
+  }
+
   const handleLoginRetry = () => {
     document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
     document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
@@ -747,10 +772,16 @@ export default function AdminDashboard() {
                       </TableCell>
                       <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handleUserClick(user)}>
-                          <Eye className="h-4 w-4" />
-                          <span className="sr-only">View user</span>
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => handleUserClick(user)}>
+                            <Eye className="h-4 w-4" />
+                            <span className="sr-only">View user</span>
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleResetPassword(user.id, user.email)}>
+                            <Key className="h-4 w-4" />
+                            <span className="sr-only">Reset password</span>
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -1022,7 +1053,7 @@ export default function AdminDashboard() {
               </div>
             </div>
             <DialogFooter className="flex flex-col sm:flex-row sm:justify-between sm:space-x-2">
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {selectedUser.role === "user" ? (
                   <Button
                     variant="outline"
@@ -1044,6 +1075,16 @@ export default function AdminDashboard() {
                     Remove Admin
                   </Button>
                 )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => handleResetPassword(selectedUser.id, selectedUser.email)}
+                >
+                  <Key className="h-4 w-4" />
+                  Reset Password
+                </Button>
 
                 <Button
                   variant="destructive"
