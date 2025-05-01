@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Calendar, Clock, Heart, Trash2 } from "lucide-react"
-import { getCurrentEmail, getAssessmentHistory, clearAssessmentHistory } from "@/lib/simplified-history"
+import { getCurrentEmail, clearAssessmentHistory } from "@/lib/simplified-history"
 import { useAuth } from "@/lib/auth-context"
 
 export default function HistoryPage() {
@@ -23,14 +23,81 @@ export default function HistoryPage() {
   const initialEmail = user?.email || getCurrentEmail() // Get initial email here
 
   useEffect(() => {
-    setUserEmail(initialEmail)
-    loadAssessmentHistory(initialEmail)
-  }, [initialEmail])
+    // Try to get email from multiple sources
+    const userEmail =
+      user?.email ||
+      localStorage.getItem("currentUserEmail") ||
+      localStorage.getItem("heart_current_user_email") ||
+      initialEmail ||
+      "guest@example.com"
+
+    setUserEmail(userEmail)
+
+    // Save this email to both storage locations for consistency
+    if (typeof window !== "undefined") {
+      localStorage.setItem("currentUserEmail", userEmail)
+      localStorage.setItem("heart_current_user_email", userEmail)
+    }
+
+    loadAssessmentHistory(userEmail)
+  }, [initialEmail, user])
 
   const loadAssessmentHistory = (email) => {
     setLoading(true)
     try {
-      const history = getAssessmentHistory(email)
+      // Try multiple storage keys to find history
+      const historyKeys = [
+        `assessmentHistory_${email}`,
+        `heart_assessment_history_${email}`,
+        `heart_assessment_history_${email.toLowerCase()}`,
+      ]
+
+      let history = []
+
+      // Check each possible key
+      for (const key of historyKeys) {
+        const data = localStorage.getItem(key)
+        if (data) {
+          try {
+            const parsed = JSON.parse(data)
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              console.log(`Found history in key: ${key} with ${parsed.length} items`)
+              history = parsed
+              break // Use the first valid history we find
+            }
+          } catch (e) {
+            console.error(`Error parsing data from ${key}:`, e)
+          }
+        }
+      }
+
+      // Check if we have a recent prediction that's not in history
+      const recentPrediction = localStorage.getItem("predictionResult")
+      if (recentPrediction && history.length === 0) {
+        try {
+          const prediction = JSON.parse(recentPrediction)
+          if (prediction && prediction.result) {
+            // Add ID and timestamp if missing
+            if (!prediction.id) {
+              prediction.id = Math.random().toString(36).substring(2, 15)
+            }
+            if (!prediction.timestamp) {
+              prediction.timestamp = Date.now()
+            }
+
+            history = [prediction]
+
+            // Save this to all history keys
+            for (const key of historyKeys) {
+              localStorage.setItem(key, JSON.stringify(history))
+            }
+            console.log("Created history from recent prediction")
+          }
+        } catch (e) {
+          console.error("Error using recent prediction:", e)
+        }
+      }
+
       console.log(`Loaded ${history.length} assessments for ${email}`)
       setAssessments(history)
     } catch (error) {
@@ -65,6 +132,7 @@ export default function HistoryPage() {
     if (newEmail && newEmail !== userEmail) {
       setUserEmail(newEmail)
       localStorage.setItem("currentUserEmail", newEmail)
+      localStorage.setItem("heart_current_user_email", newEmail)
       loadAssessmentHistory(newEmail)
     }
     setIsEditingEmail(false)

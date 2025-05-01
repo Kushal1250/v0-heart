@@ -30,3 +30,66 @@ export async function saveAssessmentToServer(assessmentData: any): Promise<any> 
     return null
   }
 }
+
+export function saveAssessmentToHistory(assessment: any): void {
+  if (typeof window === "undefined") return
+
+  try {
+    // Get the user's email from multiple possible sources
+    const email =
+      localStorage.getItem("currentUserEmail") || localStorage.getItem("heart_current_user_email") || "user@example.com"
+
+    if (!email) {
+      console.error("No email found for saving assessment")
+      return
+    }
+
+    // Add ID and timestamp if missing
+    if (!assessment.id) {
+      assessment.id = Math.random().toString(36).substring(2, 15)
+    }
+    if (!assessment.timestamp) {
+      assessment.timestamp = Date.now()
+    }
+
+    // Save to predictionResult for immediate access
+    localStorage.setItem("predictionResult", JSON.stringify(assessment))
+
+    // Get existing history from multiple possible keys
+    const historyKeys = [
+      `assessmentHistory_${email}`,
+      `heart_assessment_history_${email}`,
+      `heart_assessment_history_${email.toLowerCase()}`,
+    ]
+
+    let history: any[] = []
+
+    // Try to find existing history
+    for (const key of historyKeys) {
+      const data = localStorage.getItem(key)
+      if (data) {
+        try {
+          const parsed = JSON.parse(data)
+          if (Array.isArray(parsed)) {
+            history = parsed
+            break
+          }
+        } catch (e) {
+          console.error(`Error parsing history from ${key}:`, e)
+        }
+      }
+    }
+
+    // Add new assessment to the beginning
+    const updatedHistory = [assessment, ...history]
+
+    // Save to all history keys for compatibility
+    for (const key of historyKeys) {
+      localStorage.setItem(key, JSON.stringify(updatedHistory))
+    }
+
+    console.log(`Saved assessment to history for ${email}`)
+  } catch (error) {
+    console.error("Error saving assessment to history:", error)
+  }
+}

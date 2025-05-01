@@ -79,23 +79,36 @@ export function getCurrentEmail(): string {
 
 // Save an assessment to history
 export function saveAssessment(email: string, assessment: any): void {
-  try {
-    // Get existing history or create new array
-    const historyKey = `assessmentHistory_${email}`
-    const existingHistory = localStorage.getItem(historyKey)
-    const history = existingHistory ? JSON.parse(existingHistory) : []
+  if (typeof window === "undefined") return
+  if (!email) return
 
-    // Add timestamp if not present
+  try {
+    // Add ID and timestamp if missing
+    if (!assessment.id) {
+      assessment.id = Math.random().toString(36).substring(2, 15)
+    }
     if (!assessment.timestamp) {
-      assessment.timestamp = new Date().toISOString()
+      assessment.timestamp = Date.now()
     }
 
-    // Add to history
-    history.push(assessment)
+    // Get existing history
+    const history = getAssessmentHistory(email)
 
-    // Save back to localStorage
-    localStorage.setItem(historyKey, JSON.stringify(history))
-    console.log(`Assessment saved for ${email}. Total assessments: ${history.length}`)
+    // Add new assessment to the beginning
+    const updatedHistory = [assessment, ...history]
+
+    // Save to multiple storage keys for compatibility
+    const historyKeys = [
+      `assessmentHistory_${email}`,
+      `heart_assessment_history_${email}`,
+      `heart_assessment_history_${email.toLowerCase()}`,
+    ]
+
+    for (const key of historyKeys) {
+      localStorage.setItem(key, JSON.stringify(updatedHistory))
+    }
+
+    console.log(`Saved assessment to history for ${email}`)
   } catch (error) {
     console.error("Error saving assessment:", error)
   }
@@ -103,12 +116,63 @@ export function saveAssessment(email: string, assessment: any): void {
 
 // Get assessment history for a user
 export function getAssessmentHistory(email: string): any[] {
+  if (typeof window === "undefined") return []
+  if (!email) return []
+
   try {
-    const historyKey = `assessmentHistory_${email}`
-    const existingHistory = localStorage.getItem(historyKey)
-    return existingHistory ? JSON.parse(existingHistory) : []
+    // Try multiple storage keys
+    const historyKeys = [
+      `assessmentHistory_${email}`,
+      `heart_assessment_history_${email}`,
+      `heart_assessment_history_${email.toLowerCase()}`,
+    ]
+
+    for (const key of historyKeys) {
+      const data = localStorage.getItem(key)
+      if (data) {
+        try {
+          const parsed = JSON.parse(data)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            console.log(`Found history in key: ${key} with ${parsed.length} items`)
+            return parsed
+          }
+        } catch (e) {
+          console.error(`Error parsing data from ${key}:`, e)
+        }
+      }
+    }
+
+    // Check if we have a recent prediction
+    const recentPrediction = localStorage.getItem("predictionResult")
+    if (recentPrediction) {
+      try {
+        const prediction = JSON.parse(recentPrediction)
+        if (prediction && prediction.result) {
+          // Add ID and timestamp if missing
+          if (!prediction.id) {
+            prediction.id = Math.random().toString(36).substring(2, 15)
+          }
+          if (!prediction.timestamp) {
+            prediction.timestamp = Date.now()
+          }
+
+          const history = [prediction]
+
+          // Save this to all history keys
+          for (const key of historyKeys) {
+            localStorage.setItem(key, JSON.stringify(history))
+          }
+          console.log("Created history from recent prediction")
+          return history
+        }
+      } catch (e) {
+        console.error("Error using recent prediction:", e)
+      }
+    }
+
+    return []
   } catch (error) {
-    console.error("Error getting assessment history:", error)
+    console.error("Error retrieving assessment history:", error)
     return []
   }
 }
