@@ -102,7 +102,7 @@ export function TwoFactorAuth({ isEnabled = false }: { isEnabled?: boolean }) {
             <div className="py-4">
               <p className="text-sm font-medium mb-3">Verification method:</p>
               <RadioGroup
-                value={method}
+                defaultValue={method}
                 onValueChange={(value) => setMethod(value as "sms" | "email")}
                 className="space-y-3"
               >

@@ -81,6 +81,7 @@ export function SecuritySettingsSection() {
             <span className={`text-sm ${securityInfo.twoFactorEnabled ? "text-green-500" : "text-red-500"}`}>
               {securityInfo.twoFactorEnabled ? "Enabled" : "Disabled"}
             </span>
+            {/* Use the TwoFactorAuth component with proper props */}
             <TwoFactorAuth isEnabled={securityInfo.twoFactorEnabled} />
           </div>
         </div>

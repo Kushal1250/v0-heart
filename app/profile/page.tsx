@@ -562,7 +562,10 @@ export default function ProfilePage() {
 
                     <div className="space-y-2">
                       <Label htmlFor="gender">Gender</Label>
-                      <Select value={formData.gender} onValueChange={(value) => handleSelectChange("gender", value)}>
+                      <Select
+                        defaultValue={formData.gender}
+                        onValueChange={(value) => handleSelectChange("gender", value)}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Select gender" />
                         </SelectTrigger>
