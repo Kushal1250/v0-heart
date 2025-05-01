@@ -139,7 +139,7 @@ export default function SystemPage() {
     <div className="container mx-auto p-4 md:p-6">
       <h1 className="mb-6 text-3xl font-bold">System</h1>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Database Management Section */}
         <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
           <CardHeader>
