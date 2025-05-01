@@ -1,251 +1,203 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import {
-  Database,
-  User,
-  Mail,
-  MessageSquare,
-  Activity,
-  BarChart2,
-  AlertTriangle,
-  Shield,
-  FileText,
-  Settings,
-} from "lucide-react"
+import type React from "react"
+
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import Link from "next/link"
 
-export default function SystemPage() {
-  const router = useRouter()
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [loading, setLoading] = useState(true)
+export default function AdminSystemPage() {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [systemStatus, setSystemStatus] = useState<any>(null)
 
-  // Check if user is admin
+  // Fetch system status on component mount
   useEffect(() => {
-    const checkAdmin = () => {
-      const cookies = document.cookie.split(";")
-      const isAdminCookie = cookies.find((cookie) => cookie.trim().startsWith("is_admin="))
-      const isAdmin = isAdminCookie ? isAdminCookie.split("=")[1] === "true" : false
-
-      setIsAdmin(isAdmin)
-
-      if (!isAdmin) {
-        setError("Not authenticated as admin. Please login again.")
-        setTimeout(() => {
-          router.push("/admin-login?redirect=/admin/system")
-        }, 2000)
+    const fetchSystemStatus = async () => {
+      try {
+        const response = await fetch("/api/admin/system-status")
+        if (response.ok) {
+          const data = await response.json()
+          setSystemStatus(data)
+        }
+      } catch (error) {
+        console.error("Error fetching system status:", error)
       }
-      setLoading(false)
     }
 
-    checkAdmin()
-  }, [router])
+    fetchSystemStatus()
+  }, [])
 
-  if (loading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="flex flex-col items-center gap-2">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-          <p className="text-sm text-muted-foreground">Loading system page...</p>
-        </div>
-      </div>
-    )
-  }
+  const handleSystemLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    setLoading(true)
 
-  if (!isAdmin) {
-    return (
-      <div className="container mx-auto p-6">
-        <Alert variant="destructive">
-          <AlertDescription>You do not have permission to access this page.</AlertDescription>
-        </Alert>
-        <div className="mt-4 flex justify-center">
-          <Button onClick={() => router.push("/admin-login?redirect=/admin/system")}>Login as Admin</Button>
-        </div>
-      </div>
-    )
+    try {
+      const response = await fetch("/api/auth/admin/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+        credentials: "include",
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.message || "System login failed")
+      }
+
+      setSuccess(true)
+
+      // Refresh the page after successful login
+      setTimeout(() => {
+        window.location.reload()
+      }, 1500)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unexpected error occurred")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">System Management</h1>
-        <p className="text-muted-foreground">Manage system components and diagnostics</p>
+      <h1 className="text-3xl font-bold mb-6">System Administration</h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Existing System Status Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>System Status</CardTitle>
+            <CardDescription>Current system health and diagnostics</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {systemStatus ? (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-medium">Database Status</h3>
+                  <p className={systemStatus.database ? "text-green-600" : "text-red-600"}>
+                    {systemStatus.database ? "Connected" : "Disconnected"}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-medium">Email Service</h3>
+                  <p className={systemStatus.email ? "text-green-600" : "text-red-600"}>
+                    {systemStatus.email ? "Operational" : "Not Configured"}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-medium">SMS Service</h3>
+                  <p className={systemStatus.sms ? "text-green-600" : "text-red-600"}>
+                    {systemStatus.sms ? "Operational" : "Not Configured"}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p>Loading system status...</p>
+            )}
+          </CardContent>
+          <CardFooter>
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/admin/system-health">View Detailed Health</Link>
+            </Button>
+          </CardFooter>
+        </Card>
+
+        {/* New Admin Login Card (matching the screenshot) */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Admin Login</CardTitle>
+            <CardDescription>Sign in to access the admin dashboard</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {success && (
+              <Alert className="mb-4 bg-green-50">
+                <AlertDescription className="text-green-600">Login successful! Redirecting...</AlertDescription>
+              </Alert>
+            )}
+
+            <form onSubmit={handleSystemLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@example.com"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
+                {loading ? "Signing in..." : "Sign in"}
+              </Button>
+            </form>
+          </CardContent>
+          <CardFooter className="flex justify-center">
+            <Link href="/" className="text-sm text-gray-500 hover:text-gray-700">
+              Return to home
+            </Link>
+          </CardFooter>
+        </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Database Management */}
-        <Card className="bg-[#0f1729] text-white">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold">Database Management</CardTitle>
-            <p className="text-sm text-gray-400">Manage database and migrations</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span>Database Status:</span>
-              <Badge variant="outline" className="bg-transparent">
-                Unknown
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Last Migration:</span>
-              <span className="text-gray-400">Unknown</span>
-            </div>
-            <Button variant="outline" className="w-full justify-center" asChild>
-              <Link href="/admin/migrate">
-                <Database className="mr-2 h-4 w-4" />
-                Run Migration
-              </Link>
-            </Button>
-            <Button variant="outline" className="w-full justify-center" asChild>
-              <Link href="/admin/database-diagnostics">
-                <FileText className="mr-2 h-4 w-4" />
-                Database Diagnostics
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+      {/* Additional System Tools Section */}
+      <div className="mt-8">
+        <h2 className="text-2xl font-bold mb-4">System Tools</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Button asChild variant="outline" className="h-auto py-4">
+            <Link href="/admin/diagnostics">
+              <div className="flex flex-col items-center">
+                <span className="text-lg font-medium">Run Diagnostics</span>
+                <span className="text-sm text-gray-500">Check system components</span>
+              </div>
+            </Link>
+          </Button>
 
-        {/* Authentication Systems */}
-        <Card className="bg-[#0f1729] text-white">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold">Authentication Systems</CardTitle>
-            <p className="text-sm text-gray-400">Fix auth related issues</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span>Verification System:</span>
-              <Badge variant="outline" className="bg-transparent">
-                Not Configured
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Password Reset System:</span>
-              <Badge variant="outline" className="bg-transparent">
-                Active
-              </Badge>
-            </div>
-            <Button variant="outline" className="w-full justify-center" asChild>
-              <Link href="/admin/verification-settings">
-                <User className="mr-2 h-4 w-4" />
-                Fix Verification System
-              </Link>
-            </Button>
-            <Button variant="outline" className="w-full justify-center" asChild>
-              <Link href="/admin/fix-issues">
-                <Shield className="mr-2 h-4 w-4" />
-                Fix Password Reset System
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+          <Button asChild variant="outline" className="h-auto py-4">
+            <Link href="/admin/fix-issues">
+              <div className="flex flex-col items-center">
+                <span className="text-lg font-medium">Fix Issues</span>
+                <span className="text-sm text-gray-500">Repair common problems</span>
+              </div>
+            </Link>
+          </Button>
 
-        {/* Notification Services */}
-        <Card className="bg-[#0f1729] text-white">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold">Notification Services</CardTitle>
-            <p className="text-sm text-gray-400">Manage email and SMS services</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span>Email Service:</span>
-              <Badge variant="outline" className="bg-transparent">
-                Not Configured
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>SMS Service:</span>
-              <Badge variant="outline" className="bg-transparent">
-                Not Configured
-              </Badge>
-            </div>
-            <Button variant="outline" className="w-full justify-center" asChild>
-              <Link href="/admin/email-settings">
-                <Mail className="mr-2 h-4 w-4" />
-                Email Settings
-              </Link>
-            </Button>
-            <Button variant="outline" className="w-full justify-center" asChild>
-              <Link href="/admin/sms-diagnostics">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                SMS Settings
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* System Diagnostics */}
-        <Card className="bg-[#0f1729] text-white">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold">System Diagnostics</CardTitle>
-            <p className="text-sm text-gray-400">Debug and repair tools</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button variant="outline" className="w-full justify-center" asChild>
-              <Link href="/admin/diagnostics">
-                <Activity className="mr-2 h-4 w-4" />
-                General Diagnostics
-              </Link>
-            </Button>
-            <Button variant="outline" className="w-full justify-center" asChild>
-              <Link href="/admin/email-diagnostics">
-                <Mail className="mr-2 h-4 w-4" />
-                Email Diagnostics
-              </Link>
-            </Button>
-            <Button variant="outline" className="w-full justify-center" asChild>
-              <Link href="/admin/sms-diagnostics">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                SMS Diagnostics
-              </Link>
-            </Button>
-            <Button variant="outline" className="w-full justify-center" asChild>
-              <Link href="/admin/fix-issues">
-                <AlertTriangle className="mr-2 h-4 w-4" />
-                Fix System Issues
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Admin Tools */}
-        <Card className="bg-[#0f1729] text-white">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold">Admin Tools</CardTitle>
-            <p className="text-sm text-gray-400">Additional administrative tools</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button variant="outline" className="w-full justify-center" asChild>
-              <Link href="/admin/system-health">
-                <BarChart2 className="mr-2 h-4 w-4" />
-                System Health
-              </Link>
-            </Button>
-            <Button variant="outline" className="w-full justify-center" asChild>
-              <Link href="/admin/detailed-db-diagnostics">
-                <Database className="mr-2 h-4 w-4" />
-                Detailed DB Diagnostics
-              </Link>
-            </Button>
-            <Button variant="outline" className="w-full justify-center" asChild>
-              <Link href="/admin/reset-token-diagnostics">
-                <Shield className="mr-2 h-4 w-4" />
-                Reset Token Diagnostics
-              </Link>
-            </Button>
-            <Button variant="outline" className="w-full justify-center" asChild>
-              <Link href="/admin/fix-database">
-                <Settings className="mr-2 h-4 w-4" />
-                Fix Database
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+          <Button asChild variant="outline" className="h-auto py-4">
+            <Link href="/admin/database-diagnostics">
+              <div className="flex flex-col items-center">
+                <span className="text-lg font-medium">Database Tools</span>
+                <span className="text-sm text-gray-500">Manage database</span>
+              </div>
+            </Link>
+          </Button>
+        </div>
       </div>
     </div>
   )
