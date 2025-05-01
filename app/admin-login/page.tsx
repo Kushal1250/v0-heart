@@ -5,21 +5,15 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectPath = searchParams.get("redirect") || "/admin"
+  const redirect = searchParams?.get("redirect") || "/admin"
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,52 +21,26 @@ export default function AdminLoginPage() {
     setLoading(true)
 
     try {
-      console.log("Submitting admin login with:", { email, password })
-
-      // Clear any existing cookies
-      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
-      document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
-      document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
-
       const response = await fetch("/api/auth/admin/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password }),
-        credentials: "include",
       })
 
-      console.log("Admin login response status:", response.status)
+      const data = await response.json()
 
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.message || "Admin login failed")
+        throw new Error(data.message || "Login failed")
       }
 
-      const data = await response.json()
-      console.log("Admin login success:", data)
+      // Set admin cookie
+      document.cookie = "is_admin=true; path=/; max-age=86400" // 24 hours
 
-      // Check if cookies were set
-      setTimeout(() => {
-        const cookies = document.cookie
-        console.log("Cookies after login:", cookies)
-
-        const isAdminCookie = cookies.split(";").find((cookie) => cookie.trim().startsWith("is_admin="))
-        if (!isAdminCookie || isAdminCookie.split("=")[1] !== "true") {
-          console.warn("Admin cookie not set properly")
-        }
-      }, 100)
-
-      setSuccess(true)
-
-      // Redirect after a short delay to show success message
-      setTimeout(() => {
-        // Force a hard navigation to the admin page
-        window.location.href = redirectPath
-      }, 1500)
+      // Redirect to admin dashboard or specified redirect path
+      router.push(redirect)
     } catch (err) {
-      console.error("Admin login error:", err)
       setError(err instanceof Error ? err.message : "An unexpected error occurred")
     } finally {
       setLoading(false)
@@ -80,61 +48,80 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl">Admin Login</CardTitle>
-          <CardDescription>Sign in to access the admin dashboard</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm py-4">
+        <div className="container mx-auto px-4 flex items-center">
+          <Link href="/" className="flex items-center">
+            <div className="text-red-500 mr-2">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+              </svg>
+            </div>
+            <span className="font-bold text-lg">HeartPredict</span>
+          </Link>
+          <nav className="ml-6">
+            <Link href="/" className="text-gray-600 hover:text-gray-900">
+              Home
+            </Link>
+          </nav>
+        </div>
+      </header>
 
-          {success && (
-            <Alert className="mb-4 bg-green-50">
-              <AlertDescription className="text-green-600">
-                Login successful! Redirecting to admin dashboard...
-              </AlertDescription>
-            </Alert>
-          )}
+      {/* Login Form */}
+      <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
+        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+          <h1 className="text-2xl font-bold mb-1">Admin Login</h1>
+          <p className="text-gray-600 mb-6">Sign in to access the admin dashboard</p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
+          {error && <div className="bg-red-50 text-red-600 p-3 rounded-md mb-4">{error}</div>}
+
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <label htmlFor="email" className="block text-gray-700 mb-2">
+                Email
+              </label>
+              <input
                 type="email"
+                id="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@example.com"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
+
+            <div className="mb-6">
+              <label htmlFor="password" className="block text-gray-700 mb-2">
+                Password
+              </label>
+              <input
                 type="password"
+                id="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-md"
+            >
               {loading ? "Signing in..." : "Sign in"}
-            </Button>
+            </button>
           </form>
-        </CardContent>
-        <CardFooter className="flex justify-center">
-          <Link href="/" className="text-sm text-gray-500 hover:text-gray-700">
-            Return to home
-          </Link>
-        </CardFooter>
-      </Card>
+
+          <div className="mt-6 text-center">
+            <Link href="/" className="text-gray-500 hover:text-gray-700 text-sm">
+              Return to home
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
