@@ -1,202 +1,258 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
+import {
+  Database,
+  FileText,
+  User,
+  Shield,
+  Mail,
+  MessageSquare,
+  Activity,
+  BarChart2,
+  AlertTriangle,
+  Settings,
+} from "lucide-react"
 
-export default function AdminSystemPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
+export default function SystemPage() {
+  const router = useRouter()
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [systemStatus, setSystemStatus] = useState<any>(null)
 
-  // Fetch system status on component mount
+  // Check if user is admin
   useEffect(() => {
-    const fetchSystemStatus = async () => {
+    const checkAdmin = async () => {
       try {
-        const response = await fetch("/api/admin/system-status")
-        if (response.ok) {
-          const data = await response.json()
-          setSystemStatus(data)
+        const response = await fetch("/api/auth/user")
+        const data = await response.json()
+
+        if (data.user && data.user.role === "admin") {
+          setIsAdmin(true)
+        } else {
+          setError("Not authenticated as admin. Please login again.")
+          setTimeout(() => {
+            router.push("/admin-login?redirect=/admin/system")
+          }, 2000)
         }
       } catch (error) {
-        console.error("Error fetching system status:", error)
+        console.error("Error checking admin status:", error)
+        setError("Error checking admin status")
+      } finally {
+        setLoading(false)
       }
     }
 
-    fetchSystemStatus()
-  }, [])
+    checkAdmin()
+  }, [router])
 
-  const handleSystemLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setLoading(true)
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-[#0a0a14]">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <p className="text-sm text-gray-400">Loading system page...</p>
+        </div>
+      </div>
+    )
+  }
 
-    try {
-      const response = await fetch("/api/auth/admin/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-        credentials: "include",
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.message || "System login failed")
-      }
-
-      setSuccess(true)
-
-      // Refresh the page after successful login
-      setTimeout(() => {
-        window.location.reload()
-      }, 1500)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred")
-    } finally {
-      setLoading(false)
-    }
+  if (!isAdmin) {
+    return (
+      <div className="container mx-auto p-6 bg-[#0a0a14] text-white min-h-screen">
+        <div className="bg-red-900/20 border border-red-800 p-4 rounded-md">
+          <p className="text-red-200">You do not have permission to access this page.</p>
+        </div>
+        <div className="mt-4 flex justify-center">
+          <button
+            onClick={() => router.push("/admin-login?redirect=/admin/system")}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white"
+          >
+            Login as Admin
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">System Administration</h1>
+    <div className="container mx-auto p-6 bg-[#0a0a14] text-white min-h-screen">
+      <h1 className="text-2xl font-bold mb-6">System Management</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Existing System Status Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>System Status</CardTitle>
-            <CardDescription>Current system health and diagnostics</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {systemStatus ? (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-medium">Database Status</h3>
-                  <p className={systemStatus.database ? "text-green-600" : "text-red-600"}>
-                    {systemStatus.database ? "Connected" : "Disconnected"}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-medium">Email Service</h3>
-                  <p className={systemStatus.email ? "text-green-600" : "text-red-600"}>
-                    {systemStatus.email ? "Operational" : "Not Configured"}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-medium">SMS Service</h3>
-                  <p className={systemStatus.sms ? "text-green-600" : "text-red-600"}>
-                    {systemStatus.sms ? "Operational" : "Not Configured"}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <p>Loading system status...</p>
-            )}
-          </CardContent>
-          <CardFooter>
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/admin/system-health">View Detailed Health</Link>
-            </Button>
-          </CardFooter>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Database Management */}
+        <div className="p-6 bg-[#0f0f1a] border border-gray-800 rounded-lg">
+          <h2 className="text-xl font-bold mb-1">Database Management</h2>
+          <p className="text-gray-400 text-sm mb-4">Manage database and migrations</p>
 
-        {/* New Admin Login Card (matching the screenshot) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Admin Login</CardTitle>
-            <CardDescription>Sign in to access the admin dashboard</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {error && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+          <div className="flex justify-between items-center mb-2">
+            <span>Database Status:</span>
+            <span className="bg-gray-700 text-white px-2 py-1 rounded text-xs">Unknown</span>
+          </div>
 
-            {success && (
-              <Alert className="mb-4 bg-green-50">
-                <AlertDescription className="text-green-600">Login successful! Redirecting...</AlertDescription>
-              </Alert>
-            )}
+          <div className="flex justify-between items-center mb-6">
+            <span>Last Migration:</span>
+            <span className="text-gray-400">Unknown</span>
+          </div>
 
-            <form onSubmit={handleSystemLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@example.com"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
-                {loading ? "Signing in..." : "Sign in"}
-              </Button>
-            </form>
-          </CardContent>
-          <CardFooter className="flex justify-center">
-            <Link href="/" className="text-sm text-gray-500 hover:text-gray-700">
-              Return to home
+          <div className="space-y-3">
+            <Link
+              href="/admin/migrate"
+              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
+            >
+              <Database className="h-5 w-5 mr-2" />
+              Run Migration
             </Link>
-          </CardFooter>
-        </Card>
-      </div>
-
-      {/* Additional System Tools Section */}
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold mb-4">System Tools</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Button asChild variant="outline" className="h-auto py-4">
-            <Link href="/admin/diagnostics">
-              <div className="flex flex-col items-center">
-                <span className="text-lg font-medium">Run Diagnostics</span>
-                <span className="text-sm text-gray-500">Check system components</span>
-              </div>
+            <Link
+              href="/admin/database-diagnostics"
+              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
+            >
+              <FileText className="h-5 w-5 mr-2" />
+              Database Diagnostics
             </Link>
-          </Button>
+          </div>
+        </div>
 
-          <Button asChild variant="outline" className="h-auto py-4">
-            <Link href="/admin/fix-issues">
-              <div className="flex flex-col items-center">
-                <span className="text-lg font-medium">Fix Issues</span>
-                <span className="text-sm text-gray-500">Repair common problems</span>
-              </div>
-            </Link>
-          </Button>
+        {/* Authentication Systems */}
+        <div className="p-6 bg-[#0f0f1a] border border-gray-800 rounded-lg">
+          <h2 className="text-xl font-bold mb-1">Authentication Systems</h2>
+          <p className="text-gray-400 text-sm mb-4">Fix auth related issues</p>
 
-          <Button asChild variant="outline" className="h-auto py-4">
-            <Link href="/admin/database-diagnostics">
-              <div className="flex flex-col items-center">
-                <span className="text-lg font-medium">Database Tools</span>
-                <span className="text-sm text-gray-500">Manage database</span>
-              </div>
+          <div className="flex justify-between items-center mb-2">
+            <span>Verification System:</span>
+            <span className="bg-red-900 text-white px-2 py-1 rounded text-xs">Not Configured</span>
+          </div>
+
+          <div className="flex justify-between items-center mb-6">
+            <span>Password Reset System:</span>
+            <span className="bg-green-900 text-white px-2 py-1 rounded text-xs">Active</span>
+          </div>
+
+          <div className="space-y-3">
+            <Link
+              href="/admin/verification-settings"
+              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
+            >
+              <User className="h-5 w-5 mr-2" />
+              Fix Verification System
             </Link>
-          </Button>
+            <Link
+              href="/admin/reset-token-diagnostics"
+              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
+            >
+              <Shield className="h-5 w-5 mr-2" />
+              Fix Password Reset System
+            </Link>
+          </div>
+        </div>
+
+        {/* Notification Services */}
+        <div className="p-6 bg-[#0f0f1a] border border-gray-800 rounded-lg">
+          <h2 className="text-xl font-bold mb-1">Notification Services</h2>
+          <p className="text-gray-400 text-sm mb-4">Manage email and SMS services</p>
+
+          <div className="flex justify-between items-center mb-2">
+            <span>Email Service:</span>
+            <span className="bg-red-900 text-white px-2 py-1 rounded text-xs">Not Configured</span>
+          </div>
+
+          <div className="flex justify-between items-center mb-6">
+            <span>SMS Service:</span>
+            <span className="bg-red-900 text-white px-2 py-1 rounded text-xs">Not Configured</span>
+          </div>
+
+          <div className="space-y-3">
+            <Link
+              href="/admin/email-settings"
+              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
+            >
+              <Mail className="h-5 w-5 mr-2" />
+              Email Settings
+            </Link>
+            <Link
+              href="/admin/sms-diagnostics"
+              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
+            >
+              <MessageSquare className="h-5 w-5 mr-2" />
+              SMS Settings
+            </Link>
+          </div>
+        </div>
+
+        {/* System Diagnostics */}
+        <div className="p-6 bg-[#0f0f1a] border border-gray-800 rounded-lg">
+          <h2 className="text-xl font-bold mb-1">System Diagnostics</h2>
+          <p className="text-gray-400 text-sm mb-4">Debug and repair tools</p>
+
+          <div className="space-y-3">
+            <Link
+              href="/admin/diagnostics"
+              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
+            >
+              <Activity className="h-5 w-5 mr-2" />
+              General Diagnostics
+            </Link>
+            <Link
+              href="/admin/email-diagnostics"
+              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
+            >
+              <Mail className="h-5 w-5 mr-2" />
+              Email Diagnostics
+            </Link>
+            <Link
+              href="/admin/sms-diagnostics"
+              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
+            >
+              <MessageSquare className="h-5 w-5 mr-2" />
+              SMS Diagnostics
+            </Link>
+            <Link
+              href="/admin/fix-issues"
+              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
+            >
+              <AlertTriangle className="h-5 w-5 mr-2" />
+              Fix System Issues
+            </Link>
+          </div>
+        </div>
+
+        {/* Admin Tools */}
+        <div className="p-6 bg-[#0f0f1a] border border-gray-800 rounded-lg">
+          <h2 className="text-xl font-bold mb-1">Admin Tools</h2>
+          <p className="text-gray-400 text-sm mb-4">Additional administrative tools</p>
+
+          <div className="space-y-3">
+            <Link
+              href="/admin/system-health"
+              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
+            >
+              <BarChart2 className="h-5 w-5 mr-2" />
+              System Health
+            </Link>
+            <Link
+              href="/admin/detailed-db-diagnostics"
+              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
+            >
+              <Database className="h-5 w-5 mr-2" />
+              Detailed DB Diagnostics
+            </Link>
+            <Link
+              href="/admin/reset-token-diagnostics"
+              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
+            >
+              <Shield className="h-5 w-5 mr-2" />
+              Reset Token Diagnostics
+            </Link>
+            <Link
+              href="/admin/fix-database"
+              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
+            >
+              <Settings className="h-5 w-5 mr-2" />
+              Fix Database
+            </Link>
+          </div>
         </div>
       </div>
     </div>
