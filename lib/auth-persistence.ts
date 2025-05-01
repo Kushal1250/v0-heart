@@ -1,87 +1,46 @@
-"use client"
+/**
+ * Utility functions to help with authentication persistence
+ */
 
-// This file helps maintain authentication state across page refreshes
+// Function to check if the session is valid based on localStorage
+export function isSessionValid(): boolean {
+  try {
+    const userExpiry = localStorage.getItem("userExpiry")
+    if (!userExpiry) return false
 
-export function persistAuthState() {
-  // Check if we're in a browser environment
-  if (typeof window === "undefined") return
-
-  // Set up an interval to refresh the auth token
-  const intervalId = setInterval(
-    () => {
-      try {
-        // Send a request to keep the session alive
-        fetch("/api/auth/user", {
-          method: "GET",
-          credentials: "include",
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-        })
-          .then((response) => {
-            if (!response.ok) {
-              console.log("Session refresh failed, may need to re-login")
-            } else {
-              console.log("Session refreshed successfully")
-            }
-          })
-          .catch((error) => {
-            console.error("Error refreshing session:", error)
-          })
-      } catch (error) {
-        console.error("Error in auth persistence interval:", error)
-      }
-    },
-    10 * 60 * 1000,
-  ) // Refresh every 10 minutes
-
-  // Clean up the interval when the component unmounts
-  return () => clearInterval(intervalId)
-}
-
-export function setupAuthPersistence() {
-  // Check if we're in a browser environment
-  if (typeof window === "undefined") return
-
-  // Set up event listeners for page visibility changes
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
-      // When the page becomes visible again, check auth status
-      fetch("/api/auth/user", {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          "Cache-Control": "no-cache",
-        },
-      })
-        .then((response) => {
-          if (!response.ok) {
-            console.log("Session may have expired while away")
-          }
-        })
-        .catch((error) => {
-          console.error("Error checking session on visibility change:", error)
-        })
-    }
-  })
-
-  // Return the cleanup function
-  return () => {
-    document.removeEventListener("visibilitychange", () => {})
+    const expiryTime = Number.parseInt(userExpiry, 10)
+    return new Date().getTime() < expiryTime
+  } catch (error) {
+    console.error("Error checking session validity:", error)
+    return false
   }
 }
 
-export function getStoredAuthData() {
-  // Check if we're in a browser environment
-  if (typeof window === "undefined") return null
-
+// Function to refresh the session expiry time
+export function refreshSessionExpiry(): void {
   try {
-    const userData = localStorage.getItem("user")
-    if (!userData) return null
-
-    return JSON.parse(userData)
+    // Set expiry to 2 hours from now
+    localStorage.setItem("userExpiry", (new Date().getTime() + 2 * 60 * 60 * 1000).toString())
   } catch (error) {
-    console.error("Error getting stored auth data:", error)
+    console.error("Error refreshing session expiry:", error)
+  }
+}
+
+// Function to get cached user data
+export function getCachedUser() {
+  try {
+    const cachedUser = localStorage.getItem("user")
+    return cachedUser ? JSON.parse(cachedUser) : null
+  } catch (error) {
+    console.error("Error getting cached user:", error)
     return null
   }
+}
+
+// Function to clear all auth-related data
+export function clearAuthData(): void {
+  localStorage.removeItem("user")
+  localStorage.removeItem("userExpiry")
+  document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+  document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
 }

@@ -8,16 +8,6 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, Calendar, Clock, Heart, Trash2 } from "lucide-react"
 import { getCurrentEmail, clearAssessmentHistory } from "@/lib/simplified-history"
 import { useAuth } from "@/lib/auth-context"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 
 export default function HistoryPage() {
   const router = useRouter()
@@ -28,11 +18,6 @@ export default function HistoryPage() {
 
   const [isEditingEmail, setIsEditingEmail] = useState(false)
   const [newEmail, setNewEmail] = useState("")
-
-  // Dialog state
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [clearDialogOpen, setClearDialogOpen] = useState(false)
-  const [assessmentToDelete, setAssessmentToDelete] = useState(null)
 
   const { user } = useAuth() // Get user from auth context at the top level
   const initialEmail = user?.email || getCurrentEmail() // Get initial email here
@@ -124,13 +109,10 @@ export default function HistoryPage() {
   }
 
   const handleClearHistory = () => {
-    setClearDialogOpen(true)
-  }
-
-  const confirmClearHistory = () => {
-    clearAssessmentHistory(userEmail)
-    setAssessments([])
-    setClearDialogOpen(false)
+    if (confirm("Are you sure you want to clear your assessment history?")) {
+      clearAssessmentHistory(userEmail)
+      setAssessments([])
+    }
   }
 
   const handleViewAssessment = (assessment) => {
@@ -180,29 +162,14 @@ export default function HistoryPage() {
   }
 
   const handleDeleteAssessment = (index) => {
-    setAssessmentToDelete(index)
-    setDeleteDialogOpen(true)
-  }
-
-  const confirmDeleteAssessment = () => {
-    if (assessmentToDelete !== null) {
+    if (confirm("Are you sure you want to delete this assessment?")) {
       const updatedAssessments = [...assessments]
-      updatedAssessments.splice(assessmentToDelete, 1)
+      updatedAssessments.splice(index, 1)
       setAssessments(updatedAssessments)
 
-      // Update localStorage with all possible keys
-      const historyKeys = [
-        `assessmentHistory_${userEmail}`,
-        `heart_assessment_history_${userEmail}`,
-        `heart_assessment_history_${userEmail.toLowerCase()}`,
-      ]
-
-      for (const key of historyKeys) {
-        localStorage.setItem(key, JSON.stringify(updatedAssessments))
-      }
-
-      setDeleteDialogOpen(false)
-      setAssessmentToDelete(null)
+      // Update localStorage
+      const historyKey = `assessmentHistory_${userEmail}`
+      localStorage.setItem(historyKey, JSON.stringify(updatedAssessments))
     }
   }
 
@@ -386,42 +353,6 @@ export default function HistoryPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Delete Assessment Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="bg-gray-900 border-gray-800">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Assessment</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this assessment? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-gray-800 hover:bg-gray-700 border-gray-700">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteAssessment} className="bg-red-600 hover:bg-red-700">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Clear History Dialog */}
-      <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
-        <AlertDialogContent className="bg-gray-900 border-gray-800">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Clear Assessment History</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to clear your entire assessment history? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-gray-800 hover:bg-gray-700 border-gray-700">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmClearHistory} className="bg-red-600 hover:bg-red-700">
-              Clear All
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
