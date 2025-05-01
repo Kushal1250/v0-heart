@@ -16,6 +16,8 @@ import {
   UserX,
   Shield,
   Key,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -67,6 +69,9 @@ interface SystemHealth {
   overall: "healthy" | "warning" | "critical"
 }
 
+type SortField = "name" | "email" | "created_at"
+type SortOrder = "asc" | "desc"
+
 export default function AdminDashboard() {
   const router = useRouter()
   const [users, setUsers] = useState<User[]>([])
@@ -87,6 +92,8 @@ export default function AdminDashboard() {
   const [showUserDialog, setShowUserDialog] = useState(false)
   const [showPredictionDialog, setShowPredictionDialog] = useState(false)
   const [deleteConfirmation, setDeleteConfirmation] = useState<string | null>(null)
+  const [sortField, setSortField] = useState<SortField>("created_at")
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc")
   const [systemHealth, setSystemHealth] = useState({
     database: true,
     email: true,
@@ -134,20 +141,44 @@ export default function AdminDashboard() {
     }
   }, [isAdmin])
 
-  // Filter users based on search term
+  // Filter and sort users based on search term and sort settings
   useEffect(() => {
+    let filtered = [...users]
+
+    // Apply search filter
     if (searchTerm) {
-      const filtered = users.filter(
+      filtered = filtered.filter(
         (user) =>
           user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
           (user.name && user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
           (user.phone && user.phone.toLowerCase().includes(searchTerm.toLowerCase())),
       )
-      setFilteredUsers(filtered)
-    } else {
-      setFilteredUsers(users)
     }
-  }, [searchTerm, users])
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let valueA: string | null = a[sortField] || ""
+      let valueB: string | null = b[sortField] || ""
+
+      // Handle null values
+      if (valueA === null) valueA = ""
+      if (valueB === null) valueB = ""
+
+      // For dates, convert to timestamp for comparison
+      if (sortField === "created_at") {
+        const dateA = new Date(valueA).getTime()
+        const dateB = new Date(valueB).getTime()
+        return sortOrder === "asc" ? dateA - dateB : dateB - dateA
+      }
+
+      // For strings, use localeCompare
+      return sortOrder === "asc"
+        ? valueA.toString().localeCompare(valueB.toString())
+        : valueB.toString().localeCompare(valueA.toString())
+    })
+
+    setFilteredUsers(filtered)
+  }, [searchTerm, users, sortField, sortOrder])
 
   // Filter predictions based on search term
   useEffect(() => {
@@ -369,14 +400,6 @@ export default function AdminDashboard() {
       // Update user in state
       const updatedUsers = users.map((user) => (user.id === userId ? { ...user, role: newRole } : user))
       setUsers(updatedUsers)
-      setFilteredUsers(
-        updatedUsers.filter(
-          (user) =>
-            user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (user.name && user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (user.phone && user.phone.toLowerCase().includes(searchTerm.toLowerCase())),
-        ),
-      )
       setShowUserDialog(false)
     } catch (err) {
       console.error("Error updating user role:", err)
@@ -406,6 +429,28 @@ export default function AdminDashboard() {
       console.error("Error resetting password:", err)
       setError(err instanceof Error ? err.message : "Failed to reset password")
     }
+  }
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle sort order if clicking the same field
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+    } else {
+      // Set new field and default to ascending order
+      setSortField(field)
+      setSortOrder("asc")
+    }
+  }
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return null
+    }
+    return sortOrder === "asc" ? (
+      <ChevronUp className="ml-1 h-4 w-4 inline" />
+    ) : (
+      <ChevronDown className="ml-1 h-4 w-4 inline" />
+    )
   }
 
   const handleLoginRetry = () => {
@@ -607,11 +652,7 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{(stats.averageRisk * 100).toFixed(1)}%</div>
-                <Progress
-                  value={stats.averageRisk * 100}
-                  className="mt-2"
-                  indicatorColor={stats.averageRisk > 0.5 ? "bg-red-500" : "bg-green-500"}
-                />
+                <Progress value={stats.averageRisk * 100} className="mt-2" />
               </CardContent>
             </Card>
 
@@ -744,11 +785,26 @@ export default function AdminDashboard() {
             <Table>
               <TableHeader className="bg-[#0c0c14] text-white">
                 <TableRow>
-                  <TableHead className="cursor-pointer">Name ↕</TableHead>
-                  <TableHead className="cursor-pointer">Email ↕</TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-[#1e1e2f] transition-colors"
+                    onClick={() => handleSort("name")}
+                  >
+                    Name {getSortIcon("name")}
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-[#1e1e2f] transition-colors"
+                    onClick={() => handleSort("email")}
+                  >
+                    Email {getSortIcon("email")}
+                  </TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Provider</TableHead>
-                  <TableHead className="cursor-pointer">Created ↕</TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-[#1e1e2f] transition-colors"
+                    onClick={() => handleSort("created_at")}
+                  >
+                    Created {getSortIcon("created_at")}
+                  </TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
