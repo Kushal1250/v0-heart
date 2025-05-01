@@ -562,7 +562,7 @@ export default function ProfilePage() {
 
                     <div className="space-y-2">
                       <Label htmlFor="gender">Gender</Label>
-                      <Select onValueChange={(value) => handleSelectChange("gender", value)}>
+                      <Select value={formData.gender} onValueChange={(value) => handleSelectChange("gender", value)}>
                         <SelectTrigger id="gender">
                           <SelectValue placeholder="Select gender" />
                         </SelectTrigger>
@@ -664,7 +664,10 @@ export default function ProfilePage() {
 
                     <div className="space-y-2">
                       <Label htmlFor="bloodType">Blood Type</Label>
-                      <Select onValueChange={(value) => handleSelectChange("bloodType", value)}>
+                      <Select
+                        value={formData.bloodType}
+                        onValueChange={(value) => handleSelectChange("bloodType", value)}
+                      >
                         <SelectTrigger id="bloodType">
                           <SelectValue placeholder="Select blood type" />
                         </SelectTrigger>

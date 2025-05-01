@@ -198,12 +198,7 @@ export function PredictionForm() {
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              <Select
-                name="sex"
-                value={formData.sex}
-                onValueChange={(value) => handleSelectChange("sex", value)}
-                required
-              >
+              <Select value={formData.sex} onValueChange={(value) => handleSelectChange("sex", value)}>
                 <SelectTrigger className="bg-gray-800 border-gray-700">
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
@@ -272,7 +267,7 @@ export function PredictionForm() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="cp">Chest Pain Type</Label>
-              <Select name="cp" value={formData.cp} onValueChange={(value) => handleSelectChange("cp", value)}>
+              <Select value={formData.cp} onValueChange={(value) => handleSelectChange("cp", value)}>
                 <SelectTrigger className="bg-gray-800 border-gray-700">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -287,7 +282,7 @@ export function PredictionForm() {
 
             <div className="space-y-2">
               <Label htmlFor="fbs">Fasting Blood Sugar &gt; 120 mg/dl</Label>
-              <Select name="fbs" value={formData.fbs} onValueChange={(value) => handleSelectChange("fbs", value)}>
+              <Select value={formData.fbs} onValueChange={(value) => handleSelectChange("fbs", value)}>
                 <SelectTrigger className="bg-gray-800 border-gray-700">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
@@ -302,11 +297,7 @@ export function PredictionForm() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="restecg">Resting ECG Results</Label>
-              <Select
-                name="restecg"
-                value={formData.restecg}
-                onValueChange={(value) => handleSelectChange("restecg", value)}
-              >
+              <Select value={formData.restecg} onValueChange={(value) => handleSelectChange("restecg", value)}>
                 <SelectTrigger className="bg-gray-800 border-gray-700">
                   <SelectValue placeholder="Select result" />
                 </SelectTrigger>
@@ -348,7 +339,7 @@ export function PredictionForm() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="exang">Exercise Induced Angina</Label>
-              <Select name="exang" value={formData.exang} onValueChange={(value) => handleSelectChange("exang", value)}>
+              <Select value={formData.exang} onValueChange={(value) => handleSelectChange("exang", value)}>
                 <SelectTrigger className="bg-gray-800 border-gray-700">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
@@ -377,7 +368,7 @@ export function PredictionForm() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="slope">Slope of Peak Exercise ST Segment</Label>
-              <Select name="slope" value={formData.slope} onValueChange={(value) => handleSelectChange("slope", value)}>
+              <Select value={formData.slope} onValueChange={(value) => handleSelectChange("slope", value)}>
                 <SelectTrigger className="bg-gray-800 border-gray-700">
                   <SelectValue placeholder="Select slope" />
                 </SelectTrigger>
@@ -391,7 +382,7 @@ export function PredictionForm() {
 
             <div className="space-y-2">
               <Label htmlFor="ca">Number of Major Vessels</Label>
-              <Select name="ca" value={formData.ca} onValueChange={(value) => handleSelectChange("ca", value)}>
+              <Select value={formData.ca} onValueChange={(value) => handleSelectChange("ca", value)}>
                 <SelectTrigger className="bg-gray-800 border-gray-700">
                   <SelectValue placeholder="Select number" />
                 </SelectTrigger>
@@ -408,7 +399,7 @@ export function PredictionForm() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="thal">Thalassemia</Label>
-              <Select name="thal" value={formData.thal} onValueChange={(value) => handleSelectChange("thal", value)}>
+              <Select value={formData.thal} onValueChange={(value) => handleSelectChange("thal", value)}>
                 <SelectTrigger className="bg-gray-800 border-gray-700">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -424,11 +415,7 @@ export function PredictionForm() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="foodHabits">Food Habits</Label>
-              <Select
-                name="foodHabits"
-                value={formData.foodHabits}
-                onValueChange={(value) => handleSelectChange("foodHabits", value)}
-              >
+              <Select value={formData.foodHabits} onValueChange={(value) => handleSelectChange("foodHabits", value)}>
                 <SelectTrigger className="bg-gray-800 border-gray-700">
                   <SelectValue placeholder="Select food habits" />
                 </SelectTrigger>
@@ -443,7 +430,6 @@ export function PredictionForm() {
             <div className="space-y-2">
               <Label htmlFor="junkFoodConsumption">Junk Food Consumption</Label>
               <Select
-                name="junkFoodConsumption"
                 value={formData.junkFoodConsumption}
                 onValueChange={(value) => handleSelectChange("junkFoodConsumption", value)}
               >
@@ -462,7 +448,6 @@ export function PredictionForm() {
           <div className="space-y-2">
             <Label htmlFor="sleepingHours">Average Sleeping Hours</Label>
             <Select
-              name="sleepingHours"
               value={formData.sleepingHours}
               onValueChange={(value) => handleSelectChange("sleepingHours", value)}
             >
