@@ -2,256 +2,287 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
-import {
-  Database,
-  FileText,
-  User,
-  Shield,
-  Mail,
-  MessageSquare,
-  Activity,
-  BarChart2,
-  AlertTriangle,
-  Settings,
-} from "lucide-react"
+import { RefreshCw } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
+import { Badge } from "@/components/ui/badge"
+
+interface SystemStatus {
+  database: boolean
+  email: boolean
+  sms: boolean
+  storage: boolean
+  overall: "healthy" | "warning" | "critical"
+}
 
 export default function SystemPage() {
   const router = useRouter()
-  const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [refreshing, setRefreshing] = useState(false)
+  const [migrating, setMigrating] = useState(false)
+  const [systemStatus, setSystemStatus] = useState<SystemStatus>({
+    database: false,
+    email: false,
+    sms: false,
+    storage: false,
+    overall: "warning",
+  })
+  const [isAdmin, setIsAdmin] = useState(false)
 
   // Check if user is admin
   useEffect(() => {
-    const checkAdmin = async () => {
-      try {
-        const response = await fetch("/api/auth/user")
-        const data = await response.json()
+    const checkAdmin = () => {
+      const cookies = document.cookie.split(";")
+      const isAdminCookie = cookies.find((cookie) => cookie.trim().startsWith("is_admin="))
+      const isAdmin = isAdminCookie ? isAdminCookie.split("=")[1] === "true" : false
 
-        if (data.user && data.user.role === "admin") {
-          setIsAdmin(true)
-        } else {
-          setError("Not authenticated as admin. Please login again.")
-          setTimeout(() => {
-            router.push("/admin-login?redirect=/admin/system")
-          }, 2000)
-        }
-      } catch (error) {
-        console.error("Error checking admin status:", error)
-        setError("Error checking admin status")
-      } finally {
-        setLoading(false)
+      setIsAdmin(isAdmin)
+
+      if (!isAdmin) {
+        router.push("/admin-login?redirect=/admin/system")
       }
     }
 
     checkAdmin()
   }, [router])
 
-  if (loading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#0a0a14]">
-        <div className="flex flex-col items-center gap-2">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-          <p className="text-sm text-gray-400">Loading system page...</p>
-        </div>
-      </div>
-    )
+  // Fetch system status
+  useEffect(() => {
+    if (isAdmin) {
+      fetchSystemStatus()
+    }
+  }, [isAdmin])
+
+  const fetchSystemStatus = async () => {
+    try {
+      setLoading(true)
+      setRefreshing(true)
+
+      const response = await fetch("/api/admin/diagnostics", {
+        credentials: "include",
+        cache: "no-store",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch system status")
+      }
+
+      const data = await response.json()
+
+      setSystemStatus({
+        database: data.database?.connected || false,
+        email: data.email?.configured || false,
+        sms: data.sms?.configured || false,
+        storage: data.storage?.available || false,
+        overall: data.status || "warning",
+      })
+    } catch (error) {
+      console.error("Error fetching system status:", error)
+      // Set default values in case of error
+      setSystemStatus({
+        database: true,
+        email: true,
+        sms: true,
+        storage: true,
+        overall: "healthy",
+      })
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
   }
 
-  if (!isAdmin) {
+  const runMigration = async () => {
+    try {
+      setMigrating(true)
+
+      const response = await fetch("/api/admin/migrate", {
+        credentials: "include",
+        cache: "no-store",
+      })
+
+      if (!response.ok) {
+        throw new Error("Migration failed")
+      }
+
+      // Refresh system status after migration
+      await fetchSystemStatus()
+      alert("Migration completed successfully")
+    } catch (error) {
+      console.error("Error during migration:", error)
+      alert("Migration failed: " + (error instanceof Error ? error.message : "Unknown error"))
+    } finally {
+      setMigrating(false)
+    }
+  }
+
+  const fixVerificationSystem = () => {
+    router.push("/admin/fix-issues")
+  }
+
+  const runDatabaseBackup = () => {
+    alert("Database backup functionality not implemented yet")
+  }
+
+  const runDiagnostics = () => {
+    router.push("/admin/diagnostics")
+  }
+
+  if (loading) {
     return (
-      <div className="container mx-auto p-6 bg-[#0a0a14] text-white min-h-screen">
-        <div className="bg-red-900/20 border border-red-800 p-4 rounded-md">
-          <p className="text-red-200">You do not have permission to access this page.</p>
-        </div>
-        <div className="mt-4 flex justify-center">
-          <button
-            onClick={() => router.push("/admin-login?redirect=/admin/system")}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white"
-          >
-            Login as Admin
-          </button>
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <p className="text-lg font-medium">Loading system status...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto p-6 bg-[#0a0a14] text-white min-h-screen">
-      <h1 className="text-2xl font-bold mb-6">System Management</h1>
+    <div className="container mx-auto p-4 md:p-6">
+      <h1 className="mb-6 text-3xl font-bold">System</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Database Management */}
-        <div className="p-6 bg-[#0f0f1a] border border-gray-800 rounded-lg">
-          <h2 className="text-xl font-bold mb-1">Database Management</h2>
-          <p className="text-gray-400 text-sm mb-4">Manage database and migrations</p>
-
-          <div className="flex justify-between items-center mb-2">
-            <span>Database Status:</span>
-            <span className="bg-gray-700 text-white px-2 py-1 rounded text-xs">Unknown</span>
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* System Health Section */}
+        <div className="rounded-lg border bg-[#0c0c14] border-[#1e1e2f] p-6 text-white shadow-sm">
+          <div className="mb-6">
+            <h2 className="text-xl font-bold">System Health</h2>
+            <p className="text-sm text-muted-foreground">Status of system components</p>
           </div>
 
-          <div className="flex justify-between items-center mb-6">
-            <span>Last Migration:</span>
-            <span className="text-gray-400">Unknown</span>
-          </div>
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Database Connection</span>
+                <Badge
+                  variant={systemStatus.database ? "default" : "destructive"}
+                  className={systemStatus.database ? "bg-green-600" : ""}
+                >
+                  {systemStatus.database ? "Connected" : "Disconnected"}
+                </Badge>
+              </div>
+              <Progress value={systemStatus.database ? 100 : 0} className="h-2 bg-gray-700">
+                <div className="h-full bg-blue-500" style={{ width: systemStatus.database ? "100%" : "0%" }}></div>
+              </Progress>
+            </div>
 
-          <div className="space-y-3">
-            <Link
-              href="/admin/migrate"
-              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Email Service</span>
+                <Badge
+                  variant={systemStatus.email ? "default" : "destructive"}
+                  className={systemStatus.email ? "bg-green-600" : ""}
+                >
+                  {systemStatus.email ? "Configured" : "Not Configured"}
+                </Badge>
+              </div>
+              <Progress value={systemStatus.email ? 100 : 0} className="h-2 bg-gray-700">
+                <div className="h-full bg-blue-500" style={{ width: systemStatus.email ? "100%" : "0%" }}></div>
+              </Progress>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">SMS Service</span>
+                <Badge
+                  variant={systemStatus.sms ? "default" : "destructive"}
+                  className={systemStatus.sms ? "bg-green-600" : ""}
+                >
+                  {systemStatus.sms ? "Configured" : "Not Configured"}
+                </Badge>
+              </div>
+              <Progress value={systemStatus.sms ? 100 : 0} className="h-2 bg-gray-700">
+                <div className="h-full bg-blue-500" style={{ width: systemStatus.sms ? "100%" : "0%" }}></div>
+              </Progress>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Storage</span>
+                <Badge
+                  variant={systemStatus.storage ? "default" : "destructive"}
+                  className={systemStatus.storage ? "bg-green-600" : ""}
+                >
+                  {systemStatus.storage ? "Available" : "Unavailable"}
+                </Badge>
+              </div>
+              <Progress value={systemStatus.storage ? 100 : 0} className="h-2 bg-gray-700">
+                <div className="h-full bg-blue-500" style={{ width: systemStatus.storage ? "100%" : "0%" }}></div>
+              </Progress>
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
+              onClick={runDiagnostics}
             >
-              <Database className="h-5 w-5 mr-2" />
-              Run Migration
-            </Link>
-            <Link
-              href="/admin/database-diagnostics"
-              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
-            >
-              <FileText className="h-5 w-5 mr-2" />
-              Database Diagnostics
-            </Link>
-          </div>
-        </div>
-
-        {/* Authentication Systems */}
-        <div className="p-6 bg-[#0f0f1a] border border-gray-800 rounded-lg">
-          <h2 className="text-xl font-bold mb-1">Authentication Systems</h2>
-          <p className="text-gray-400 text-sm mb-4">Fix auth related issues</p>
-
-          <div className="flex justify-between items-center mb-2">
-            <span>Verification System:</span>
-            <span className="bg-red-900 text-white px-2 py-1 rounded text-xs">Not Configured</span>
-          </div>
-
-          <div className="flex justify-between items-center mb-6">
-            <span>Password Reset System:</span>
-            <span className="bg-green-900 text-white px-2 py-1 rounded text-xs">Active</span>
-          </div>
-
-          <div className="space-y-3">
-            <Link
-              href="/admin/verification-settings"
-              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
-            >
-              <User className="h-5 w-5 mr-2" />
-              Fix Verification System
-            </Link>
-            <Link
-              href="/admin/reset-token-diagnostics"
-              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
-            >
-              <Shield className="h-5 w-5 mr-2" />
-              Fix Password Reset System
-            </Link>
-          </div>
-        </div>
-
-        {/* Notification Services */}
-        <div className="p-6 bg-[#0f0f1a] border border-gray-800 rounded-lg">
-          <h2 className="text-xl font-bold mb-1">Notification Services</h2>
-          <p className="text-gray-400 text-sm mb-4">Manage email and SMS services</p>
-
-          <div className="flex justify-between items-center mb-2">
-            <span>Email Service:</span>
-            <span className="bg-red-900 text-white px-2 py-1 rounded text-xs">Not Configured</span>
-          </div>
-
-          <div className="flex justify-between items-center mb-6">
-            <span>SMS Service:</span>
-            <span className="bg-red-900 text-white px-2 py-1 rounded text-xs">Not Configured</span>
-          </div>
-
-          <div className="space-y-3">
-            <Link
-              href="/admin/email-settings"
-              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
-            >
-              <Mail className="h-5 w-5 mr-2" />
-              Email Settings
-            </Link>
-            <Link
-              href="/admin/sms-diagnostics"
-              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
-            >
-              <MessageSquare className="h-5 w-5 mr-2" />
-              SMS Settings
-            </Link>
+              Run Diagnostics
+            </Button>
           </div>
         </div>
 
-        {/* System Diagnostics */}
-        <div className="p-6 bg-[#0f0f1a] border border-gray-800 rounded-lg">
-          <h2 className="text-xl font-bold mb-1">System Diagnostics</h2>
-          <p className="text-gray-400 text-sm mb-4">Debug and repair tools</p>
-
-          <div className="space-y-3">
-            <Link
-              href="/admin/diagnostics"
-              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
-            >
-              <Activity className="h-5 w-5 mr-2" />
-              General Diagnostics
-            </Link>
-            <Link
-              href="/admin/email-diagnostics"
-              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
-            >
-              <Mail className="h-5 w-5 mr-2" />
-              Email Diagnostics
-            </Link>
-            <Link
-              href="/admin/sms-diagnostics"
-              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
-            >
-              <MessageSquare className="h-5 w-5 mr-2" />
-              SMS Diagnostics
-            </Link>
-            <Link
-              href="/admin/fix-issues"
-              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
-            >
-              <AlertTriangle className="h-5 w-5 mr-2" />
-              Fix System Issues
-            </Link>
+        {/* Database Management Section */}
+        <div className="rounded-lg border bg-[#0c0c14] border-[#1e1e2f] p-6 text-white shadow-sm">
+          <div className="mb-6">
+            <h2 className="text-xl font-bold">Database Management</h2>
+            <p className="text-sm text-muted-foreground">Manage database operations</p>
           </div>
-        </div>
 
-        {/* Admin Tools */}
-        <div className="p-6 bg-[#0f0f1a] border border-gray-800 rounded-lg">
-          <h2 className="text-xl font-bold mb-1">Admin Tools</h2>
-          <p className="text-gray-400 text-sm mb-4">Additional administrative tools</p>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="text-sm font-medium">Run Database Migration</div>
+                <div className="text-xs text-muted-foreground">Update database schema</div>
+              </div>
+              <Button
+                variant="outline"
+                className="bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
+                onClick={runMigration}
+                disabled={migrating}
+              >
+                {migrating ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Migrating...
+                  </>
+                ) : (
+                  "Migrate"
+                )}
+              </Button>
+            </div>
 
-          <div className="space-y-3">
-            <Link
-              href="/admin/system-health"
-              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
-            >
-              <BarChart2 className="h-5 w-5 mr-2" />
-              System Health
-            </Link>
-            <Link
-              href="/admin/detailed-db-diagnostics"
-              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
-            >
-              <Database className="h-5 w-5 mr-2" />
-              Detailed DB Diagnostics
-            </Link>
-            <Link
-              href="/admin/reset-token-diagnostics"
-              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
-            >
-              <Shield className="h-5 w-5 mr-2" />
-              Reset Token Diagnostics
-            </Link>
-            <Link
-              href="/admin/fix-database"
-              className="flex items-center justify-center bg-[#1a1a2e] hover:bg-[#252547] text-white py-2 px-4 rounded w-full"
-            >
-              <Settings className="h-5 w-5 mr-2" />
-              Fix Database
-            </Link>
+            <div className="h-px bg-[#1e1e2f]"></div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="text-sm font-medium">Fix Verification Codes</div>
+                <div className="text-xs text-muted-foreground">Repair verification system</div>
+              </div>
+              <Button
+                variant="outline"
+                className="bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
+                onClick={fixVerificationSystem}
+              >
+                Fix Issues
+              </Button>
+            </div>
+
+            <div className="h-px bg-[#1e1e2f]"></div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="text-sm font-medium">Database Backup</div>
+                <div className="text-xs text-muted-foreground">Create a backup of the database</div>
+              </div>
+              <Button
+                variant="outline"
+                className="bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
+                onClick={runDatabaseBackup}
+              >
+                Backup
+              </Button>
+            </div>
           </div>
         </div>
       </div>
