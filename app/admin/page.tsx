@@ -12,6 +12,9 @@ import {
   Users,
   Eye,
   EyeOff,
+  Trash2,
+  UserCheck,
+  UserX,
   Key,
   ChevronUp,
   ChevronDown,
@@ -36,7 +39,6 @@ import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { UserDetailsModal } from "@/components/user-details-modal"
 
 interface User {
   id: string
@@ -884,10 +886,6 @@ export default function AdminDashboard() {
                     <Badge variant={systemHealth.sms ? "success" : "destructive"}>
                       {systemHealth.sms ? "Configured" : "Not Configured"}
                     </Badge>
-                    <span className="text-sm font-medium">SMS Service</span>
-                    <Badge variant={systemHealth.sms ? "success" : "destructive"}>
-                      {systemHealth.sms ? "Configured" : "Not Configured"}
-                    </Badge>
                   </div>
                   <Progress value={systemHealth.sms ? 100 : 0} className="h-2" />
                 </div>
@@ -1000,13 +998,137 @@ export default function AdminDashboard() {
 
       {/* User Details Dialog */}
       {selectedUser && (
-        <UserDetailsModal
-          user={selectedUser}
-          onClose={() => setSelectedUser(null)}
-          onMakeAdmin={(userId) => handleUpdateUserRole(userId, "admin")}
-          onResetPassword={(userId, email) => handleResetPassword(userId, email)}
-          onDelete={(userId) => handleDeleteUser(userId)}
-        />
+        <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>User Details</DialogTitle>
+              <DialogDescription>Detailed information about the selected user.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="flex justify-center">
+                <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center text-2xl font-bold">
+                  {selectedUser.name
+                    ? selectedUser.name.charAt(0).toUpperCase()
+                    : selectedUser.email.charAt(0).toUpperCase()}
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Name</Label>
+                  <div className="col-span-2">{selectedUser.name || "N/A"}</div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Email</Label>
+                  <div className="col-span-2">{selectedUser.email}</div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Password</Label>
+                  <div className="col-span-2 relative">
+                    <Input
+                      type={showPasswords[selectedUser.id] ? "text" : "password"}
+                      defaultValue={selectedUser.password || "password123"}
+                      className="h-8 pr-8"
+                      onChange={(e) => {
+                        setSelectedUser({ ...selectedUser, password: e.target.value })
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      onClick={() => {
+                        setShowPasswords((prev) => ({
+                          ...prev,
+                          [selectedUser.id]: !prev[selectedUser.id],
+                        }))
+                      }}
+                    >
+                      {showPasswords[selectedUser.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Phone</Label>
+                  <div className="col-span-2">{selectedUser.phone || "N/A"}</div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Role</Label>
+                  <div className="col-span-2">
+                    <Badge variant={selectedUser.role === "admin" ? "default" : "outline"}>{selectedUser.role}</Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Provider</Label>
+                  <div className="col-span-2">
+                    <Badge variant="secondary">{selectedUser.provider || "email"}</Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Created</Label>
+                  <div className="col-span-2">{new Date(selectedUser.created_at).toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="flex flex-col sm:flex-row sm:justify-between sm:space-x-2">
+              <div className="flex flex-wrap gap-2">
+                {selectedUser.role === "user" ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-1"
+                    onClick={() => handleUpdateUserRole(selectedUser.id, "admin")}
+                  >
+                    <UserCheck className="h-4 w-4" />
+                    Make Admin
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-1"
+                    onClick={() => handleUpdateUserRole(selectedUser.id, "user")}
+                  >
+                    <UserX className="h-4 w-4" />
+                    Remove Admin
+                  </Button>
+                )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => handleResetPassword(selectedUser.id, selectedUser.email)}
+                >
+                  <Key className="h-4 w-4" />
+                  Reset Password
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => {
+                    setShowUserDialog(false)
+                    setDeleteConfirmation(selectedUser.id)
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              </div>
+
+              <Button variant="default" onClick={() => setShowUserDialog(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Prediction Details Dialog */}
