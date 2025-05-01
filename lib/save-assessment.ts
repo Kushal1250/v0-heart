@@ -93,3 +93,37 @@ export function saveAssessmentToHistory(assessment: any): void {
     console.error("Error saving assessment to history:", error)
   }
 }
+
+/**
+ * Save assessment data to both server and local history
+ * @param formData The form data submitted by the user
+ * @param predictionResult The prediction result from the API
+ * @returns The saved assessment data
+ */
+export async function saveAssessment(formData: any, predictionResult: any): Promise<any> {
+  try {
+    // Prepare assessment data
+    const assessment = {
+      ...formData,
+      result: predictionResult,
+      timestamp: Date.now(),
+      id: Math.random().toString(36).substring(2, 15),
+    }
+
+    // Save to local history
+    saveAssessmentToHistory(assessment)
+
+    // If user is logged in, save to server
+    if (formData.user_id) {
+      await saveAssessmentToServer({
+        ...assessment,
+        user_id: formData.user_id,
+      })
+    }
+
+    return assessment
+  } catch (error) {
+    console.error("Error saving assessment:", error)
+    return null
+  }
+}

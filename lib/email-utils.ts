@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer"
 import { logError } from "./error-logger"
+import crypto from "crypto"
 
 // Email configuration
 const emailConfig = {
@@ -13,6 +14,47 @@ const emailConfig = {
 }
 
 /**
+ * Create a DKIM signature for email
+ * @param options Options for creating the DKIM signature
+ * @returns The DKIM signature
+ */
+export function createDKIMSignature(options: {
+  domain: string
+  selector: string
+  privateKey: string
+  headerFields?: string[]
+  body: string
+  headers: Record<string, string>
+}): string {
+  const { domain, selector, privateKey, headerFields = ["from", "to", "subject", "date"], body, headers } = options
+
+  // Create canonicalization of headers
+  const canonicalizedHeaders = headerFields
+    .map((field) => {
+      const value = headers[field] || ""
+      return `${field.toLowerCase()}:${value.trim()}\r\n`
+    })
+    .join("")
+
+  // Create canonicalization of body
+  const canonicalizedBody = body.trim() + "\r\n"
+
+  // Create the string to sign
+  const stringToSign = canonicalizedHeaders + canonicalizedBody
+
+  // Create the signature
+  const signer = crypto.createSign("sha256")
+  signer.update(stringToSign)
+  const signature = signer.sign(privateKey, "base64")
+
+  // Create the DKIM header
+  return `v=1; a=rsa-sha256; c=relaxed/relaxed; d=${domain}; s=${selector}; h=${headerFields.join(":")}; bh=${crypto
+    .createHash("sha256")
+    .update(canonicalizedBody)
+    .digest("base64")}; b=${signature}`
+}
+
+/**
  * Send an email
  * @param options Email options including recipient, subject, and content
  * @returns Success status and message
@@ -22,7 +64,7 @@ export async function sendEmail(options: {
   subject: string
   text?: string
   html: string
-}) {
+}): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
     // Create transporter
     const transporter = nodemailer.createTransport(emailConfig)

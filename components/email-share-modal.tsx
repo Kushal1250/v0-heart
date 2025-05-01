@@ -21,7 +21,7 @@ interface EmailPdfShareModalProps {
 
 export default function EmailPdfShareModal({
   assessmentData,
-  patientName = "Anonymous User", // Fix: Default to "Anonymous User" instead of "Patient"
+  patientName = "Anonymous User",
   userPhone = "",
   assessmentDate = new Date(),
 }: EmailPdfShareModalProps) {
@@ -110,7 +110,7 @@ export default function EmailPdfShareModal({
           subject: emailData.subject,
           message: emailData.message,
           assessmentData: emailData.includeFullData ? assessmentData : null,
-          userName: patientName, // Fix: Use patientName instead of hardcoded "Patient"
+          userName: patientName,
           userPhone: userPhone,
           assessmentDate: assessmentDate.toISOString(),
         }),
