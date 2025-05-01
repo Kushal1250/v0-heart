@@ -861,3 +861,107 @@ export async function updateUserPhone(userId: string, phone: string) {
     throw new Error(`Failed to update phone number: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
+
+// Add this function to the file:
+
+/**
+ * Updates user settings in the database
+ * @param userId User ID
+ * @param settings Settings object with properties to update
+ * @returns Updated user settings or null if update failed
+ */
+export async function updateUserSettings(
+  userId: string,
+  settings: {
+    two_factor_enabled?: boolean
+    two_factor_method?: string
+    phone_verified?: boolean
+    email_verified?: boolean
+  },
+) {
+  try {
+    if (!userId) {
+      throw new Error("User ID is required to update settings")
+    }
+
+    // Build the SET clause dynamically based on provided fields
+    const setFields: string[] = []
+    const values: any[] = []
+    const paramIndex = 1
+
+    // Check if settings table exists, if not create it
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS user_settings (
+          user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+          two_factor_enabled BOOLEAN DEFAULT false,
+          two_factor_method TEXT,
+          phone_verified BOOLEAN DEFAULT false,
+          email_verified BOOLEAN DEFAULT true,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `
+    } catch (error) {
+      console.error("Error creating settings table:", error)
+    }
+
+    // Check if user has settings record
+    const existingSettings = await sql`
+      SELECT * FROM user_settings WHERE user_id = ${userId}
+    `
+
+    if (existingSettings.length === 0) {
+      // Create new settings record
+      await sql`
+        INSERT INTO user_settings (user_id, two_factor_enabled, two_factor_method, phone_verified, email_verified)
+        VALUES (
+          ${userId}, 
+          ${settings.two_factor_enabled !== undefined ? settings.two_factor_enabled : false}, 
+          ${settings.two_factor_method || null}, 
+          ${settings.phone_verified !== undefined ? settings.phone_verified : false}, 
+          ${settings.email_verified !== undefined ? settings.email_verified : true}
+        )
+      `
+    } else {
+      // Update existing settings
+      const updateFields = []
+
+      if (settings.two_factor_enabled !== undefined) {
+        updateFields.push(`two_factor_enabled = ${settings.two_factor_enabled}`)
+      }
+
+      if (settings.two_factor_method !== undefined) {
+        updateFields.push(`two_factor_method = ${settings.two_factor_method}`)
+      }
+
+      if (settings.phone_verified !== undefined) {
+        updateFields.push(`phone_verified = ${settings.phone_verified}`)
+      }
+
+      if (settings.email_verified !== undefined) {
+        updateFields.push(`email_verified = ${settings.email_verified}`)
+      }
+
+      if (updateFields.length > 0) {
+        updateFields.push(`updated_at = CURRENT_TIMESTAMP`)
+
+        await sql`
+          UPDATE user_settings
+          SET ${sql.unsafe(updateFields.join(", "))}
+          WHERE user_id = ${userId}
+        `
+      }
+    }
+
+    // Get updated settings
+    const updatedSettings = await sql`
+      SELECT * FROM user_settings WHERE user_id = ${userId}
+    `
+
+    return updatedSettings[0] || null
+  } catch (error) {
+    console.error("Error updating user settings:", error)
+    return null
+  }
+}

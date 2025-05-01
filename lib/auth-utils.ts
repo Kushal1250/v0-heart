@@ -9,11 +9,28 @@ import {
 } from "@/lib/db"
 import type { NextRequest } from "next/server"
 import { sendSMS } from "@/lib/sms-utils"
-import { logError } from "@/lib/error-logger"
-import { sendEmail } from "@/lib/email-utils"
+import { logError } from "./error-logger"
+import { sendEmail } from "./email-utils"
 
 export function getSessionToken(): string | undefined {
   return cookies().get("session")?.value
+}
+
+/**
+ * Gets the session from the database using the session token
+ * This is the missing export that was causing the deployment error
+ */
+export async function getSession(token: string | undefined) {
+  if (!token) {
+    return null
+  }
+
+  try {
+    return await getSessionByToken(token)
+  } catch (error) {
+    console.error("Error getting session:", error)
+    return null
+  }
 }
 
 export async function getUserIdFromToken(token: string): Promise<string | null> {
@@ -194,7 +211,7 @@ export async function getUserFromSession(sessionToken: string | undefined): Prom
 /**
  * Generates a random verification code
  */
-function generateVerificationCode(): string {
+export function generateVerificationCode(): string {
   // Generate a 6-digit code
   return Math.floor(100000 + Math.random() * 900000).toString()
 }

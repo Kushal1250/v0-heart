@@ -109,3 +109,67 @@ export async function sendPasswordResetEmail(to: string, resetLink: string, user
 
   return await sendEmail(to, subject, html, text)
 }
+
+/**
+ * Send a verification email with a code
+ * @param to Recipient email address
+ * @param code Verification code
+ * @param username Optional username for personalization
+ * @returns Success status and message
+ */
+export async function sendVerificationEmail(to: string, code: string, username?: string) {
+  const subject = "Verify Your Email Address"
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #0070f3; color: white; padding: 10px 20px; text-align: center; }
+        .content { padding: 20px; background-color: #f9f9f9; }
+        .code { font-size: 24px; font-weight: bold; text-align: center; 
+                letter-spacing: 5px; margin: 20px 0; padding: 10px; 
+                background-color: #e9e9e9; border-radius: 4px; }
+        .footer { font-size: 12px; color: #666; text-align: center; margin-top: 20px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Email Verification</h1>
+        </div>
+        <div class="content">
+          <p>Hello ${username || "there"},</p>
+          <p>Please use the following code to verify your email address:</p>
+          <div class="code">${code}</div>
+          <p>This code will expire in 15 minutes.</p>
+          <p>If you didn't request this verification, you can safely ignore this email.</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated message, please do not reply to this email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `
+
+  const text = `
+    Email Verification
+    
+    Hello ${username || "there"},
+    
+    Please use the following code to verify your email address:
+    
+    ${code}
+    
+    This code will expire in 15 minutes.
+    
+    If you didn't request this verification, you can safely ignore this email.
+    
+    This is an automated message, please do not reply to this email.
+  `
+
+  return await sendEmail(to, subject, html, text)
+}
