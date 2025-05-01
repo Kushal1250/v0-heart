@@ -715,15 +715,15 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="rounded-md border">
+          <div className="rounded-md border border-[#1e1e2f]">
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-[#0c0c14] text-white">
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
+                  <TableHead className="cursor-pointer">Name ↕</TableHead>
+                  <TableHead className="cursor-pointer">Email ↕</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Provider</TableHead>
-                  <TableHead>Created</TableHead>
+                  <TableHead className="cursor-pointer">Created ↕</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
