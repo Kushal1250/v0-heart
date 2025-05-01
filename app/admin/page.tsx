@@ -313,6 +313,7 @@ export default function AdminDashboard() {
         database: data.database?.connected || true,
         email: data.email?.configured || true,
         sms: data.sms?.configured || true,
+        storage: data.storage?.available || true,
         overall: data.status || "healthy",
       })
     } catch (err) {
@@ -459,6 +460,13 @@ export default function AdminDashboard() {
     document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
     document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
     router.push("/admin-login?redirect=/admin")
+  }
+
+  const togglePasswordVisibility = (userId: string) => {
+    setShowPasswords((prev) => ({
+      ...prev,
+      [userId]: !prev[userId],
+    }))
   }
 
   if (loading) {
@@ -823,34 +831,22 @@ export default function AdminDashboard() {
                       <TableCell className="font-medium">{user.name || "N/A"}</TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>
-                        <div className="relative">
-                          <Input
-                            type={showPasswords[user.id] ? "text" : "password"}
-                            defaultValue={user.password || "password123"}
-                            className="h-8 w-24 text-xs pr-8"
-                            onChange={(e) => {
-                              // Update password in local state
-                              const updatedUsers = users.map((u) =>
-                                u.id === user.id ? { ...u, password: e.target.value } : u,
-                              )
-                              setUsers(updatedUsers)
-                            }}
-                          />
+                        <div className="flex items-center">
+                          <div className="relative mr-2 w-full max-w-[150px]">
+                            <Input
+                              type={showPasswords[user.id] ? "text" : "password"}
+                              defaultValue={user.password || "password123"}
+                              className="h-8 w-full bg-[#0c0c14] border-[#1e1e2f] text-white pr-2"
+                              readOnly
+                            />
+                          </div>
                           <button
                             type="button"
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                            onClick={() => {
-                              setShowPasswords((prev) => ({
-                                ...prev,
-                                [user.id]: !prev[user.id],
-                              }))
-                            }}
+                            className="flex h-8 w-8 items-center justify-center rounded-md bg-[#0c0c14] border border-[#1e1e2f] text-white hover:bg-[#1e1e2f]"
+                            onClick={() => togglePasswordVisibility(user.id)}
+                            aria-label={showPasswords[user.id] ? "Hide password" : "Show password"}
                           >
-                            {showPasswords[user.id] ? (
-                              <EyeOff className="h-3.5 w-3.5" />
-                            ) : (
-                              <Eye className="h-3.5 w-3.5" />
-                            )}
+                            {showPasswords[user.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </button>
                         </div>
                       </TableCell>
@@ -1120,26 +1116,21 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-3 items-center gap-4">
                   <Label className="text-right">Password</Label>
                   <div className="col-span-2 relative">
-                    <Input
-                      type={showPasswords[selectedUser.id] ? "text" : "password"}
-                      defaultValue={selectedUser.password || "password123"}
-                      className="h-8 pr-8"
-                      onChange={(e) => {
-                        setSelectedUser({ ...selectedUser, password: e.target.value })
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                      onClick={() => {
-                        setShowPasswords((prev) => ({
-                          ...prev,
-                          [selectedUser.id]: !prev[selectedUser.id],
-                        }))
-                      }}
-                    >
-                      {showPasswords[selectedUser.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
+                    <div className="flex items-center">
+                      <Input
+                        type={showPasswords[selectedUser.id] ? "text" : "password"}
+                        defaultValue={selectedUser.password || "password123"}
+                        className="h-8 bg-[#0c0c14] border-[#1e1e2f] text-white pr-2"
+                        readOnly
+                      />
+                      <button
+                        type="button"
+                        className="ml-2 flex h-8 w-8 items-center justify-center rounded-md bg-[#0c0c14] border border-[#1e1e2f] text-white hover:bg-[#1e1e2f]"
+                        onClick={() => togglePasswordVisibility(selectedUser.id)}
+                      >
+                        {showPasswords[selectedUser.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
