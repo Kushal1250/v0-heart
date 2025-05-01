@@ -11,6 +11,7 @@ import {
   Search,
   Users,
   Eye,
+  EyeOff,
   Trash2,
   UserCheck,
   UserX,
@@ -111,6 +112,7 @@ export default function AdminDashboard() {
     newUsersToday: 0,
     newPredictionsToday: 0,
   })
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({})
 
   // Check if user is admin
   useEffect(() => {
@@ -311,7 +313,6 @@ export default function AdminDashboard() {
         database: data.database?.connected || true,
         email: data.email?.configured || true,
         sms: data.sms?.configured || true,
-        storage: data.storage?.available || true,
         overall: data.status || "healthy",
       })
     } catch (err) {
@@ -822,18 +823,36 @@ export default function AdminDashboard() {
                       <TableCell className="font-medium">{user.name || "N/A"}</TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>
-                        <Input
-                          type="text"
-                          defaultValue={user.password || "••••••••"}
-                          className="h-8 w-24 text-xs"
-                          onChange={(e) => {
-                            // Update password in local state
-                            const updatedUsers = users.map((u) =>
-                              u.id === user.id ? { ...u, password: e.target.value } : u,
-                            )
-                            setUsers(updatedUsers)
-                          }}
-                        />
+                        <div className="relative">
+                          <Input
+                            type={showPasswords[user.id] ? "text" : "password"}
+                            defaultValue={user.password || "password123"}
+                            className="h-8 w-24 text-xs pr-8"
+                            onChange={(e) => {
+                              // Update password in local state
+                              const updatedUsers = users.map((u) =>
+                                u.id === user.id ? { ...u, password: e.target.value } : u,
+                              )
+                              setUsers(updatedUsers)
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            onClick={() => {
+                              setShowPasswords((prev) => ({
+                                ...prev,
+                                [user.id]: !prev[user.id],
+                              }))
+                            }}
+                          >
+                            {showPasswords[user.id] ? (
+                              <EyeOff className="h-3.5 w-3.5" />
+                            ) : (
+                              <Eye className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant={user.role === "admin" ? "default" : "outline"}>{user.role}</Badge>
@@ -1100,15 +1119,27 @@ export default function AdminDashboard() {
 
                 <div className="grid grid-cols-3 items-center gap-4">
                   <Label className="text-right">Password</Label>
-                  <div className="col-span-2">
+                  <div className="col-span-2 relative">
                     <Input
-                      type="text"
-                      defaultValue={selectedUser.password || "••••••••"}
-                      className="h-8"
+                      type={showPasswords[selectedUser.id] ? "text" : "password"}
+                      defaultValue={selectedUser.password || "password123"}
+                      className="h-8 pr-8"
                       onChange={(e) => {
                         setSelectedUser({ ...selectedUser, password: e.target.value })
                       }}
                     />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      onClick={() => {
+                        setShowPasswords((prev) => ({
+                          ...prev,
+                          [selectedUser.id]: !prev[selectedUser.id],
+                        }))
+                      }}
+                    >
+                      {showPasswords[selectedUser.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
                 </div>
 
