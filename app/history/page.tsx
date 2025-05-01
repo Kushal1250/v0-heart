@@ -32,7 +32,7 @@ export default function HistoryPage() {
   // Dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
-  const [assessmentToDelete, setAssessmentToDelete] = useState<number | null>(null)
+  const [assessmentToDelete, setAssessmentToDelete] = useState(null)
 
   const { user } = useAuth() // Get user from auth context at the top level
   const initialEmail = user?.email || getCurrentEmail() // Get initial email here
@@ -57,7 +57,7 @@ export default function HistoryPage() {
     loadAssessmentHistory(userEmail)
   }, [initialEmail, user])
 
-  const loadAssessmentHistory = (email: string) => {
+  const loadAssessmentHistory = (email) => {
     setLoading(true)
     try {
       // Try multiple storage keys to find history

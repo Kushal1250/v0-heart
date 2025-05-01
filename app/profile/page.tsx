@@ -22,6 +22,7 @@ import {
   Phone,
   Calendar,
   RefreshCw,
+  KeyRound,
   Loader2,
   Heart,
   Shield,
@@ -37,17 +38,16 @@ import {
   CreditCard,
   Clock,
   BadgeCheck,
+  Lock,
   FileText,
   CalendarIcon,
   TrendingUp,
 } from "lucide-react"
 import { formatDistanceToNow, format } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
+import Link from "next/link"
 import { ProfileImageUpload } from "@/components/profile-image-upload"
 import { SimpleProfileUpload } from "@/components/simple-profile-upload"
-import { SecuritySettings } from "@/components/security-settings"
-// Import the SecuritySettingsSection component
-import { SecuritySettingsSection } from "@/components/security-settings-section"
 
 export default function ProfilePage() {
   const { user, isLoading, updateUserProfile } = useAuth()
@@ -563,7 +563,7 @@ export default function ProfilePage() {
                     <div className="space-y-2">
                       <Label htmlFor="gender">Gender</Label>
                       <Select value={formData.gender} onValueChange={(value) => handleSelectChange("gender", value)}>
-                        <SelectTrigger id="gender">
+                        <SelectTrigger>
                           <SelectValue placeholder="Select gender" />
                         </SelectTrigger>
                         <SelectContent>
@@ -668,7 +668,7 @@ export default function ProfilePage() {
                         value={formData.bloodType}
                         onValueChange={(value) => handleSelectChange("bloodType", value)}
                       >
-                        <SelectTrigger id="bloodType">
+                        <SelectTrigger>
                           <SelectValue placeholder="Select blood type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -946,9 +946,127 @@ export default function ProfilePage() {
 
               {/* Privacy & Security Tab */}
               <TabsContent value="privacy">
-                <SecuritySettings profileData={profileData} handleToggleChange={handleToggleChange} />
-                <div className="mt-8">
-                  <SecuritySettingsSection />
+                <div className="space-y-6">
+                  <div className="pt-2">
+                    <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                      <Shield className="h-5 w-5" /> Security Settings
+                    </h3>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Two-Factor Authentication</p>
+                          <p className="text-sm text-muted-foreground">
+                            Add an extra layer of security to your account
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-sm ${profileData.twoFactorEnabled ? "text-green-600" : "text-amber-600"}`}
+                          >
+                            {profileData.twoFactorEnabled ? "Enabled" : "Disabled"}
+                          </span>
+                          <Button variant="outline" size="sm">
+                            {profileData.twoFactorEnabled ? "Disable" : "Enable"}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Email Verification</p>
+                          <p className="text-sm text-muted-foreground">Verify your email address</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {profileData.emailVerified ? (
+                            <span className="text-green-600 font-medium flex items-center">
+                              <CheckCircle2 className="h-4 w-4 mr-1" /> Verified
+                            </span>
+                          ) : (
+                            <Button variant="outline" size="sm">
+                              Verify Email
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Phone Verification</p>
+                          <p className="text-sm text-muted-foreground">Verify your phone number</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {profileData.phoneVerified ? (
+                            <span className="text-green-600 font-medium flex items-center">
+                              <CheckCircle2 className="h-4 w-4 mr-1" /> Verified
+                            </span>
+                          ) : (
+                            <Button variant="outline" size="sm">
+                              Verify Phone
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                      <Lock className="h-5 w-5" /> Data Privacy
+                    </h3>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Data Sharing with Healthcare Providers</p>
+                          <p className="text-sm text-muted-foreground">
+                            Allow your doctors to access your heart health data
+                          </p>
+                        </div>
+                        <Switch
+                          checked={profileData.dataSharing}
+                          onCheckedChange={() => handleToggleChange("dataSharing")}
+                        />
+                      </div>
+
+                      <Separator />
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Anonymous Data Collection</p>
+                          <p className="text-sm text-muted-foreground">
+                            Allow anonymized data to be used for research and improving our services
+                          </p>
+                        </div>
+                        <Switch
+                          checked={profileData.anonymousDataCollection}
+                          onCheckedChange={() => handleToggleChange("anonymousDataCollection")}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Password Management Section */}
+                  <div className="pt-4 border-t">
+                    <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                      <KeyRound className="h-5 w-5" /> Password Management
+                    </h3>
+                    <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Change your password</p>
+                          <p className="text-sm text-gray-500">Update your password to keep your account secure</p>
+                        </div>
+                        <Link href="/change-password">
+                          <Button variant="outline">Change Password</Button>
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
 

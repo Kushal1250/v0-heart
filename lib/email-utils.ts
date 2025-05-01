@@ -1,6 +1,5 @@
 import nodemailer from "nodemailer"
 import { logError } from "./error-logger"
-import crypto from "crypto"
 
 // Email configuration
 const emailConfig = {
@@ -14,57 +13,14 @@ const emailConfig = {
 }
 
 /**
- * Create a DKIM signature for email
- * @param options Options for creating the DKIM signature
- * @returns The DKIM signature
- */
-export function createDKIMSignature(options: {
-  domain: string
-  selector: string
-  privateKey: string
-  headerFields?: string[]
-  body: string
-  headers: Record<string, string>
-}): string {
-  const { domain, selector, privateKey, headerFields = ["from", "to", "subject", "date"], body, headers } = options
-
-  // Create canonicalization of headers
-  const canonicalizedHeaders = headerFields
-    .map((field) => {
-      const value = headers[field] || ""
-      return `${field.toLowerCase()}:${value.trim()}\r\n`
-    })
-    .join("")
-
-  // Create canonicalization of body
-  const canonicalizedBody = body.trim() + "\r\n"
-
-  // Create the string to sign
-  const stringToSign = canonicalizedHeaders + canonicalizedBody
-
-  // Create the signature
-  const signer = crypto.createSign("sha256")
-  signer.update(stringToSign)
-  const signature = signer.sign(privateKey, "base64")
-
-  // Create the DKIM header
-  return `v=1; a=rsa-sha256; c=relaxed/relaxed; d=${domain}; s=${selector}; h=${headerFields.join(":")}; bh=${crypto
-    .createHash("sha256")
-    .update(canonicalizedBody)
-    .digest("base64")}; b=${signature}`
-}
-
-/**
  * Send an email
- * @param options Email options including recipient, subject, and content
+ * @param to Recipient email address
+ * @param subject Email subject
+ * @param html HTML content
+ * @param text Plain text content (optional)
  * @returns Success status and message
  */
-export async function sendEmail(options: {
-  to: string
-  subject: string
-  text?: string
-  html: string
-}): Promise<{ success: boolean; messageId?: string; error?: string }> {
+export async function sendEmail(to: string, subject: string, html: string, text?: string) {
   try {
     // Create transporter
     const transporter = nodemailer.createTransport(emailConfig)
@@ -72,17 +28,17 @@ export async function sendEmail(options: {
     // Send email
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || "noreply@example.com",
-      to: options.to,
-      subject: options.subject,
-      text: options.text || options.html.replace(/<[^>]*>/g, ""),
-      html: options.html,
+      to,
+      subject,
+      text: text || html.replace(/<[^>]*>/g, ""),
+      html,
     })
 
     console.log("Email sent:", info.messageId)
     return { success: true, messageId: info.messageId }
   } catch (error) {
     console.error("Error sending email:", error)
-    logError("Email sending failed", { error, to: options.to, subject: options.subject })
+    logError("Email sending failed", { error, to, subject })
     return { success: false, error: "Failed to send email" }
   }
 }
@@ -151,53 +107,5 @@ export async function sendPasswordResetEmail(to: string, resetLink: string, user
     This is an automated message, please do not reply to this email.
   `
 
-  return await sendEmail({
-    to,
-    subject,
-    html,
-    text,
-  })
-}
-
-/**
- * Send a verification email with a code
- * @param to Recipient email address
- * @param subject Email subject
- * @param message Email message (can include the code)
- * @returns Success status and message
- */
-export async function sendVerificationEmail(to: string, subject: string, message: string) {
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #0070f3; color: white; padding: 10px 20px; text-align: center; }
-        .content { padding: 20px; background-color: #f9f9f9; }
-        .footer { font-size: 12px; color: #666; text-align: center; margin-top: 20px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>Verification Required</h1>
-        </div>
-        <div class="content">
-          <p>${message}</p>
-        </div>
-        <div class="footer">
-          <p>This is an automated message, please do not reply to this email.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `
-
-  return await sendEmail({
-    to,
-    subject,
-    html,
-  })
+  return await sendEmail(to, subject, html, text)
 }

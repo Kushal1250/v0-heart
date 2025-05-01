@@ -127,6 +127,3 @@ export async function generateEnhancedPDF(
     doc.end()
   })
 }
-
-// Alias for backward compatibility
-export const enhancedGeneratePDF = generateEnhancedPDF
