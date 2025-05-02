@@ -1,15 +1,8 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
-import { getUserFromRequest } from "@/lib/auth-utils"
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    // Check if user is admin
-    const user = await getUserFromRequest(request as any)
-    if (!user || user.role !== "admin") {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
     // Check verification system
     const verificationCodesTable = await db`
       SELECT EXISTS (

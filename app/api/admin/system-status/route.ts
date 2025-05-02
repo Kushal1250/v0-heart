@@ -1,17 +1,8 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
-import { getUserFromRequest } from "@/lib/auth-utils"
-import { getRecentErrorLogs } from "@/lib/error-logger"
-import { isTwilioConfigured } from "@/lib/sms-utils"
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    // Check if user is admin
-    const user = await getUserFromRequest(request as any)
-    if (!user || user.role !== "admin") {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
     // Gather system status data
     const systemStatus = await getSystemStatus()
 
@@ -31,8 +22,6 @@ export async function GET(request: Request) {
     )
   }
 }
-
-// Update the getSystemStatus function to check for actual system status
 
 async function getSystemStatus() {
   const status: Record<string, any> = {
@@ -119,19 +108,21 @@ async function getSystemStatus() {
   // Check notification services
   try {
     // Check email service
-    const emailConfigured = !!(process.env.EMAIL_SERVER && process.env.EMAIL_FROM)
     status.notification.email = {
-      status: emailConfigured ? "configured" : "not_configured",
+      status: process.env.EMAIL_SERVER && process.env.EMAIL_FROM ? "configured" : "not_configured",
       server: !!process.env.EMAIL_SERVER,
       from: !!process.env.EMAIL_FROM,
     }
 
     // Check SMS service
-    const twilioConfig = await isTwilioConfigured()
     status.notification.sms = {
-      status: twilioConfig.configured ? "configured" : "not_configured",
-      configured: twilioConfig.configured,
-      missingEnvVars: twilioConfig.missing,
+      status:
+        process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER
+          ? "configured"
+          : "not_configured",
+      accountSid: !!process.env.TWILIO_ACCOUNT_SID,
+      authToken: !!process.env.TWILIO_AUTH_TOKEN,
+      phoneNumber: !!process.env.TWILIO_PHONE_NUMBER,
     }
   } catch (error) {
     status.notification = {
@@ -142,18 +133,6 @@ async function getSystemStatus() {
 
   // Get system health info
   try {
-    // Get recent errors
-    const recentErrors = await getRecentErrorLogs(5)
-    status.system.errors = {
-      count: recentErrors.length,
-      recent: recentErrors.map((e) => ({
-        id: e.id,
-        timestamp: e.timestamp,
-        context: e.context,
-        severity: e.severity,
-      })),
-    }
-
     // Get memory usage
     const memoryUsage = process.memoryUsage()
     status.system.memory = {

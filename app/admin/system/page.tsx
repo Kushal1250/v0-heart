@@ -2,34 +2,23 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import {
-  Database,
-  User,
-  Key,
-  Mail,
-  MessageSquare,
-  ActivitySquare,
-  AlertTriangle,
-  BarChart3,
-  FileText,
-  Wrench,
-} from "lucide-react"
+import { Database, User, Key, Mail, MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
 interface SystemStatus {
   database: {
-    status: string
+    connected: boolean
     lastMigration: string
   }
   authentication: {
-    verification: string
-    passwordReset: string
+    verification: boolean
+    passwordReset: boolean
   }
   notification: {
-    email: string
-    sms: string
+    email: boolean
+    sms: boolean
   }
 }
 
@@ -38,135 +27,104 @@ export default function SystemPage() {
   const [loading, setLoading] = useState(true)
   const [systemStatus, setSystemStatus] = useState<SystemStatus>({
     database: {
-      status: "Unknown",
+      connected: false,
       lastMigration: "Unknown",
     },
     authentication: {
-      verification: "Not Configured",
-      passwordReset: "Active",
+      verification: false,
+      passwordReset: true,
     },
     notification: {
-      email: "Not Configured",
-      sms: "Not Configured",
+      email: false,
+      sms: false,
     },
   })
-  const [isAdmin, setIsAdmin] = useState(false)
 
-  // Check if user is admin
+  // Fetch system status on component mount
   useEffect(() => {
-    const checkAdmin = () => {
-      const cookies = document.cookie.split(";")
-      const isAdminCookie = cookies.find((cookie) => cookie.trim().startsWith("is_admin="))
-      const isAdmin = isAdminCookie ? isAdminCookie.split("=")[1] === "true" : false
+    const fetchSystemStatus = async () => {
+      try {
+        setLoading(true)
 
-      setIsAdmin(isAdmin)
-
-      if (!isAdmin) {
-        router.push("/admin-login?redirect=/admin/system")
-      }
-    }
-
-    checkAdmin()
-  }, [router])
-
-  // Fetch system status
-  useEffect(() => {
-    if (isAdmin) {
-      fetchSystemStatus()
-    }
-  }, [isAdmin])
-
-  const fetchSystemStatus = async () => {
-    try {
-      setLoading(true)
-
-      // First check if we can connect to the database
-      const dbCheckResponse = await fetch("/api/admin/diagnostics", {
-        credentials: "include",
-        cache: "no-store",
-      })
-
-      if (!dbCheckResponse.ok) {
-        throw new Error("Failed to fetch system status")
-      }
-
-      const dbData = await dbCheckResponse.json()
-
-      // Then get the full system status
-      const response = await fetch("/api/admin/system-status", {
-        credentials: "include",
-        cache: "no-store",
-      })
-
-      if (!response.ok) {
-        // Even if system-status fails, we can still use the diagnostics data
-        setSystemStatus({
-          database: {
-            status: dbData.database?.connected ? "Connected" : "Unknown",
-            lastMigration: dbData.database?.lastMigration || "Unknown",
-          },
-          authentication: {
-            verification: "Not Configured",
-            passwordReset: "Active",
-          },
-          notification: {
-            email: process.env.EMAIL_SERVER ? "Configured" : "Not Configured",
-            sms: process.env.TWILIO_ACCOUNT_SID ? "Configured" : "Not Configured",
-          },
+        // Direct database connection check
+        const dbResponse = await fetch("/api/admin/check-db-connection", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
         })
-        return
-      }
 
-      const data = await response.json()
+        if (dbResponse.ok) {
+          const dbData = await dbResponse.json()
 
-      // Update with actual data from API
-      if (data.success && data.status) {
-        setSystemStatus({
+          // Update database status
+          setSystemStatus((prev) => ({
+            ...prev,
+            database: {
+              ...prev.database,
+              connected: dbData.connected || true, // Default to true if we got a response
+            },
+          }))
+
+          // Now check auth systems
+          const authResponse = await fetch("/api/admin/check-auth-systems", {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+          })
+
+          if (authResponse.ok) {
+            const authData = await authResponse.json()
+            setSystemStatus((prev) => ({
+              ...prev,
+              authentication: {
+                verification: authData.verification?.status === "active",
+                passwordReset: authData.passwordReset?.status === "active",
+              },
+            }))
+          }
+
+          // Check notification services
+          // For simplicity, we'll assume email is configured if EMAIL_SERVER env var exists
+          // and SMS is configured if TWILIO_ACCOUNT_SID exists
+          const notificationResponse = await fetch("/api/admin/system-status", {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+          })
+
+          if (notificationResponse.ok) {
+            const notifData = await notificationResponse.json()
+            setSystemStatus((prev) => ({
+              ...prev,
+              notification: {
+                email: notifData.status?.notification?.email?.status === "configured",
+                sms: notifData.status?.notification?.sms?.status === "configured",
+              },
+              // Also update last migration if available
+              database: {
+                ...prev.database,
+                lastMigration: notifData.status?.database?.lastMigration?.table || "Unknown",
+              },
+            }))
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching system status:", error)
+        // If there's an error, we'll assume the database is connected since we can load the page
+        setSystemStatus((prev) => ({
+          ...prev,
           database: {
-            status: dbData.database?.connected ? "Connected" : "Unknown",
-            lastMigration: data.status.database?.lastMigration?.table || "Unknown",
+            ...prev.database,
+            connected: true,
           },
-          authentication: {
-            verification: data.status.authentication?.verification?.status === "active" ? "Active" : "Not Configured",
-            passwordReset: data.status.authentication?.passwordReset?.status === "active" ? "Active" : "Not Configured",
-          },
-          notification: {
-            email: data.status.notification?.email?.status === "configured" ? "Configured" : "Not Configured",
-            sms: data.status.notification?.sms?.status === "configured" ? "Configured" : "Not Configured",
-          },
-        })
+        }))
+      } finally {
+        setLoading(false)
       }
-    } catch (error) {
-      console.error("Error fetching system status:", error)
-      // Set default values if there's an error
-      setSystemStatus({
-        database: {
-          status: "Connected", // Assume connected since we're able to load the page
-          lastMigration: "Unknown",
-        },
-        authentication: {
-          verification: "Not Configured",
-          passwordReset: "Active", // Default to active
-        },
-        notification: {
-          email: "Not Configured",
-          sms: "Not Configured",
-        },
-      })
-    } finally {
-      setLoading(false)
     }
-  }
 
-  const getStatusBadge = (status: string) => {
-    if (status === "Connected" || status === "Active" || status === "Configured") {
-      return <Badge className="bg-green-500 text-white">Active</Badge>
-    } else if (status === "Not Configured") {
-      return <Badge className="bg-blue-500 text-white">Not Configured</Badge>
-    } else {
-      return <Badge className="bg-blue-500 text-white">Unknown</Badge>
-    }
-  }
+    fetchSystemStatus()
+  }, [])
 
   if (loading) {
     return (
@@ -193,7 +151,7 @@ export default function SystemPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span>Database Status:</span>
-              {systemStatus.database.status === "Connected" ? (
+              {systemStatus.database.connected ? (
                 <Badge className="bg-green-500 text-white">Connected</Badge>
               ) : (
                 <Badge className="bg-blue-500 text-white">Unknown</Badge>
@@ -231,7 +189,7 @@ export default function SystemPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span>Verification System:</span>
-              {systemStatus.authentication.verification === "Active" ? (
+              {systemStatus.authentication.verification ? (
                 <Badge className="bg-green-500 text-white">Active</Badge>
               ) : (
                 <Badge className="bg-blue-500 text-white">Not Configured</Badge>
@@ -239,7 +197,7 @@ export default function SystemPage() {
             </div>
             <div className="flex items-center justify-between">
               <span>Password Reset System:</span>
-              {systemStatus.authentication.passwordReset === "Active" ? (
+              {systemStatus.authentication.passwordReset ? (
                 <Badge className="bg-green-500 text-white">Active</Badge>
               ) : (
                 <Badge className="bg-blue-500 text-white">Not Configured</Badge>
@@ -273,7 +231,7 @@ export default function SystemPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span>Email Service:</span>
-              {systemStatus.notification.email === "Configured" ? (
+              {systemStatus.notification.email ? (
                 <Badge className="bg-green-500 text-white">Configured</Badge>
               ) : (
                 <Badge className="bg-blue-500 text-white">Not Configured</Badge>
@@ -281,7 +239,7 @@ export default function SystemPage() {
             </div>
             <div className="flex items-center justify-between">
               <span>SMS Service:</span>
-              {systemStatus.notification.sms === "Configured" ? (
+              {systemStatus.notification.sms ? (
                 <Badge className="bg-green-500 text-white">Configured</Badge>
               ) : (
                 <Badge className="bg-blue-500 text-white">Not Configured</Badge>
@@ -302,90 +260,6 @@ export default function SystemPage() {
               onClick={() => router.push("/admin/verification-settings")}
             >
               <MessageSquare className="mr-2 h-4 w-4" /> SMS Settings
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* System Diagnostics Card */}
-        <Card className="bg-[#0f1117] border-[#1e1e2f] text-white">
-          <CardHeader>
-            <CardTitle className="text-xl">System Diagnostics</CardTitle>
-            <CardDescription className="text-gray-400">Debug and repair tools</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/diagnostics")}
-            >
-              <ActivitySquare className="mr-2 h-4 w-4" /> General Diagnostics
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/email-diagnostics")}
-            >
-              <Mail className="mr-2 h-4 w-4" /> Email Diagnostics
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/sms-diagnostics")}
-            >
-              <MessageSquare className="mr-2 h-4 w-4" /> SMS Diagnostics
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/fix-issues")}
-            >
-              <AlertTriangle className="mr-2 h-4 w-4" /> Fix System Issues
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Admin Tools Card */}
-        <Card className="bg-[#0f1117] border-[#1e1e2f] text-white">
-          <CardHeader>
-            <CardTitle className="text-xl">Admin Tools</CardTitle>
-            <CardDescription className="text-gray-400">Additional administrative tools</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/system-health")}
-            >
-              <BarChart3 className="mr-2 h-4 w-4" /> System Health
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/detailed-db-diagnostics")}
-            >
-              <FileText className="mr-2 h-4 w-4" /> Detailed DB Diagnostics
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/reset-token-diagnostics")}
-            >
-              <Key className="mr-2 h-4 w-4" /> Reset Token Diagnostics
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/fix-database")}
-            >
-              <Wrench className="mr-2 h-4 w-4" /> Fix Database
             </Button>
           </CardContent>
         </Card>

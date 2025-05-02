@@ -1,25 +1,18 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
-import { getUserFromRequest } from "@/lib/auth-utils"
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    // Check if user is admin
-    const user = await getUserFromRequest(request as any)
-    if (!user || user.role !== "admin") {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
-    // Test database connection
-    const result = await db`SELECT NOW() as time`
+    // Simple query to check if database is connected
+    const result = await db`SELECT 1 as connected`
 
     return NextResponse.json({
       success: true,
-      connected: true,
-      timestamp: result[0].time,
+      connected: result[0]?.connected === 1,
+      timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    console.error("Database connection failed:", error)
+    console.error("Database connection check failed:", error)
     return NextResponse.json(
       {
         success: false,
