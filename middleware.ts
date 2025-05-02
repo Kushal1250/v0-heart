@@ -1,75 +1,115 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { verifyAuth } from "./lib/auth-utils"
+import { getSessionByToken, getUserById } from "@/lib/db"
+
+// Define which paths require authentication
+const authRequiredPaths = [
+  "/dashboard",
+  "/profile",
+  "/settings",
+  "/admin",
+  "/predict/results",
+  // "/history" - Removed from protected routes
+]
+
+// Define which paths require admin role
+const adminRequiredPaths = ["/admin"]
+
+// Define paths that should be accessible whether logged in or not
+const publicAccessPaths = ["/home", "/predict", "/history", "/about", "/how-it-works"]
 
 export async function middleware(request: NextRequest) {
-  // Check if the request is for the admin area
-  const isAdminRoute = request.nextUrl.pathname.startsWith("/admin")
-  const isApiRoute = request.nextUrl.pathname.startsWith("/api")
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/api/auth")
-  const isAdminApiRoute = request.nextUrl.pathname.startsWith("/api/admin")
+  const { pathname } = request.nextUrl
 
-  // Skip middleware for public assets and API routes
-  if (
-    request.nextUrl.pathname.startsWith("/_next") ||
-    request.nextUrl.pathname.includes("/api/auth") ||
-    request.nextUrl.pathname === "/favicon.ico"
-  ) {
+  // Check if the path is in the public access list
+  const isPublicAccessPath = publicAccessPaths.some((path) => pathname.startsWith(path))
+
+  // If it's a public access path, allow access without authentication check
+  if (isPublicAccessPath) {
     return NextResponse.next()
   }
 
-  // Check for maintenance mode (except for admin routes and auth routes)
-  if (!isAdminRoute && !isAuthRoute) {
-    try {
-      const maintenanceResponse = await fetch(`${request.nextUrl.origin}/api/admin/maintenance-status`, {
-        cache: "no-store",
-      })
+  // Check if the path requires authentication
+  const isAuthRequired = authRequiredPaths.some((path) => pathname.startsWith(path))
+  const isAdminRequired = adminRequiredPaths.some((path) => pathname.startsWith(path))
 
-      if (maintenanceResponse.ok) {
-        const { maintenanceMode } = await maintenanceResponse.json()
+  if (isAuthRequired || isAdminRequired) {
+    // Get the session token from the cookie
+    const sessionToken = request.cookies.get("session")?.value
+    const isAdminCookie = request.cookies.get("is_admin")?.value === "true"
 
-        if (maintenanceMode && !isAdminRoute && !isAdminApiRoute) {
-          return NextResponse.redirect(new URL("/maintenance", request.url))
-        }
-      }
-    } catch (error) {
-      console.error("Error checking maintenance mode:", error)
-      // Continue if there's an error checking maintenance mode
+    // Special case for admin paths
+    if (isAdminRequired && isAdminCookie) {
+      // If is_admin cookie is set, allow access to admin paths
+      return NextResponse.next()
     }
-  }
 
-  // For admin routes, verify authentication
-  if (isAdminRoute && request.nextUrl.pathname !== "/admin-login") {
-    const authResult = await verifyAuth(request)
-
-    if (!authResult.isAuthenticated) {
-      // Store the original URL to redirect back after login
-      const url = new URL("/admin-login", request.url)
-      url.searchParams.set("callbackUrl", request.nextUrl.pathname)
-
-      // Log the redirect for debugging
-      console.log(`Redirecting unauthenticated user from ${request.nextUrl.pathname} to ${url.pathname}`)
-
+    if (!sessionToken) {
+      // No session token, redirect to login
+      const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
+      url.searchParams.set("redirect", pathname)
       return NextResponse.redirect(url)
     }
 
-    // Refresh the session token to extend its validity
-    const response = NextResponse.next()
+    try {
+      // Verify the session token
+      const session = await getSessionByToken(sessionToken)
 
-    // Set a custom header to indicate the session was checked
-    response.headers.set("x-session-checked", "true")
+      if (!session) {
+        // Invalid session, redirect to login
+        const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
+        url.searchParams.set("redirect", pathname)
+        return NextResponse.redirect(url)
+      }
 
-    // Add the user's role to the headers for use in the application
-    if (authResult.user?.role) {
-      response.headers.set("x-user-role", authResult.user.role)
+      // Check if session is expired
+      if (new Date(session.expires_at) < new Date()) {
+        // Session expired, redirect to login
+        const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
+        url.searchParams.set("redirect", pathname)
+        url.searchParams.set("expired", "true")
+        return NextResponse.redirect(url)
+      }
+
+      // If admin role is required, check the user's role
+      if (isAdminRequired) {
+        const user = await getUserById(session.user_id)
+
+        if (!user || user.role !== "admin") {
+          // User is not an admin, redirect to unauthorized page
+          return NextResponse.redirect(new URL("/unauthorized", request.url))
+        }
+      }
+
+      // Session is valid, continue
+      return NextResponse.next()
+    } catch (error) {
+      console.error("Error in middleware:", error)
+      // Error occurred, redirect to login
+      const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
+      url.searchParams.set("redirect", pathname)
+      return NextResponse.redirect(url)
     }
-
-    return response
   }
 
+  // No authentication required for this path, continue
   return NextResponse.next()
 }
 
+// Configure the middleware to run only on specific paths
 export const config = {
-  matcher: ["/((?!api/auth/session-debug|_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/dashboard/:path*",
+    "/profile/:path*",
+    "/settings/:path*",
+    "/admin/:path*",
+    "/predict/results/:path*",
+    // "/history/:path*" - Removed from matcher
+    // Include the public access paths in the matcher
+    "/home/:path*",
+    "/predict/:path*",
+    "/history/:path*",
+    "/about/:path*",
+    "/how-it-works/:path*",
+  ],
 }

@@ -32,6 +32,7 @@ export async function GET(request: Request) {
             sms: { status: "configured", message: "Configured" },
           },
           lastMigration: { date: new Date().toISOString(), message: "Up to date" },
+          maintenance: false, // Replace with actual check from database or config
         },
       })
     }
@@ -77,6 +78,7 @@ export async function GET(request: Request) {
           date: new Date().toISOString(),
           message: settingsMap.last_migration || "Up to date",
         },
+        maintenance: false, // Replace with actual check from database or config
       },
     })
   } catch (error) {
@@ -94,6 +96,7 @@ export async function GET(request: Request) {
           sms: { status: "configured", message: "Configured" },
         },
         lastMigration: { date: new Date().toISOString(), message: "Up to date" },
+        maintenance: false, // Replace with actual check from database or config
       },
     })
   }

@@ -1,45 +1,26 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+
+import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Eye, EyeOff, AlertCircle } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Eye, EyeOff } from "lucide-react"
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [loginSuccess, setLoginSuccess] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams?.get("redirect") || "/admin"
-  const expired = searchParams?.get("expired") === "true"
   const [showPassword, setShowPassword] = useState(false)
-
-  // Clear any existing sessions on page load
-  useEffect(() => {
-    // Clear session cookies to ensure a fresh login
-    document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax"
-    document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax"
-
-    // Clear localStorage session data
-    localStorage.removeItem("user")
-    localStorage.removeItem("userExpiry")
-
-    // If session expired, show error
-    if (expired) {
-      setError("Your session has expired. Please log in again.")
-    }
-  }, [expired])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setLoading(true)
-    setLoginSuccess(false)
 
     try {
       const response = await fetch("/api/auth/admin/login", {
@@ -48,7 +29,6 @@ export default function AdminLoginPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password }),
-        credentials: "include", // Important to include credentials
       })
 
       const data = await response.json()
@@ -57,19 +37,14 @@ export default function AdminLoginPage() {
         throw new Error(data.message || "Login failed")
       }
 
-      // Set admin cookie with longer expiration (7 days)
-      document.cookie = "is_admin=true; path=/; max-age=604800; SameSite=Lax"
+      // Set admin cookie
+      document.cookie = "is_admin=true; path=/; max-age=86400" // 24 hours
 
-      // Set login success state
-      setLoginSuccess(true)
-
-      // Wait a moment to ensure cookies are set
-      setTimeout(() => {
-        // Redirect to admin dashboard or specified redirect path
-        window.location.href = redirect
-      }, 1000)
+      // Redirect to admin dashboard or specified redirect path
+      router.push(redirect)
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred")
+    } finally {
       setLoading(false)
     }
   }
@@ -105,18 +80,7 @@ export default function AdminLoginPage() {
           <h1 className="text-2xl font-bold mb-1">Admin Login</h1>
           <p className="text-gray-600 mb-6">Sign in to access the admin dashboard</p>
 
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4 mr-2" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {loginSuccess && (
-            <Alert className="mb-4 bg-green-50 text-green-800 border-green-200">
-              <AlertDescription>Login successful! Redirecting...</AlertDescription>
-            </Alert>
-          )}
+          {error && <div className="bg-red-50 text-red-600 p-3 rounded-md mb-4">{error}</div>}
 
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
@@ -160,10 +124,10 @@ export default function AdminLoginPage() {
 
             <button
               type="submit"
-              disabled={loading || loginSuccess}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-md disabled:opacity-70"
+              disabled={loading}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-md"
             >
-              {loading ? "Signing in..." : loginSuccess ? "Redirecting..." : "Sign in"}
+              {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
 
