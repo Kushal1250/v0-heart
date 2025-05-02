@@ -12,10 +12,12 @@ import {
   AlertTriangle,
   FileText,
   BarChart3,
+  ShieldAlert,
   HardDrive,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 
 interface SystemStatus {
   database: {
@@ -112,6 +114,16 @@ export default function SystemPage() {
     }
   }
 
+  const getStatusBadge = (status: string) => {
+    if (status === "Connected" || status === "Active" || status === "Configured") {
+      return <Badge className="bg-green-500">Active</Badge>
+    } else if (status === "Not Configured") {
+      return <Badge className="bg-yellow-500">Not Configured</Badge>
+    } else {
+      return <Badge className="bg-gray-500">Unknown</Badge>
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -127,8 +139,9 @@ export default function SystemPage() {
     <div className="container mx-auto p-4 md:p-6">
       <h1 className="mb-6 text-3xl font-bold">System</h1>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Database Management Section */}
+      {/* New System Management Cards */}
+      <div className="grid gap-6 mb-8 md:grid-cols-2 lg:grid-cols-3">
+        {/* Database Management Card */}
         <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
           <CardHeader>
             <CardTitle className="text-xl">Database Management</CardTitle>
@@ -137,16 +150,16 @@ export default function SystemPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span>Database Status:</span>
-              <span className="text-white">{systemStatus.database.status}</span>
+              <span className="text-gray-400">Unknown</span>
             </div>
             <div className="flex items-center justify-between">
               <span>Last Migration:</span>
-              <span className="text-white">{systemStatus.database.lastMigration}</span>
+              <span className="text-gray-400">Unknown</span>
             </div>
 
             <Button
               variant="outline"
-              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white mt-4"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
               onClick={() => router.push("/admin/migrate")}
             >
               <Database className="mr-2 h-4 w-4" /> Run Migration
@@ -162,7 +175,7 @@ export default function SystemPage() {
           </CardContent>
         </Card>
 
-        {/* Authentication Systems Section */}
+        {/* Authentication Systems Card */}
         <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
           <CardHeader>
             <CardTitle className="text-xl">Authentication Systems</CardTitle>
@@ -171,16 +184,16 @@ export default function SystemPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span>Verification System:</span>
-              <span className="text-white">{systemStatus.authentication.verification}</span>
+              <span className="text-yellow-500">Not Configured</span>
             </div>
             <div className="flex items-center justify-between">
               <span>Password Reset System:</span>
-              <span className="text-white">{systemStatus.authentication.passwordReset}</span>
+              <span className="text-green-500">Active</span>
             </div>
 
             <Button
               variant="outline"
-              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white mt-4"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
               onClick={() => router.push("/admin/fix-issues")}
             >
               <User className="mr-2 h-4 w-4" /> Fix Verification System
@@ -196,7 +209,7 @@ export default function SystemPage() {
           </CardContent>
         </Card>
 
-        {/* Notification Services Section */}
+        {/* Notification Services Card */}
         <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
           <CardHeader>
             <CardTitle className="text-xl">Notification Services</CardTitle>
@@ -205,16 +218,16 @@ export default function SystemPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span>Email Service:</span>
-              <span className="text-white">{systemStatus.notification.email}</span>
+              <span className="text-yellow-500">Not Configured</span>
             </div>
             <div className="flex items-center justify-between">
               <span>SMS Service:</span>
-              <span className="text-white">{systemStatus.notification.sms}</span>
+              <span className="text-yellow-500">Not Configured</span>
             </div>
 
             <Button
               variant="outline"
-              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white mt-4"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
               onClick={() => router.push("/admin/email-settings")}
             >
               <Mail className="mr-2 h-4 w-4" /> Email Settings
@@ -230,7 +243,7 @@ export default function SystemPage() {
           </CardContent>
         </Card>
 
-        {/* System Diagnostics Section */}
+        {/* System Diagnostics Card */}
         <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
           <CardHeader>
             <CardTitle className="text-xl">System Diagnostics</CardTitle>
@@ -271,10 +284,207 @@ export default function SystemPage() {
           </CardContent>
         </Card>
 
-        {/* Admin Tools Section */}
+        {/* Admin Tools Card */}
         <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
           <CardHeader>
             <CardTitle className="text-xl">Admin Tools</CardTitle>
+            <CardDescription className="text-gray-400">Additional administrative tools</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button
+              variant="outline"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
+              onClick={() => router.push("/admin/system-health")}
+            >
+              <BarChart3 className="mr-2 h-4 w-4" /> System Health
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
+              onClick={() => router.push("/admin/detailed-db-diagnostics")}
+            >
+              <Database className="mr-2 h-4 w-4" /> Detailed DB Diagnostics
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
+              onClick={() => router.push("/admin/reset-token-diagnostics")}
+            >
+              <Key className="mr-2 h-4 w-4" /> Reset Token Diagnostics
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
+              onClick={() => router.push("/admin/fix-database")}
+            >
+              <HardDrive className="mr-2 h-4 w-4" /> Fix Database
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Original content below */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Database Management Section */}
+        <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" /> Database Management
+            </CardTitle>
+            <CardDescription className="text-gray-400">Manage database and migrations</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span>Database Status:</span>
+              {getStatusBadge(systemStatus.database.status)}
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Last Migration:</span>
+              <span className="text-sm text-gray-400">{systemStatus.database.lastMigration}</span>
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white mt-4"
+              onClick={() => router.push("/admin/migrate")}
+            >
+              <Database className="mr-2 h-4 w-4" /> Run Migration
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
+              onClick={() => router.push("/admin/database-diagnostics")}
+            >
+              <FileText className="mr-2 h-4 w-4" /> Database Diagnostics
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Authentication Systems Section */}
+        <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" /> Authentication Systems
+            </CardTitle>
+            <CardDescription className="text-gray-400">Fix auth related issues</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span>Verification System:</span>
+              {getStatusBadge(systemStatus.authentication.verification)}
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Password Reset System:</span>
+              {getStatusBadge(systemStatus.authentication.passwordReset)}
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white mt-4"
+              onClick={() => router.push("/admin/fix-issues")}
+            >
+              <User className="mr-2 h-4 w-4" /> Fix Verification System
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
+              onClick={() => router.push("/admin/reset-token-diagnostics")}
+            >
+              <Key className="mr-2 h-4 w-4" /> Fix Password Reset System
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Notification Services Section */}
+        <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" /> Notification Services
+            </CardTitle>
+            <CardDescription className="text-gray-400">Manage email and SMS services</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span>Email Service:</span>
+              {getStatusBadge(systemStatus.notification.email)}
+            </div>
+            <div className="flex items-center justify-between">
+              <span>SMS Service:</span>
+              {getStatusBadge(systemStatus.notification.sms)}
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white mt-4"
+              onClick={() => router.push("/admin/email-settings")}
+            >
+              <Mail className="mr-2 h-4 w-4" /> Email Settings
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
+              onClick={() => router.push("/admin/verification-settings")}
+            >
+              <MessageSquare className="mr-2 h-4 w-4" /> SMS Settings
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* System Diagnostics Section */}
+        <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ActivitySquare className="h-5 w-5" /> System Diagnostics
+            </CardTitle>
+            <CardDescription className="text-gray-400">Debug and repair tools</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button
+              variant="outline"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
+              onClick={() => router.push("/admin/diagnostics")}
+            >
+              <ActivitySquare className="mr-2 h-4 w-4" /> General Diagnostics
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
+              onClick={() => router.push("/admin/email-diagnostics")}
+            >
+              <Mail className="mr-2 h-4 w-4" /> Email Diagnostics
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
+              onClick={() => router.push("/admin/sms-diagnostics")}
+            >
+              <MessageSquare className="mr-2 h-4 w-4" /> SMS Diagnostics
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
+              onClick={() => router.push("/admin/fix-issues")}
+            >
+              <AlertTriangle className="mr-2 h-4 w-4" /> Fix System Issues
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Admin Tools Section */}
+        <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5" /> Admin Tools
+            </CardTitle>
             <CardDescription className="text-gray-400">Additional administrative tools</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
