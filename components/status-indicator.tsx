@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, CheckCircle, AlertTriangle, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { DatabaseStatusDialog } from "./database-status-dialog"
 
 type StatusType = "connected" | "active" | "configured" | "up-to-date" | "error" | "warning" | "unknown"
 
@@ -13,13 +14,28 @@ interface StatusIndicatorProps {
   status: StatusType
   onClick?: () => Promise<void>
   className?: string
+  showDetailedView?: boolean
+  type?: "database" | "verification" | "password-reset" | "email" | "sms" | "migration"
 }
 
-export function StatusIndicator({ label, status, onClick, className }: StatusIndicatorProps) {
+export function StatusIndicator({
+  label,
+  status,
+  onClick,
+  className,
+  showDetailedView = false,
+  type,
+}: StatusIndicatorProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [currentStatus, setCurrentStatus] = useState<StatusType>(status)
+  const [showDatabaseDialog, setShowDatabaseDialog] = useState(false)
 
   const handleClick = async () => {
+    if (type === "database") {
+      setShowDatabaseDialog(true)
+      return
+    }
+
     if (!onClick) return
 
     setIsLoading(true)
@@ -69,22 +85,26 @@ export function StatusIndicator({ label, status, onClick, className }: StatusInd
   }
 
   return (
-    <div className={cn("flex flex-col space-y-1", className)}>
-      <span className="text-sm font-medium text-gray-500">{label}</span>
-      <Button variant="ghost" className="p-0 h-auto" onClick={handleClick} disabled={isLoading || !onClick}>
-        <Badge
-          className={cn(
-            "px-3 py-1 transition-colors",
-            getStatusColor(currentStatus),
-            onClick ? "cursor-pointer" : "cursor-default",
-          )}
-        >
-          <span className="flex items-center gap-1.5">
-            {getStatusIcon(currentStatus)}
-            <span className="font-medium">{currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1)}</span>
-          </span>
-        </Badge>
-      </Button>
-    </div>
+    <>
+      <div className={cn("flex flex-col space-y-1", className)}>
+        <span className="text-sm font-medium text-gray-500">{label}</span>
+        <Button variant="ghost" className="p-0 h-auto" onClick={handleClick} disabled={isLoading && !type}>
+          <Badge
+            className={cn(
+              "px-3 py-1 transition-colors",
+              getStatusColor(currentStatus),
+              onClick || type ? "cursor-pointer" : "cursor-default",
+            )}
+          >
+            <span className="flex items-center gap-1.5">
+              {getStatusIcon(currentStatus)}
+              <span className="font-medium">{currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1)}</span>
+            </span>
+          </Badge>
+        </Button>
+      </div>
+
+      {type === "database" && <DatabaseStatusDialog open={showDatabaseDialog} onOpenChange={setShowDatabaseDialog} />}
+    </>
   )
 }

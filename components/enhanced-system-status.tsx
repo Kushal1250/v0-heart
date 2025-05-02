@@ -183,35 +183,45 @@ export default function EnhancedSystemStatus() {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-          <StatusIndicator label="Database Status" status={status.database.status} onClick={checkDatabaseConnection} />
+          <StatusIndicator
+            label="Database Status"
+            status={status.database.status}
+            onClick={checkDatabaseConnection}
+            type="database"
+          />
 
           <StatusIndicator
             label="Last Migration"
             status={status.database.lastMigration === "Up to date" ? "up-to-date" : "warning"}
+            type="migration"
           />
 
           <StatusIndicator
             label="Verification System"
             status={status.verification.status === "active" ? "active" : "error"}
             onClick={checkAuthSystems}
+            type="verification"
           />
 
           <StatusIndicator
             label="Password Reset System"
             status={status.passwordReset.status === "active" ? "active" : "error"}
             onClick={checkAuthSystems}
+            type="password-reset"
           />
 
           <StatusIndicator
             label="Email Service"
             status={status.email.status === "configured" ? "configured" : "error"}
             onClick={checkNotificationServices}
+            type="email"
           />
 
           <StatusIndicator
             label="SMS Service"
             status={status.sms.status === "configured" ? "configured" : "error"}
             onClick={checkNotificationServices}
+            type="sms"
           />
         </div>
       </CardContent>

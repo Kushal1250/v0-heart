@@ -4,258 +4,254 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { RefreshCw, AlertTriangle, Database, Server, TableIcon } from "lucide-react"
 
-export default function DetailedDbDiagnosticsPage() {
-  const [diagnostics, setDiagnostics] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
-  const [fixResult, setFixResult] = useState<any>(null)
-  const [fixLoading, setFixLoading] = useState(false)
+interface TableInfo {
+  table_name: string
+  row_count: number
+  size: string
+  last_analyzed: string
+}
+
+interface DatabaseDiagnostics {
+  connected: boolean
+  responseTime: string
+  serverVersion: string
+  tables: TableInfo[]
+  connections: {
+    active: number
+    max: number
+  }
+}
+
+export default function DetailedDatabaseDiagnosticsPage() {
+  const [diagnostics, setDiagnostics] = useState<DatabaseDiagnostics | null>(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
-  const runDiagnostics = async () => {
-    setLoading(true)
-    setError(null)
+  const fetchDiagnostics = async () => {
     try {
-      const response = await fetch("/api/admin/detailed-db-diagnostics")
+      setRefreshing(true)
+      setError(null)
+
+      const response = await fetch("/api/admin/detailed-db-diagnostics", {
+        credentials: "include",
+        cache: "no-store",
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch database diagnostics: ${response.status}`)
+      }
+
       const data = await response.json()
-      setDiagnostics(data)
+
+      if (data.success) {
+        setDiagnostics({
+          connected: data.connected,
+          responseTime: data.responseTime,
+          serverVersion: data.serverVersion,
+          tables: data.tables || [],
+          connections: data.connections || { active: 0, max: 10 },
+        })
+      } else {
+        throw new Error(data.message || "Failed to fetch database diagnostics")
+      }
     } catch (err) {
-      setError("Failed to run diagnostics")
-      console.error(err)
+      console.error("Error fetching database diagnostics:", err)
+      setError(err instanceof Error ? err.message : "Unknown error occurred")
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
-  const fixTable = async () => {
-    setFixLoading(true)
-    setError(null)
-    try {
-      const response = await fetch("/api/admin/detailed-db-diagnostics", {
-        method: "POST",
-      })
-      const data = await response.json()
-      setFixResult(data)
-      // Refresh diagnostics after fix
-      runDiagnostics()
-    } catch (err) {
-      setError("Failed to fix table")
-      console.error(err)
-    } finally {
-      setFixLoading(false)
-    }
-  }
-
-  // Run diagnostics on page load
   useEffect(() => {
-    runDiagnostics()
+    fetchDiagnostics()
   }, [])
 
+  if (loading) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto py-8">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
+  if (!diagnostics) {
+    return (
+      <div className="container mx-auto py-8">
+        <Alert>
+          <AlertTitle>No Data</AlertTitle>
+          <AlertDescription>No database diagnostic data available.</AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
+  const connectionPercentage = (diagnostics.connections.active / diagnostics.connections.max) * 100
+
   return (
-    <div className="container mx-auto py-10">
-      <h1 className="text-3xl font-bold mb-6">Detailed Database Diagnostics</h1>
+    <div className="container mx-auto py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">Database Diagnostics</h1>
+        <p className="text-gray-500">Detailed information about your database connection and health.</p>
+      </div>
 
-      <div className="grid gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Database Diagnostics</CardTitle>
-            <CardDescription>
-              Detailed information about your database connection and the password_reset_tokens table.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4 mb-6">
-              <Button onClick={runDiagnostics} disabled={loading}>
-                {loading ? "Running Diagnostics..." : "Run Diagnostics"}
-              </Button>
-              <Button onClick={fixTable} disabled={fixLoading} variant="destructive">
-                {fixLoading ? "Fixing Table..." : "Fix Reset Tokens Table"}
-              </Button>
-            </div>
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-2">
+          <Badge
+            variant="outline"
+            className={`px-3 py-1 ${diagnostics.connected ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}
+          >
+            {diagnostics.connected ? "Connected" : "Disconnected"}
+          </Badge>
+          <span className="text-sm text-gray-500">Last checked: {new Date().toLocaleTimeString()}</span>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={fetchDiagnostics}
+          disabled={refreshing}
+          className="flex items-center gap-1"
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Refreshing..." : "Refresh"}
+        </Button>
+      </div>
 
-            {error && (
-              <Alert variant="destructive" className="mb-6">
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="tables">Tables</TabsTrigger>
+          <TabsTrigger value="performance">Performance</TabsTrigger>
+        </TabsList>
 
-            {fixResult && (
-              <Alert variant={fixResult.success ? "default" : "destructive"} className="mb-6">
-                <AlertTitle>{fixResult.success ? "Success" : "Error"}</AlertTitle>
-                <AlertDescription>
-                  {fixResult.message}
-                  {fixResult.error && (
-                    <div className="mt-2">
-                      <strong>Error details:</strong> {fixResult.error}
-                    </div>
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {diagnostics && (
-              <div className="space-y-6">
-                <h3 className="text-xl font-semibold">Diagnostic Results</h3>
-
-                <div className="bg-gray-100 p-4 rounded-md">
-                  <h4 className="font-medium mb-2">Basic Connection</h4>
-                  <div className="pl-4">
-                    <p>Status: {diagnostics.tests.basicConnection?.success ? "✅ Connected" : "❌ Failed"}</p>
-                    {diagnostics.tests.basicConnection?.timestamp && (
-                      <p>Server time: {diagnostics.tests.basicConnection.timestamp}</p>
-                    )}
-                    {diagnostics.tests.basicConnection?.error && (
-                      <p className="text-red-500">Error: {diagnostics.tests.basicConnection.error}</p>
-                    )}
+        <TabsContent value="overview">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Connection Status
+                </CardTitle>
+                <CardDescription>Current database connection information</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Status</span>
+                    <Badge className={diagnostics.connected ? "bg-green-500" : "bg-red-500"}>
+                      {diagnostics.connected ? "Connected" : "Disconnected"}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Response Time</span>
+                    <span>{diagnostics.responseTime}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Server Version</span>
+                    <span>{diagnostics.serverVersion}</span>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
 
-                {diagnostics.tests.databaseVersion && (
-                  <div className="bg-gray-100 p-4 rounded-md">
-                    <h4 className="font-medium mb-2">Database Version</h4>
-                    <div className="pl-4">
-                      <p>{diagnostics.tests.databaseVersion.version}</p>
-                    </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Server className="h-5 w-5" />
+                  Connection Usage
+                </CardTitle>
+                <CardDescription>Current database connection usage</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Active Connections</span>
+                    <span>{diagnostics.connections.active}</span>
                   </div>
-                )}
-
-                {diagnostics.tests.schemaPermissions && (
-                  <div className="bg-gray-100 p-4 rounded-md">
-                    <h4 className="font-medium mb-2">Schema Permissions</h4>
-                    <div className="pl-4">
-                      <p>
-                        Can create tables:{" "}
-                        {diagnostics.tests.schemaPermissions.permissions.can_create ? "✅ Yes" : "❌ No"}
-                      </p>
-                      <p>
-                        Can use schema: {diagnostics.tests.schemaPermissions.permissions.can_use ? "✅ Yes" : "❌ No"}
-                      </p>
-                    </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Max Connections</span>
+                    <span>{diagnostics.connections.max}</span>
                   </div>
-                )}
-
-                {diagnostics.tests.tableExists && (
-                  <div className="bg-gray-100 p-4 rounded-md">
-                    <h4 className="font-medium mb-2">Reset Tokens Table</h4>
-                    <div className="pl-4">
-                      <p>Table exists: {diagnostics.tests.tableExists.exists ? "✅ Yes" : "❌ No"}</p>
-                    </div>
+                  <div>
+                    <span className="text-sm font-medium block mb-1">Connection Usage</span>
+                    <Progress value={connectionPercentage} />
+                    <span className="text-xs text-gray-500">
+                      {diagnostics.connections.active} / {diagnostics.connections.max}
+                    </span>
                   </div>
-                )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
-                {diagnostics.tests.tableStructure && diagnostics.tests.tableStructure.columns && (
-                  <div className="bg-gray-100 p-4 rounded-md">
-                    <h4 className="font-medium mb-2">Table Structure</h4>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full bg-white">
-                        <thead>
-                          <tr>
-                            <th className="py-2 px-4 border-b">Column</th>
-                            <th className="py-2 px-4 border-b">Type</th>
-                            <th className="py-2 px-4 border-b">Nullable</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {diagnostics.tests.tableStructure.columns.map((col: any, i: number) => (
-                            <tr key={i}>
-                              <td className="py-2 px-4 border-b">{col.column_name}</td>
-                              <td className="py-2 px-4 border-b">{col.data_type}</td>
-                              <td className="py-2 px-4 border-b">{col.is_nullable === "YES" ? "Yes" : "No"}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
+        <TabsContent value="tables">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TableIcon className="h-5 w-5" />
+                Tables Information
+              </CardTitle>
+              <CardDescription>Detailed information about database tables</CardDescription>
+            </CardHeader>
+            <CardContent className="overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Table Name</TableHead>
+                    <TableHead>Row Count</TableHead>
+                    <TableHead>Size</TableHead>
+                    <TableHead>Last Analyzed</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {diagnostics.tables.map((table) => (
+                    <TableRow key={table.table_name}>
+                      <TableCell>{table.table_name}</TableCell>
+                      <TableCell>{table.row_count}</TableCell>
+                      <TableCell>{table.size}</TableCell>
+                      <TableCell>{table.last_analyzed}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                {diagnostics.tests.tableConstraints && diagnostics.tests.tableConstraints.constraints && (
-                  <div className="bg-gray-100 p-4 rounded-md">
-                    <h4 className="font-medium mb-2">Table Constraints</h4>
-                    {diagnostics.tests.tableConstraints.constraints.length > 0 ? (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full bg-white">
-                          <thead>
-                            <tr>
-                              <th className="py-2 px-4 border-b">Constraint Name</th>
-                              <th className="py-2 px-4 border-b">Type</th>
-                              <th className="py-2 px-4 border-b">Column</th>
-                              <th className="py-2 px-4 border-b">References</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {diagnostics.tests.tableConstraints.constraints.map((constraint: any, i: number) => (
-                              <tr key={i}>
-                                <td className="py-2 px-4 border-b">{constraint.constraint_name}</td>
-                                <td className="py-2 px-4 border-b">{constraint.constraint_type}</td>
-                                <td className="py-2 px-4 border-b">{constraint.column_name}</td>
-                                <td className="py-2 px-4 border-b">
-                                  {constraint.foreign_table_name &&
-                                    `${constraint.foreign_table_name}.${constraint.foreign_column_name}`}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <p className="pl-4">No constraints found</p>
-                    )}
-                  </div>
-                )}
-
-                {diagnostics.tests.createTablePermission && (
-                  <div className="bg-gray-100 p-4 rounded-md">
-                    <h4 className="font-medium mb-2">Create Table Permission</h4>
-                    <div className="pl-4">
-                      <p>Status: {diagnostics.tests.createTablePermission.success ? "✅ Success" : "❌ Failed"}</p>
-                      {diagnostics.tests.createTablePermission.error && (
-                        <p className="text-red-500">Error: {diagnostics.tests.createTablePermission.error}</p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Manual Fix Instructions</CardTitle>
-            <CardDescription>If the automatic fix doesn't work, try these manual steps:</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ol className="list-decimal pl-5 space-y-2">
-              <li>Check database connection settings in your environment variables</li>
-              <li>Verify that the database user has sufficient permissions (CREATE TABLE, DROP TABLE)</li>
-              <li>
-                Run the following SQL query directly in your database:
-                <pre className="bg-gray-800 text-white p-3 rounded mt-2 overflow-x-auto text-sm">
-                  {`-- Drop the table with CASCADE to force drop any dependencies
-DROP TABLE IF EXISTS password_reset_tokens CASCADE;
-                  
--- Create a simple table structure without foreign keys
-CREATE TABLE password_reset_tokens (
-  id SERIAL PRIMARY KEY,
-  user_id TEXT NOT NULL,
-  token TEXT NOT NULL,
-  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-  is_valid BOOLEAN DEFAULT true,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create indexes for performance
-CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token);
-CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);`}
-                </pre>
-              </li>
-              <li>Restart your application server after making these changes</li>
-            </ol>
-          </CardContent>
-        </Card>
-      </div>
+        <TabsContent value="performance">
+          <Card>
+            <CardHeader>
+              <CardTitle>Performance Metrics</CardTitle>
+              <CardDescription>Coming soon...</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p>Performance metrics and insights will be available in a future update.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
