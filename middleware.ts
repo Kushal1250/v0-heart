@@ -55,10 +55,19 @@ export async function middleware(request: NextRequest) {
       // Verify the session token
       const session = await getSessionByToken(sessionToken)
 
-      if (!session || new Date(session.expires_at) < new Date()) {
-        // Invalid or expired session, redirect to login
+      if (!session) {
+        // Invalid session, redirect to login
         const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
         url.searchParams.set("redirect", pathname)
+        return NextResponse.redirect(url)
+      }
+
+      // Check if session is expired
+      if (new Date(session.expires_at) < new Date()) {
+        // Session expired, redirect to login
+        const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
+        url.searchParams.set("redirect", pathname)
+        url.searchParams.set("expired", "true")
         return NextResponse.redirect(url)
       }
 

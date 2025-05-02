@@ -1,56 +1,25 @@
 "use client"
 
 import { useEffect } from "react"
-import { refreshSessionExpiry, isSessionValid } from "@/lib/auth-persistence"
 import { useAuth } from "@/lib/auth-context"
 
-/**
- * This component helps maintain the user's session by refreshing
- * the session expiry time when the user is active on the site.
- */
-export function SessionKeeper() {
-  const { user } = useAuth()
+export default function SessionKeeper() {
+  const { refreshSession } = useAuth()
 
   useEffect(() => {
-    if (!user) return
+    // Refresh session on initial load
+    refreshSession()
 
-    // Refresh session expiry on initial load if session is valid
-    if (isSessionValid()) {
-      refreshSessionExpiry()
-    }
-
-    // Set up event listeners to refresh session on user activity
-    const refreshOnActivity = () => {
-      if (user && isSessionValid()) {
-        refreshSessionExpiry()
-      }
-    }
-
-    // Add event listeners for user activity
-    window.addEventListener("click", refreshOnActivity)
-    window.addEventListener("keypress", refreshOnActivity)
-    window.addEventListener("scroll", refreshOnActivity)
-    window.addEventListener("mousemove", refreshOnActivity)
-
-    // Set up periodic check (every 5 minutes)
+    // Set up interval to refresh session every 25 minutes
     const intervalId = setInterval(
       () => {
-        if (user && isSessionValid()) {
-          refreshSessionExpiry()
-        }
+        refreshSession()
       },
-      5 * 60 * 1000,
-    )
+      25 * 60 * 1000,
+    ) // 25 minutes
 
-    return () => {
-      // Clean up event listeners
-      window.removeEventListener("click", refreshOnActivity)
-      window.removeEventListener("keypress", refreshOnActivity)
-      window.removeEventListener("scroll", refreshOnActivity)
-      window.removeEventListener("mousemove", refreshOnActivity)
-      clearInterval(intervalId)
-    }
-  }, [user])
+    return () => clearInterval(intervalId)
+  }, [refreshSession])
 
   // This component doesn't render anything
   return null

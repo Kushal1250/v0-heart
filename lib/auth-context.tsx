@@ -16,6 +16,7 @@ interface AuthContextType {
   user: User | null
   isAdmin: boolean
   isLoading: boolean
+  refreshSession: () => Promise<boolean>
   login: (
     email: string,
     password: string,
@@ -40,63 +41,108 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [lastRefresh, setLastRefresh] = useState<number>(0)
   const router = useRouter()
 
   // Update the checkAuthStatus function to be more resilient
-  const checkAuthStatus = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      // First check localStorage for cached user data
-      const cachedUser = localStorage.getItem("user")
-      if (cachedUser) {
-        const userData = JSON.parse(cachedUser)
-        const expiryTime = localStorage.getItem("userExpiry")
-
-        // If we have valid cached data that hasn't expired
-        if (expiryTime && new Date().getTime() < Number.parseInt(expiryTime)) {
-          setUser(userData)
-          setIsAdmin(userData.role === "admin")
-          setIsLoading(false)
-          return
-        }
+  const checkAuthStatus = useCallback(
+    async (force = false) => {
+      // Don't check too frequently unless forced
+      const now = Date.now()
+      if (!force && lastRefresh > 0 && now - lastRefresh < 60000) {
+        // 1 minute cooldown
+        return
       }
 
-      // If no valid cached data, check with the server
-      const response = await fetch("/api/auth/user", {
+      setIsLoading(true)
+      try {
+        // First check localStorage for cached user data
+        const cachedUser = localStorage.getItem("user")
+        if (cachedUser && !force) {
+          const userData = JSON.parse(cachedUser)
+          const expiryTime = localStorage.getItem("userExpiry")
+
+          // If we have valid cached data that hasn't expired
+          if (expiryTime && new Date().getTime() < Number.parseInt(expiryTime)) {
+            setUser(userData)
+            setIsAdmin(userData.role === "admin")
+            setIsLoading(false)
+            return
+          }
+        }
+
+        // If no valid cached data or forced refresh, check with the server
+        const response = await fetch("/api/auth/user", {
+          credentials: "include",
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+        })
+
+        if (response.ok) {
+          const userData = await response.json()
+          setUser(userData)
+          setIsAdmin(userData.role === "admin")
+          setLastRefresh(now)
+
+          // Cache the user data with a 4-hour expiry (increased from 2 hours)
+          localStorage.setItem("user", JSON.stringify(userData))
+          localStorage.setItem("userExpiry", (new Date().getTime() + 4 * 60 * 60 * 1000).toString())
+        } else {
+          setUser(null)
+          setIsAdmin(false)
+          // Clear any stale data
+          localStorage.removeItem("user")
+          localStorage.removeItem("userExpiry")
+        }
+      } catch (error) {
+        console.error("Error checking auth status:", error)
+        setUser(null)
+        setIsAdmin(false)
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [lastRefresh],
+  )
+
+  // Add a session refresh function
+  const refreshSession = async (): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/auth/refresh-session", {
+        method: "POST",
         credentials: "include",
         headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
+          "Content-Type": "application/json",
         },
       })
 
       if (response.ok) {
-        const userData = await response.json()
-        setUser(userData)
-        setIsAdmin(userData.role === "admin")
-
-        // Cache the user data with a 2-hour expiry (increased from 30 minutes)
-        localStorage.setItem("user", JSON.stringify(userData))
-        localStorage.setItem("userExpiry", (new Date().getTime() + 2 * 60 * 60 * 1000).toString())
-      } else {
-        setUser(null)
-        setIsAdmin(false)
-        // Clear any stale data
-        localStorage.removeItem("user")
-        localStorage.removeItem("userExpiry")
+        // Force a refresh of auth status
+        await checkAuthStatus(true)
+        return true
       }
+      return false
     } catch (error) {
-      console.error("Error checking auth status:", error)
-      setUser(null)
-      setIsAdmin(false)
-    } finally {
-      setIsLoading(false)
+      console.error("Error refreshing session:", error)
+      return false
     }
-  }, [])
+  }
 
   useEffect(() => {
     checkAuthStatus()
+
+    // Set up a timer to refresh the session every 25 minutes
+    const intervalId = setInterval(
+      () => {
+        refreshSession()
+      },
+      25 * 60 * 1000,
+    ) // 25 minutes
+
+    return () => clearInterval(intervalId)
   }, [checkAuthStatus])
 
   const login = async (email: string, password: string, phone: string, rememberMe = false) => {
@@ -129,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(data.user)
       setIsAdmin(data.user.role === "admin")
+      setLastRefresh(Date.now())
 
       // Set flag for successful login
       sessionStorage.setItem("loginSuccess", "true")
@@ -136,10 +183,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Set user data in localStorage with appropriate expiry based on rememberMe
       localStorage.setItem("user", JSON.stringify(data.user))
 
-      // Set a longer expiry time if rememberMe is true (30 days vs 2 hours)
+      // Set a longer expiry time if rememberMe is true (30 days vs 4 hours)
       const expiryTime = rememberMe
         ? new Date().getTime() + 30 * 24 * 60 * 60 * 1000 // 30 days
-        : new Date().getTime() + 2 * 60 * 60 * 1000 // 2 hours
+        : new Date().getTime() + 4 * 60 * 60 * 1000 // 4 hours
 
       localStorage.setItem("userExpiry", expiryTime.toString())
 
@@ -180,15 +227,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Set admin user
       setUser({
-        id: "admin",
-        name: "Admin",
+        id: data.user.id || "admin",
+        name: data.user.name || "Admin",
         email: email,
         role: "admin",
       })
       setIsAdmin(true)
+      setLastRefresh(Date.now())
 
       // Set flag for successful login
       sessionStorage.setItem("loginSuccess", "true")
+
+      // Store admin user in localStorage with 8-hour expiry
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          id: data.user.id || "admin",
+          name: data.user.name || "Admin",
+          email: email,
+          role: "admin",
+        }),
+      )
+      localStorage.setItem("userExpiry", (new Date().getTime() + 8 * 60 * 60 * 1000).toString()) // 8 hours
 
       return { success: true, message: "Admin login successful" }
     } catch (error: any) {
@@ -226,6 +286,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(data.user)
       setIsAdmin(data.user.role === "admin")
+      setLastRefresh(Date.now())
       return { success: true, message: "Signup successful" }
     } catch (error: any) {
       return { success: false, message: error.message || "An unexpected error occurred" }
@@ -248,6 +309,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Clear admin cookie
       document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+      document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
 
       // Redirect to home page after logout
       window.location.href = "/"
@@ -259,7 +321,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Function to update user profile data in context
   const updateUserProfile = (data: Partial<User>) => {
     if (user) {
-      setUser({ ...user, ...data })
+      const updatedUser = { ...user, ...data }
+      setUser(updatedUser)
+
+      // Update in localStorage too
+      localStorage.setItem("user", JSON.stringify(updatedUser))
     }
   }
 
@@ -271,13 +337,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(updatedUser)
 
       // Save to localStorage for persistence
-      localStorage.setItem(
-        "userDetails",
-        JSON.stringify({
-          name: updatedUser.name,
-          email: updatedUser.email,
-        }),
-      )
+      localStorage.setItem("user", JSON.stringify(updatedUser))
     }
   }
 
@@ -287,6 +347,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isAdmin,
         isLoading,
+        refreshSession,
         login,
         adminLogin,
         signup,
