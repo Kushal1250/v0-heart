@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle } from "lucide-react"
+import { AlertCircle, CheckCircle, ExternalLink } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export default function EmailConfigStatus() {
   const [status, setStatus] = useState<"loading" | "valid" | "invalid" | "error">("loading")
   const [message, setMessage] = useState("")
   const [details, setDetails] = useState<any>(null)
+  const [retrying, setRetrying] = useState(false)
 
   useEffect(() => {
     checkEmailConfig()
@@ -15,6 +17,9 @@ export default function EmailConfigStatus() {
 
   const checkEmailConfig = async () => {
     try {
+      setStatus("loading")
+      setRetrying(true)
+
       const response = await fetch("/api/email-test")
       const data = await response.json()
 
@@ -31,6 +36,8 @@ export default function EmailConfigStatus() {
       setStatus("error")
       setMessage("Failed to check email configuration")
       setDetails(null)
+    } finally {
+      setRetrying(false)
     }
   }
 
@@ -60,6 +67,19 @@ export default function EmailConfigStatus() {
             <pre className="mt-1 p-2 bg-gray-800 rounded overflow-x-auto">{JSON.stringify(details, null, 2)}</pre>
           </details>
         )}
+        <div className="mt-4 flex justify-between items-center">
+          <Button variant="outline" size="sm" onClick={checkEmailConfig} disabled={retrying}>
+            {retrying ? "Checking..." : "Retry Check"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open("/admin/email-diagnostics", "_blank")}
+            className="flex items-center gap-1"
+          >
+            Diagnostics <ExternalLink className="h-3 w-3" />
+          </Button>
+        </div>
       </AlertDescription>
     </Alert>
   )

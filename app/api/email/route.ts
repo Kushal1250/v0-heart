@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import nodemailer from "nodemailer"
 import { jsPDF } from "jspdf"
+import { sendEnhancedEmail } from "@/lib/enhanced-email-utils"
+import { systemLogger } from "@/lib/system-logger"
 
 // Helper function to format assessment data as HTML
 function formatAssessmentDataAsHtml(
@@ -377,26 +378,13 @@ Risk Score: ${assessmentData ? assessmentData.result.score + "%" : "N/A"}
 This email was sent via HeartPredict.
     `
 
-    // Log environment variables (without exposing passwords)
-    console.log("Email configuration:", {
+    // Log email configuration (without exposing passwords)
+    systemLogger.info("Email API", "Email configuration", {
       server: process.env.EMAIL_SERVER || "(not set)",
       port: process.env.EMAIL_PORT || "(not set)",
       secure: process.env.EMAIL_SECURE || "(not set)",
       user: process.env.EMAIL_USER ? "✓ Set" : "✗ Not set",
       from: process.env.EMAIL_FROM || "(not set)",
-    })
-
-    // Create a test transporter to verify credentials
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_SERVER,
-      port: Number(process.env.EMAIL_PORT) || 587,
-      secure: process.env.EMAIL_SECURE === "true",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
-      },
-      debug: true,
-      logger: true,
     })
 
     // Generate PDF if requested and assessment data is provided
@@ -418,49 +406,34 @@ This email was sent via HeartPredict.
           contentType: "application/pdf",
         })
 
-        console.log("PDF attachment created successfully")
+        systemLogger.info("Email API", "PDF attachment created successfully")
       } catch (pdfError) {
-        console.error("Error generating PDF attachment:", pdfError)
+        systemLogger.error("Email API", "Error generating PDF attachment", { error: pdfError })
         // Continue without PDF if generation fails
       }
     }
 
-    // Send email with improved configuration
-    const mailOptions = {
-      from: process.env.EMAIL_FROM,
-      to,
-      subject,
-      text: textContent, // Plain text version
-      html: htmlContent,
-      attachments,
-    }
+    // Send email with enhanced email utility
+    const emailResult = await sendEnhancedEmail(to, subject, htmlContent, textContent, attachments)
 
-    try {
-      // Verify connection configuration
-      await transporter.verify()
-      console.log("SMTP connection verified successfully")
-
-      // Send the email
-      const info = await transporter.sendMail(mailOptions)
-      console.log("Email sent successfully:", info.messageId)
-
-      return NextResponse.json({ success: true, messageId: info.messageId })
-    } catch (emailError: any) {
-      console.error("SMTP Error:", emailError)
-
-      // Return detailed error for debugging
+    if (emailResult.success) {
+      return NextResponse.json({
+        success: true,
+        messageId: emailResult.messageId,
+        previewUrl: emailResult.previewUrl,
+      })
+    } else {
       return NextResponse.json(
         {
           error: "Email sending failed",
-          details: emailError.message,
-          code: emailError.code || "unknown",
-          command: emailError.command || "unknown",
+          details: emailResult.error,
+          code: emailResult.details?.code || "unknown",
         },
         { status: 500 },
       )
     }
   } catch (error: any) {
-    console.error("General error:", error)
+    systemLogger.error("Email API", "General error", { error })
     return NextResponse.json({ error: "Failed to process request", details: error.message }, { status: 500 })
   }
 }
