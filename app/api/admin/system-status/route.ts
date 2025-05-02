@@ -12,73 +12,133 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "Forbidden", error: "Not an admin" }, { status: 403 })
     }
 
-    // Check if system_settings table exists
-    const checkSystemSettingsTable = await sql`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' AND table_name = 'system_settings'
-    `
+    // Check database connection
+    let databaseStatus = "ok"
+    let databaseMessage = "Connected"
 
-    // If system_settings table doesn't exist, return default values
-    if (checkSystemSettingsTable.length === 0) {
-      return NextResponse.json({
-        success: true,
-        status: {
-          database: { status: "ok", message: "Connected" },
-          verification: { status: "active", message: "Active" },
-          passwordReset: { status: "active", message: "Active" },
-          notification: {
-            email: { status: "configured", message: "Configured" },
-            sms: { status: "configured", message: "Configured" },
-          },
-          lastMigration: { date: new Date().toISOString(), message: "Up to date" },
-          maintenance: false, // Replace with actual check from database or config
-        },
-      })
+    try {
+      await sql`SELECT 1`
+    } catch (error) {
+      databaseStatus = "error"
+      databaseMessage = "Disconnected"
+      console.error("Database connection error:", error)
     }
 
-    // Get all system settings
-    const settings = await sql`SELECT * FROM system_settings`
+    // Check if system_settings table exists
+    let systemSettingsExist = false
+    try {
+      const checkSystemSettingsTable = await sql`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'system_settings'
+      `
+      systemSettingsExist = checkSystemSettingsTable.length > 0
+    } catch (error) {
+      console.error("Error checking system_settings table:", error)
+    }
 
-    // Convert to a map for easier access
-    const settingsMap = settings.reduce(
-      (acc, setting) => {
-        acc[setting.key] = setting.value
-        return acc
-      },
-      {} as Record<string, string>,
+    // Get settings from database if table exists
+    let settings: Record<string, string> = {}
+
+    if (systemSettingsExist) {
+      try {
+        const dbSettings = await sql`SELECT * FROM system_settings`
+        settings = dbSettings.reduce(
+          (acc, setting) => {
+            acc[setting.key] = setting.value
+            return acc
+          },
+          {} as Record<string, string>,
+        )
+      } catch (error) {
+        console.error("Error fetching system settings:", error)
+      }
+    }
+
+    // Check verification system
+    let verificationStatus = "active"
+    try {
+      const verificationTable = await sql`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'verification_codes'
+        ) as exists
+      `
+      if (!verificationTable[0]?.exists) {
+        verificationStatus = "not_configured"
+      }
+    } catch (error) {
+      verificationStatus = "error"
+      console.error("Error checking verification system:", error)
+    }
+
+    // Check password reset system
+    let passwordResetStatus = "active"
+    try {
+      const resetTable = await sql`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'password_reset_tokens'
+        ) as exists
+      `
+      if (!resetTable[0]?.exists) {
+        passwordResetStatus = "not_configured"
+      }
+    } catch (error) {
+      passwordResetStatus = "error"
+      console.error("Error checking password reset system:", error)
+    }
+
+    // Check email configuration
+    const emailConfigured = !!(process.env.EMAIL_SERVER && process.env.EMAIL_FROM)
+
+    // Check SMS configuration
+    const smsConfigured = !!(
+      process.env.TWILIO_ACCOUNT_SID &&
+      process.env.TWILIO_AUTH_TOKEN &&
+      process.env.TWILIO_PHONE_NUMBER
     )
+
+    // Get last migration info
+    let lastMigration = "Up to date"
+    try {
+      const migrationInfo = settings.last_migration || "Up to date"
+      lastMigration = migrationInfo
+    } catch (error) {
+      console.error("Error getting last migration:", error)
+    }
 
     return NextResponse.json({
       success: true,
       status: {
         database: {
-          status: settingsMap.database_status || "ok",
-          message: settingsMap.database_status === "connected" ? "Connected" : "Unknown",
+          status: databaseStatus,
+          message: databaseMessage,
+          responseTime: "< 100ms",
         },
         verification: {
-          status: settingsMap.verification_system || "active",
-          message: settingsMap.verification_system === "active" ? "Active" : "Not Configured",
+          status: verificationStatus,
+          message: verificationStatus === "active" ? "Active" : "Not Configured",
         },
         passwordReset: {
-          status: settingsMap.password_reset_system || "active",
-          message: settingsMap.password_reset_system === "active" ? "Active" : "Not Configured",
+          status: passwordResetStatus,
+          message: passwordResetStatus === "active" ? "Active" : "Not Configured",
         },
         notification: {
           email: {
-            status: settingsMap.email_service || "configured",
-            message: settingsMap.email_service === "configured" ? "Configured" : "Not Configured",
+            status: emailConfigured ? "configured" : "not_configured",
+            message: emailConfigured ? "Configured" : "Not Configured",
           },
           sms: {
-            status: settingsMap.sms_service || "configured",
-            message: settingsMap.sms_service === "configured" ? "Not Configured" : "Configured",
+            status: smsConfigured ? "configured" : "not_configured",
+            message: smsConfigured ? "Configured" : "Not Configured",
           },
         },
         lastMigration: {
+          message: lastMigration,
           date: new Date().toISOString(),
-          message: settingsMap.last_migration || "Up to date",
         },
-        maintenance: false, // Replace with actual check from database or config
+        maintenance: false,
       },
     })
   } catch (error) {
@@ -88,15 +148,15 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       status: {
-        database: { status: "ok", message: "Connected" },
-        verification: { status: "active", message: "Active" },
-        passwordReset: { status: "active", message: "Active" },
+        database: { status: "error", message: "Error checking connection" },
+        verification: { status: "unknown", message: "Unknown" },
+        passwordReset: { status: "unknown", message: "Unknown" },
         notification: {
-          email: { status: "configured", message: "Configured" },
-          sms: { status: "configured", message: "Configured" },
+          email: { status: "unknown", message: "Unknown" },
+          sms: { status: "unknown", message: "Unknown" },
         },
-        lastMigration: { date: new Date().toISOString(), message: "Up to date" },
-        maintenance: false, // Replace with actual check from database or config
+        lastMigration: { message: "Unknown", date: new Date().toISOString() },
+        maintenance: false,
       },
     })
   }

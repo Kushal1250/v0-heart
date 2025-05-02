@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
-import { db } from "@/lib/db"
+import { sql } from "@/lib/db"
 
 export async function GET() {
   try {
     // Check verification system
-    const verificationCodesTable = await db`
+    const verificationCodesTable = await sql`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_name = 'verification_codes'
@@ -12,7 +12,7 @@ export async function GET() {
     `
 
     // Check password reset system
-    const passwordResetTable = await db`
+    const passwordResetTable = await sql`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_name = 'password_reset_tokens'
