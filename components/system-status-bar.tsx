@@ -10,7 +10,7 @@ interface SystemStatus {
   lastMigration: string
 }
 
-export default function SystemStatusBar() {
+export const SystemStatusBar = () => {
   const [status, setStatus] = useState<SystemStatus>({
     database: "unknown",
     emailService: "not_configured",
@@ -69,3 +69,6 @@ export default function SystemStatusBar() {
     </div>
   )
 }
+
+// Also keep the default export for backward compatibility
+export default SystemStatusBar
