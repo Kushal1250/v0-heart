@@ -76,35 +76,46 @@ export async function isValidPhone(phone: string): Promise<boolean> {
   return formattedPhone.length >= 8 && formattedPhone.length <= 15
 }
 
-/**
- * Check if Twilio is properly configured
- */
-export async function isTwilioConfigured(): Promise<{
-  configured: boolean
-  missing: string[]
-  details: Record<string, string>
-}> {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID
-  const authToken = process.env.TWILIO_AUTH_TOKEN
-  const fromNumber = process.env.TWILIO_PHONE_NUMBER
-
-  const missing = []
-  const details: Record<string, string> = {}
-
-  if (!accountSid) missing.push("TWILIO_ACCOUNT_SID")
-  if (!authToken) missing.push("TWILIO_AUTH_TOKEN")
-  if (!fromNumber) missing.push("TWILIO_PHONE_NUMBER")
-
-  details.accountSid = accountSid ? "Configured" : "Missing"
-  details.authToken = authToken ? "Configured" : "Missing"
-  details.fromNumber = fromNumber ? "Configured" : "Missing"
+// Add this function if it doesn't exist already
+export async function isTwilioConfigured() {
+  const requiredEnvVars = ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"]
+  const missing = requiredEnvVars.filter((envVar) => !process.env[envVar])
 
   return {
     configured: missing.length === 0,
     missing,
-    details,
   }
 }
+
+/**
+ * Check if Twilio is properly configured
+ */
+// export async function isTwilioConfigured(): Promise<{
+//   configured: boolean
+//   missing: string[]
+//   details: Record<string, string>
+// }> {
+//   const accountSid = process.env.TWILIO_ACCOUNT_SID
+//   const authToken = process.env.TWILIO_AUTH_TOKEN
+//   const fromNumber = process.env.TWILIO_PHONE_NUMBER
+
+//   const missing = []
+//   const details: Record<string, string> = {}
+
+//   if (!accountSid) missing.push("TWILIO_ACCOUNT_SID")
+//   if (!authToken) missing.push("TWILIO_AUTH_TOKEN")
+//   if (!fromNumber) missing.push("TWILIO_PHONE_NUMBER")
+
+//   details.accountSid = accountSid ? "Configured" : "Missing"
+//   details.authToken = authToken ? "Configured" : "Missing"
+//   details.fromNumber = fromNumber ? "Configured" : "Missing"
+
+//   return {
+//     configured: missing.length === 0,
+//     missing,
+//     details,
+//   }
+// }
 
 /**
  * Send an SMS message

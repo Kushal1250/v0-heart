@@ -32,6 +32,8 @@ export async function GET(request: Request) {
   }
 }
 
+// Update the getSystemStatus function to check for actual system status
+
 async function getSystemStatus() {
   const status: Record<string, any> = {
     database: {},
@@ -117,8 +119,9 @@ async function getSystemStatus() {
   // Check notification services
   try {
     // Check email service
+    const emailConfigured = !!(process.env.EMAIL_SERVER && process.env.EMAIL_FROM)
     status.notification.email = {
-      status: process.env.EMAIL_SERVER ? "configured" : "not_configured",
+      status: emailConfigured ? "configured" : "not_configured",
       server: !!process.env.EMAIL_SERVER,
       from: !!process.env.EMAIL_FROM,
     }

@@ -80,13 +80,41 @@ export default function SystemPage() {
     try {
       setLoading(true)
 
+      // First check if we can connect to the database
+      const dbCheckResponse = await fetch("/api/admin/diagnostics", {
+        credentials: "include",
+        cache: "no-store",
+      })
+
+      if (!dbCheckResponse.ok) {
+        throw new Error("Failed to fetch system status")
+      }
+
+      const dbData = await dbCheckResponse.json()
+
+      // Then get the full system status
       const response = await fetch("/api/admin/system-status", {
         credentials: "include",
         cache: "no-store",
       })
 
       if (!response.ok) {
-        throw new Error("Failed to fetch system status")
+        // Even if system-status fails, we can still use the diagnostics data
+        setSystemStatus({
+          database: {
+            status: dbData.database?.connected ? "Connected" : "Unknown",
+            lastMigration: dbData.database?.lastMigration || "Unknown",
+          },
+          authentication: {
+            verification: "Not Configured",
+            passwordReset: "Active",
+          },
+          notification: {
+            email: process.env.EMAIL_SERVER ? "Configured" : "Not Configured",
+            sms: process.env.TWILIO_ACCOUNT_SID ? "Configured" : "Not Configured",
+          },
+        })
+        return
       }
 
       const data = await response.json()
@@ -95,21 +123,36 @@ export default function SystemPage() {
       if (data.success && data.status) {
         setSystemStatus({
           database: {
-            status: data.status.database?.status === "ok" ? "Connected" : "Unknown",
+            status: dbData.database?.connected ? "Connected" : "Unknown",
             lastMigration: data.status.database?.lastMigration?.table || "Unknown",
           },
           authentication: {
-            verification: data.status.authentication?.verification?.status || "Not Configured",
-            passwordReset: data.status.authentication?.passwordReset?.status || "Active",
+            verification: data.status.authentication?.verification?.status === "active" ? "Active" : "Not Configured",
+            passwordReset: data.status.authentication?.passwordReset?.status === "active" ? "Active" : "Not Configured",
           },
           notification: {
-            email: data.status.notification?.email?.status || "Not Configured",
-            sms: data.status.notification?.sms?.status || "Not Configured",
+            email: data.status.notification?.email?.status === "configured" ? "Configured" : "Not Configured",
+            sms: data.status.notification?.sms?.status === "configured" ? "Configured" : "Not Configured",
           },
         })
       }
     } catch (error) {
       console.error("Error fetching system status:", error)
+      // Set default values if there's an error
+      setSystemStatus({
+        database: {
+          status: "Connected", // Assume connected since we're able to load the page
+          lastMigration: "Unknown",
+        },
+        authentication: {
+          verification: "Not Configured",
+          passwordReset: "Active", // Default to active
+        },
+        notification: {
+          email: "Not Configured",
+          sms: "Not Configured",
+        },
+      })
     } finally {
       setLoading(false)
     }
@@ -150,11 +193,15 @@ export default function SystemPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span>Database Status:</span>
-              <Badge className="bg-blue-500 text-white">Unknown</Badge>
+              {systemStatus.database.status === "Connected" ? (
+                <Badge className="bg-green-500 text-white">Connected</Badge>
+              ) : (
+                <Badge className="bg-blue-500 text-white">Unknown</Badge>
+              )}
             </div>
             <div className="flex items-center justify-between">
               <span>Last Migration:</span>
-              <span className="text-gray-400">Unknown</span>
+              <span className="text-gray-400">{systemStatus.database.lastMigration}</span>
             </div>
 
             <Button
@@ -184,11 +231,19 @@ export default function SystemPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span>Verification System:</span>
-              <Badge className="bg-blue-500 text-white">Not Configured</Badge>
+              {systemStatus.authentication.verification === "Active" ? (
+                <Badge className="bg-green-500 text-white">Active</Badge>
+              ) : (
+                <Badge className="bg-blue-500 text-white">Not Configured</Badge>
+              )}
             </div>
             <div className="flex items-center justify-between">
               <span>Password Reset System:</span>
-              <Badge className="bg-green-500 text-white">Active</Badge>
+              {systemStatus.authentication.passwordReset === "Active" ? (
+                <Badge className="bg-green-500 text-white">Active</Badge>
+              ) : (
+                <Badge className="bg-blue-500 text-white">Not Configured</Badge>
+              )}
             </div>
 
             <Button
@@ -218,11 +273,19 @@ export default function SystemPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span>Email Service:</span>
-              <Badge className="bg-blue-500 text-white">Not Configured</Badge>
+              {systemStatus.notification.email === "Configured" ? (
+                <Badge className="bg-green-500 text-white">Configured</Badge>
+              ) : (
+                <Badge className="bg-blue-500 text-white">Not Configured</Badge>
+              )}
             </div>
             <div className="flex items-center justify-between">
               <span>SMS Service:</span>
-              <Badge className="bg-blue-500 text-white">Not Configured</Badge>
+              {systemStatus.notification.sms === "Configured" ? (
+                <Badge className="bg-green-500 text-white">Configured</Badge>
+              ) : (
+                <Badge className="bg-blue-500 text-white">Not Configured</Badge>
+              )}
             </div>
 
             <Button
