@@ -47,6 +47,42 @@ export async function GET() {
 
     const activeConnections = poolInfoQuery[0]?.active_connections || 0
 
+    // Get database size
+    const dbSizeQuery = await sql`
+      SELECT pg_size_pretty(pg_database_size(current_database())) as size
+    `
+
+    const dbSize = dbSizeQuery[0]?.size || "Unknown"
+
+    // Get uptime (if available)
+    let uptime = "Unknown"
+    try {
+      const uptimeQuery = await sql`
+        SELECT date_trunc('second', current_timestamp - pg_postmaster_start_time()) as uptime
+      `
+      uptime = uptimeQuery[0]?.uptime || "Unknown"
+    } catch (error) {
+      console.error("Error getting uptime:", error)
+    }
+
+    // Get index count
+    const indexCountQuery = await sql`
+      SELECT count(*) as index_count
+      FROM pg_indexes
+      WHERE schemaname = 'public'
+    `
+
+    const indexCount = indexCountQuery[0]?.index_count || 0
+
+    // Get schema count
+    const schemaCountQuery = await sql`
+      SELECT count(*) as schema_count
+      FROM information_schema.schemata
+      WHERE schema_name NOT LIKE 'pg_%' AND schema_name != 'information_schema'
+    `
+
+    const schemaCount = schemaCountQuery[0]?.schema_count || 0
+
     return NextResponse.json({
       success: true,
       connected: connectionTest[0]?.connected === 1,
@@ -57,6 +93,10 @@ export async function GET() {
         active: activeConnections,
         max: 10, // This would ideally come from your connection pool configuration
       },
+      dbSize: dbSize,
+      uptime: uptime,
+      indexes: indexCount,
+      schemas: schemaCount,
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
