@@ -1,393 +1,268 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import {
-  Database,
-  User,
-  Key,
-  Mail,
-  MessageSquare,
-  ActivitySquare,
-  AlertTriangle,
-  BarChart3,
-  FileText,
-  Wrench,
-  RefreshCw,
-  Power,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-
-interface SystemStatus {
-  database: {
-    status: string
-    lastMigration: string
-  }
-  authentication: {
-    verification: string
-    passwordReset: string
-  }
-  notification: {
-    email: string
-    sms: string
-  }
-}
+import { Switch } from "@/components/ui/switch"
+import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/hooks/use-toast"
+import { BackupSystem } from "@/components/backup-system"
+import { MaintenanceMode } from "@/components/maintenance-mode"
+import { PersistentSessionHandler } from "@/components/persistent-session-handler"
 
 export default function SystemPage() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [initializing, setInitializing] = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [systemStatus, setSystemStatus] = useState<SystemStatus>({
-    database: {
-      status: "connected",
-      lastMigration: "system_settings",
-    },
-    authentication: {
-      verification: "active",
-      passwordReset: "active",
-    },
-    notification: {
-      email: "configured",
-      sms: "configured",
-    },
+  const [isLoading, setIsLoading] = useState(true)
+  const [systemStatus, setSystemStatus] = useState({
+    database: { status: "unknown", value: 0 },
+    auth: { status: "unknown", value: 0 },
+    email: { status: "unknown", value: 0 },
+    sms: { status: "unknown", value: 0 },
   })
 
-  // Fetch system status on component mount
+  const [config, setConfig] = useState({
+    enableNotifications: false,
+    enableEmails: false,
+    enableSMS: false,
+    debugMode: false,
+    maintenanceMode: false,
+  })
+
+  const { toast } = useToast()
+
   useEffect(() => {
-    fetchSystemStatus()
-  }, [])
+    const fetchSystemStatus = async () => {
+      try {
+        const response = await fetch("/api/admin/system-status")
+        if (!response.ok) throw new Error("Failed to fetch system status")
 
-  const fetchSystemStatus = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-
-      const response = await fetch("/api/admin/system-status", {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-      })
-
-      if (response.ok) {
         const data = await response.json()
-        if (data.success && data.status) {
-          setSystemStatus(data.status)
-        }
-      } else {
-        console.error("Failed to fetch system status")
+        setSystemStatus(data.status)
+        setConfig(data.config)
+      } catch (error) {
+        console.error("Error fetching system status:", error)
+        toast({
+          title: "Error",
+          description: "Failed to fetch system status",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
       }
-    } catch (error) {
-      console.error("Error fetching system status:", error)
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
     }
-  }
 
-  const initializeSystem = async () => {
+    fetchSystemStatus()
+  }, [toast])
+
+  const handleConfigChange = async (key: string, value: boolean) => {
     try {
-      setInitializing(true)
-      setError(null)
-      setSuccess(null)
-
-      const response = await fetch("/api/admin/initialize-system", {
+      const response = await fetch("/api/admin/update-system-config", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ key, value }),
       })
 
-      const data = await response.json()
+      if (!response.ok) throw new Error("Failed to update configuration")
 
-      if (response.ok && data.success) {
-        setSuccess("System initialized successfully!")
-        // Refresh status after initialization
-        await fetchSystemStatus()
-      } else {
-        setError(data.message || "Failed to initialize system")
-      }
+      setConfig((prev) => ({ ...prev, [key]: value }))
+
+      toast({
+        title: "Success",
+        description: "Configuration updated successfully",
+      })
     } catch (error) {
-      console.error("Error initializing system:", error)
-      setError("An error occurred while initializing the system")
-    } finally {
-      setInitializing(false)
+      console.error("Error updating configuration:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update configuration",
+        variant: "destructive",
+      })
     }
   }
 
-  const handleRefresh = () => {
-    setRefreshing(true)
-    fetchSystemStatus()
-  }
-
-  const getBadgeColor = (status: string) => {
-    if (status === "connected" || status === "active" || status === "configured") {
-      return "bg-green-500 text-white"
-    } else if (status === "warning") {
-      return "bg-yellow-500 text-white"
-    } else {
-      return "bg-red-500 text-white"
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "healthy":
+        return "bg-green-500"
+      case "warning":
+        return "bg-yellow-500"
+      case "error":
+        return "bg-red-500"
+      default:
+        return "bg-gray-300"
     }
   }
 
-  if (loading) {
-    return (
-      <div className="container mx-auto p-4 md:p-6">
-        <h1 className="mb-6 text-3xl font-bold">System</h1>
-        <div className="space-y-4">
-          <p className="text-lg">Loading system status...</p>
-          <Progress value={50} className="w-full" />
-        </div>
-      </div>
-    )
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "healthy":
+        return <Badge className="bg-green-500">Healthy</Badge>
+      case "warning":
+        return <Badge className="bg-yellow-500">Warning</Badge>
+      case "error":
+        return <Badge className="bg-red-500">Error</Badge>
+      default:
+        return <Badge className="bg-gray-300">Unknown</Badge>
+    }
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">System</h1>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={initializeSystem}
-            disabled={initializing}
-            className="flex items-center gap-2"
-          >
-            {initializing ? (
-              <>
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-                Initializing...
-              </>
-            ) : (
-              <>
-                <Power className="h-4 w-4" />
-                Initialize System
-              </>
-            )}
-          </Button>
-          <Button variant="outline" onClick={handleRefresh} disabled={refreshing} className="flex items-center gap-2">
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            {refreshing ? "Refreshing..." : "Refresh"}
-          </Button>
-        </div>
-      </div>
+    <div className="container mx-auto p-4 space-y-6">
+      <PersistentSessionHandler />
 
-      {error && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+      <h1 className="text-2xl font-bold">System Administration</h1>
 
-      {success && (
-        <Alert className="mb-6 bg-green-50 text-green-800 border-green-200">
-          <AlertDescription>{success}</AlertDescription>
-        </Alert>
-      )}
-
-      <div className="grid gap-6 mb-8 md:grid-cols-2 lg:grid-cols-3">
-        {/* Database Management Card */}
-        <Card className="bg-[#0f1117] border-[#1e1e2f] text-white">
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* System Health Section */}
+        <Card>
           <CardHeader>
-            <CardTitle className="text-xl">Database Management</CardTitle>
-            <CardDescription className="text-gray-400">Manage database and migrations</CardDescription>
+            <CardTitle className="text-xl">System Health</CardTitle>
+            <CardDescription>Current status of system components</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span>Database Status:</span>
-              <Badge className={getBadgeColor(systemStatus.database.status)}>
-                {systemStatus.database.status === "connected" ? "Connected" : systemStatus.database.status}
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Last Migration:</span>
-              <span className="text-gray-400">{systemStatus.database.lastMigration}</span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span>Database</span>
+                {getStatusBadge(systemStatus.database.status)}
+              </div>
+              <Progress
+                value={systemStatus.database.value}
+                className={`h-2 ${getStatusColor(systemStatus.database.status)}`}
+              />
             </div>
 
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/migrate")}
-            >
-              <Database className="mr-2 h-4 w-4" /> Run Migration
-            </Button>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span>Authentication</span>
+                {getStatusBadge(systemStatus.auth.status)}
+              </div>
+              <Progress value={systemStatus.auth.value} className={`h-2 ${getStatusColor(systemStatus.auth.status)}`} />
+            </div>
 
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/database-diagnostics")}
-            >
-              <Database className="mr-2 h-4 w-4" /> Database Diagnostics
-            </Button>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span>Email Service</span>
+                {getStatusBadge(systemStatus.email.status)}
+              </div>
+              <Progress
+                value={systemStatus.email.value}
+                className={`h-2 ${getStatusColor(systemStatus.email.status)}`}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span>SMS Service</span>
+                {getStatusBadge(systemStatus.sms.status)}
+              </div>
+              <Progress value={systemStatus.sms.value} className={`h-2 ${getStatusColor(systemStatus.sms.status)}`} />
+            </div>
           </CardContent>
+          <CardFooter>
+            <Button onClick={() => window.location.reload()} variant="outline" className="w-full">
+              Refresh Status
+            </Button>
+          </CardFooter>
         </Card>
 
-        {/* Authentication Systems Card */}
-        <Card className="bg-[#0f1117] border-[#1e1e2f] text-white">
+        {/* Configuration Section */}
+        <Card>
           <CardHeader>
-            <CardTitle className="text-xl">Authentication Systems</CardTitle>
-            <CardDescription className="text-gray-400">Fix auth related issues</CardDescription>
+            <CardTitle className="text-xl">Configuration</CardTitle>
+            <CardDescription>System-wide settings and toggles</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
-              <span>Verification System:</span>
-              <Badge className={getBadgeColor(systemStatus.authentication.verification)}>
-                {systemStatus.authentication.verification === "active"
-                  ? "Active"
-                  : systemStatus.authentication.verification}
-              </Badge>
+              <div>
+                <p className="font-medium">Notifications</p>
+                <p className="text-sm text-muted-foreground">Enable system notifications</p>
+              </div>
+              <Switch
+                checked={config.enableNotifications}
+                onCheckedChange={(checked) => handleConfigChange("enableNotifications", checked)}
+              />
             </div>
+
             <div className="flex items-center justify-between">
-              <span>Password Reset System:</span>
-              <Badge className={getBadgeColor(systemStatus.authentication.passwordReset)}>
-                {systemStatus.authentication.passwordReset === "active"
-                  ? "Active"
-                  : systemStatus.authentication.passwordReset}
-              </Badge>
+              <div>
+                <p className="font-medium">Email Notifications</p>
+                <p className="text-sm text-muted-foreground">Send email notifications</p>
+              </div>
+              <Switch
+                checked={config.enableEmails}
+                onCheckedChange={(checked) => handleConfigChange("enableEmails", checked)}
+                disabled={!config.enableNotifications}
+              />
             </div>
 
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/fix-issues")}
-            >
-              <User className="mr-2 h-4 w-4" /> Fix Verification System
-            </Button>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">SMS Notifications</p>
+                <p className="text-sm text-muted-foreground">Send SMS notifications</p>
+              </div>
+              <Switch
+                checked={config.enableSMS}
+                onCheckedChange={(checked) => handleConfigChange("enableSMS", checked)}
+                disabled={!config.enableNotifications}
+              />
+            </div>
 
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/reset-token-diagnostics")}
-            >
-              <Key className="mr-2 h-4 w-4" /> Fix Password Reset System
-            </Button>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Debug Mode</p>
+                <p className="text-sm text-muted-foreground">Enable detailed logging</p>
+              </div>
+              <Switch
+                checked={config.debugMode}
+                onCheckedChange={(checked) => handleConfigChange("debugMode", checked)}
+              />
+            </div>
           </CardContent>
-        </Card>
+          <CardFooter className="flex justify-between">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline">Reset to Defaults</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reset Configuration</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will reset all configuration settings to their default values. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction>Reset</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
-        {/* Notification Services Card */}
-        <Card className="bg-[#0f1117] border-[#1e1e2f] text-white">
-          <CardHeader>
-            <CardTitle className="text-xl">Notification Services</CardTitle>
-            <CardDescription className="text-gray-400">Manage email and SMS services</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span>Email Service:</span>
-              <Badge className={getBadgeColor(systemStatus.notification.email)}>
-                {systemStatus.notification.email === "configured" ? "Configured" : systemStatus.notification.email}
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>SMS Service:</span>
-              <Badge className={getBadgeColor(systemStatus.notification.sms)}>
-                {systemStatus.notification.sms === "configured" ? "Configured" : systemStatus.notification.sms}
-              </Badge>
-            </div>
-
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/email-settings")}
-            >
-              <Mail className="mr-2 h-4 w-4" /> Email Settings
+            <Button onClick={() => (window.location.href = "/admin/system-logs")} variant="outline">
+              View Logs
             </Button>
-
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/verification-settings")}
-            >
-              <MessageSquare className="mr-2 h-4 w-4" /> SMS Settings
-            </Button>
-          </CardContent>
+          </CardFooter>
         </Card>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* System Diagnostics Card */}
-        <Card className="bg-[#0f1117] border-[#1e1e2f] text-white">
-          <CardHeader>
-            <CardTitle className="text-xl">System Diagnostics</CardTitle>
-            <CardDescription className="text-gray-400">Debug and repair tools</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/diagnostics")}
-            >
-              <ActivitySquare className="mr-2 h-4 w-4" /> General Diagnostics
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/email-diagnostics")}
-            >
-              <Mail className="mr-2 h-4 w-4" /> Email Diagnostics
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/sms-diagnostics")}
-            >
-              <MessageSquare className="mr-2 h-4 w-4" /> SMS Diagnostics
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/fix-issues")}
-            >
-              <AlertTriangle className="mr-2 h-4 w-4" /> Fix System Issues
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Admin Tools Card */}
-        <Card className="bg-[#0f1117] border-[#1e1e2f] text-white">
-          <CardHeader>
-            <CardTitle className="text-xl">Admin Tools</CardTitle>
-            <CardDescription className="text-gray-400">Additional administrative tools</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/system-health")}
-            >
-              <BarChart3 className="mr-2 h-4 w-4" /> System Health
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/detailed-db-diagnostics")}
-            >
-              <FileText className="mr-2 h-4 w-4" /> Detailed DB Diagnostics
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/reset-token-diagnostics")}
-            >
-              <Key className="mr-2 h-4 w-4" /> Reset Token Diagnostics
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full bg-[#0f1117] border-[#1e1e2f] hover:bg-[#1e1e2f] text-white"
-              onClick={() => router.push("/admin/fix-database")}
-            >
-              <Wrench className="mr-2 h-4 w-4" /> Fix Database
-            </Button>
-          </CardContent>
-        </Card>
+        <BackupSystem />
+        <MaintenanceMode
+          isEnabled={config.maintenanceMode}
+          onToggle={(checked) => handleConfigChange("maintenanceMode", checked)}
+        />
       </div>
     </div>
   )

@@ -1,62 +1,64 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
-import { getSessionByToken, getUserById, extendSession } from "@/lib/db"
-import { generateToken } from "@/lib/auth-utils"
+import { verifyAuth, generateSessionToken } from "@/lib/auth-utils"
+import { systemLogger } from "@/lib/system-logger"
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    // Get the current session token
-    const sessionToken = cookies().get("session")?.value
+    // Verify the current session
+    const authResult = await verifyAuth(request)
 
-    if (!sessionToken) {
-      return NextResponse.json({ success: false, message: "No session found" }, { status: 401 })
+    if (!authResult.isAuthenticated) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Session expired or invalid",
+        },
+        { status: 401 },
+      )
     }
 
-    // Verify the session exists
-    const session = await getSessionByToken(sessionToken)
-    if (!session) {
-      return NextResponse.json({ success: false, message: "Invalid session" }, { status: 401 })
-    }
-
-    // Get the user
-    const user = await getUserById(session.user_id)
-    if (!user) {
-      return NextResponse.json({ success: false, message: "User not found" }, { status: 401 })
-    }
-
-    // Generate a new token and extend the session
-    const newToken = generateToken()
-    await extendSession(sessionToken, newToken)
-
-    // Create response with new session cookie
-    const response = NextResponse.json({
-      success: true,
-      message: "Session refreshed",
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
+    // Generate a new session token with extended expiry
+    const newToken = generateSessionToken({
+      userId: authResult.user?.id || "",
+      email: authResult.user?.email || "",
+      role: authResult.user?.role || "user",
     })
 
-    // Set the new session cookie with extended expiration
-    const isAdmin = user.role === "admin"
-    const maxAge = isAdmin ? 8 * 60 * 60 : 24 * 60 * 60 // 8 hours for admin, 24 hours for regular users
+    // Create the response
+    const response = NextResponse.json({
+      success: true,
+      message: "Session refreshed successfully",
+    })
 
+    // Set the new session token cookie
     response.cookies.set({
-      name: "session",
+      name: "session_token",
       value: newToken,
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: maxAge,
       path: "/",
+      // 24 hours expiry
+      maxAge: 24 * 60 * 60,
+    })
+
+    // Log the session refresh
+    await systemLogger("INFO", "Session refreshed", {
+      userId: authResult.user?.id,
+      role: authResult.user?.role,
     })
 
     return response
   } catch (error) {
     console.error("Error refreshing session:", error)
-    return NextResponse.json({ success: false, message: "Failed to refresh session" }, { status: 500 })
+    await systemLogger("ERROR", "Failed to refresh session", { error: String(error) })
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to refresh session",
+      },
+      { status: 500 },
+    )
   }
 }

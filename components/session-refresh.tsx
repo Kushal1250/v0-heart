@@ -1,69 +1,53 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useAuth } from "@/lib/auth-context"
-import { useRouter, usePathname } from "next/navigation"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
-import { RefreshCw, LogIn } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
-export default function SessionRefresh() {
-  const { user, isAdmin, refreshSession } = useAuth()
-  const [sessionExpired, setSessionExpired] = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
-  const router = useRouter()
-  const pathname = usePathname()
+export function SessionRefresh() {
+  const [sessionStatus, setSessionStatus] = useState("active")
+  const { toast } = useToast()
 
-  // Check if we're on an admin page
-  const isAdminPage = pathname?.startsWith("/admin")
-
-  // If we're on an admin page but user is not admin, show session expired
   useEffect(() => {
-    if (isAdminPage && user && !isAdmin) {
-      setSessionExpired(true)
-    } else {
-      setSessionExpired(false)
+    // Function to refresh the session
+    const refreshSession = async () => {
+      try {
+        const response = await fetch("/api/auth/refresh-session", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        if (!response.ok) {
+          setSessionStatus("expired")
+          toast({
+            title: "Session Warning",
+            description: "Your session may be expiring soon. Please save your work.",
+            variant: "destructive",
+          })
+          return
+        }
+
+        const data = await response.json()
+        if (data.success) {
+          setSessionStatus("active")
+        } else {
+          setSessionStatus("warning")
+        }
+      } catch (error) {
+        console.error("Error refreshing session:", error)
+        setSessionStatus("error")
+      }
     }
-  }, [isAdminPage, user, isAdmin])
 
-  // Handle manual refresh
-  const handleRefresh = async () => {
-    setRefreshing(true)
-    const success = await refreshSession()
-    setRefreshing(false)
+    // Refresh the session every 5 minutes
+    const intervalId = setInterval(refreshSession, 5 * 60 * 1000)
 
-    if (success) {
-      setSessionExpired(false)
-      router.refresh()
-    } else {
-      setSessionExpired(true)
-    }
-  }
+    // Initial refresh
+    refreshSession()
 
-  // Handle login redirect
-  const handleLogin = () => {
-    router.push(`/admin-login?redirect=${encodeURIComponent(pathname || "/admin")}`)
-  }
+    return () => clearInterval(intervalId)
+  }, [toast])
 
-  if (!sessionExpired) return null
-
-  return (
-    <div className="fixed top-0 left-0 right-0 z-50 p-4 bg-red-50 border-b border-red-200">
-      <Alert variant="destructive" className="max-w-3xl mx-auto">
-        <AlertDescription className="flex items-center justify-between">
-          <span>Your admin session has expired or you don't have the required permissions.</span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-              {refreshing ? "Refreshing..." : "Refresh Session"}
-            </Button>
-            <Button variant="default" size="sm" onClick={handleLogin}>
-              <LogIn className="h-4 w-4 mr-2" />
-              Log In Again
-            </Button>
-          </div>
-        </AlertDescription>
-      </Alert>
-    </div>
-  )
+  return null // This component doesn't render anything
 }
