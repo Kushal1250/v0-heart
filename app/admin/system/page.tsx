@@ -18,6 +18,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Switch } from "@/components/ui/switch"
+import { Progress } from "@/components/ui/progress"
 
 interface SystemStatus {
   database: {
@@ -522,6 +524,140 @@ export default function SystemPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* New System Health and Database Management Section */}
+      <div className="grid gap-6 mt-8 md:grid-cols-2">
+        {/* System Health Card */}
+        <Card className="bg-white border-gray-200 text-black">
+          <CardHeader>
+            <CardTitle className="text-xl">System Health</CardTitle>
+            <CardDescription>Status of system components</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span>Database Connection</span>
+                <span className="text-green-600 font-medium">Connected</span>
+              </div>
+              <Progress value={100} className="h-2 bg-gray-200" indicatorClassName="bg-blue-500" />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span>Email Service</span>
+                <span className="text-green-600 font-medium">Configured</span>
+              </div>
+              <Progress value={100} className="h-2 bg-gray-200" indicatorClassName="bg-blue-500" />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span>SMS Service</span>
+                <span className="text-green-600 font-medium">Configured</span>
+              </div>
+              <Progress value={100} className="h-2 bg-gray-200" indicatorClassName="bg-blue-500" />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span>Storage</span>
+                <span className="text-green-600 font-medium">Available</span>
+              </div>
+              <Progress value={100} className="h-2 bg-gray-200" indicatorClassName="bg-blue-500" />
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full bg-gray-100 border-gray-300 hover:bg-gray-200 text-black mt-4"
+              onClick={() => router.push("/admin/diagnostics")}
+            >
+              Run Diagnostics
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Database Management Card */}
+        <Card className="bg-white border-gray-200 text-black">
+          <CardHeader>
+            <CardTitle className="text-xl">Database Management</CardTitle>
+            <CardDescription>Manage database operations</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Run Database Migration</h3>
+                <p className="text-sm text-gray-500">Update database schema</p>
+              </div>
+              <Button
+                variant="outline"
+                className="bg-white border-gray-300 hover:bg-gray-100 text-black"
+                onClick={() => router.push("/admin/migrate")}
+              >
+                Migrate
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Fix Verification Codes</h3>
+                <p className="text-sm text-gray-500">Repair verification system</p>
+              </div>
+              <Button
+                variant="outline"
+                className="bg-white border-gray-300 hover:bg-gray-100 text-black"
+                onClick={() => router.push("/admin/fix-issues")}
+              >
+                Fix Issues
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Database Backup</h3>
+                <p className="text-sm text-gray-500">Create a backup of the database</p>
+              </div>
+              <Button variant="outline" className="bg-white border-gray-300 hover:bg-gray-100 text-black">
+                Backup
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Configuration Section */}
+      <Card className="bg-white border-gray-200 text-black mt-6">
+        <CardHeader>
+          <CardTitle className="text-xl">Configuration</CardTitle>
+          <CardDescription>System configuration settings</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between py-3 border-b border-gray-200">
+            <div>
+              <h3 className="font-medium">Email Notifications</h3>
+              <p className="text-sm text-gray-500">Send email notifications to users</p>
+            </div>
+            <Switch defaultChecked />
+          </div>
+
+          <div className="flex items-center justify-between py-3 border-b border-gray-200">
+            <div>
+              <h3 className="font-medium">SMS Notifications</h3>
+              <p className="text-sm text-gray-500">Send SMS notifications to users</p>
+            </div>
+            <Switch defaultChecked />
+          </div>
+
+          <div className="flex items-center justify-between py-3 border-b border-gray-200">
+            <div>
+              <h3 className="font-medium">Maintenance Mode</h3>
+              <p className="text-sm text-gray-500">Put the system in maintenance mode</p>
+            </div>
+            <Switch />
+          </div>
+
+          <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white mt-4">Save Configuration</Button>
+        </CardContent>
+      </Card>
     </div>
   )
 }
