@@ -56,6 +56,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setIsLoading(true)
       try {
+        // Check for admin cookie first
+        const isAdminCookie = document.cookie.includes("is_admin=true")
+
+        if (isAdminCookie) {
+          console.log("Admin cookie found, setting admin status")
+          setIsAdmin(true)
+
+          // If we don't have user data yet, set default admin user
+          if (!user || user.role !== "admin") {
+            const adminUser = {
+              id: "admin",
+              name: "Admin",
+              email: "admin@example.com",
+              role: "admin",
+            }
+            setUser(adminUser)
+            localStorage.setItem("user", JSON.stringify(adminUser))
+            localStorage.setItem("userExpiry", (new Date().getTime() + 8 * 60 * 60 * 1000).toString())
+          }
+
+          setIsLoading(false)
+          return
+        }
+
         // First check localStorage for cached user data
         const cachedUser = localStorage.getItem("user")
         if (cachedUser && !force) {
@@ -105,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false)
       }
     },
-    [lastRefresh],
+    [lastRefresh, user],
   )
 
   // Add a session refresh function
@@ -198,6 +222,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const adminLogin = async (email: string, password: string) => {
     try {
+      console.log("Attempting admin login with email:", email)
+
       const response = await fetch("/api/auth/admin/login", {
         method: "POST",
         headers: {
@@ -215,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (jsonError) {
           errorMessage = `Admin login failed: ${response.statusText || "Unknown error"}`
         }
+        console.error("Admin login error:", errorMessage)
         return { success: false, message: errorMessage }
       }
 
@@ -222,16 +249,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         data = await response.json()
       } catch (jsonError) {
+        console.error("Error parsing admin login response:", jsonError)
         return { success: false, message: "Invalid response from server" }
       }
 
+      console.log("Admin login successful, setting admin user")
+
       // Set admin user
-      setUser({
+      const adminUser = {
         id: data.user.id || "admin",
         name: data.user.name || "Admin",
         email: email,
         role: "admin",
-      })
+      }
+
+      setUser(adminUser)
       setIsAdmin(true)
       setLastRefresh(Date.now())
 
@@ -239,19 +271,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionStorage.setItem("loginSuccess", "true")
 
       // Store admin user in localStorage with 8-hour expiry
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          id: data.user.id || "admin",
-          name: data.user.name || "Admin",
-          email: email,
-          role: "admin",
-        }),
-      )
+      localStorage.setItem("user", JSON.stringify(adminUser))
       localStorage.setItem("userExpiry", (new Date().getTime() + 8 * 60 * 60 * 1000).toString()) // 8 hours
 
       return { success: true, message: "Admin login successful" }
     } catch (error: any) {
+      console.error("Unexpected error during admin login:", error)
       return { success: false, message: error.message || "An unexpected error occurred" }
     }
   }
@@ -310,6 +335,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Clear admin cookie
       document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
       document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
 
       // Redirect to home page after logout
       window.location.href = "/"

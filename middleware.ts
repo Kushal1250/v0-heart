@@ -18,8 +18,16 @@ const adminRequiredPaths = ["/admin"]
 // Define paths that should be accessible whether logged in or not
 const publicAccessPaths = ["/home", "/predict", "/history", "/about", "/how-it-works"]
 
+// Define paths that are exempt from authentication checks
+const authExemptPaths = ["/admin-login", "/login", "/signup", "/forgot-password"]
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  // Skip middleware for auth exempt paths
+  if (authExemptPaths.some((path) => pathname.startsWith(path))) {
+    return NextResponse.next()
+  }
 
   // Check if the path is in the public access list
   const isPublicAccessPath = publicAccessPaths.some((path) => pathname.startsWith(path))
@@ -41,11 +49,13 @@ export async function middleware(request: NextRequest) {
     // Special case for admin paths
     if (isAdminRequired && isAdminCookie) {
       // If is_admin cookie is set, allow access to admin paths
+      console.log("Admin access granted via is_admin cookie")
       return NextResponse.next()
     }
 
     if (!sessionToken) {
       // No session token, redirect to login
+      console.log("No session token, redirecting to login")
       const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
       url.searchParams.set("redirect", pathname)
       return NextResponse.redirect(url)
@@ -57,6 +67,7 @@ export async function middleware(request: NextRequest) {
 
       if (!session) {
         // Invalid session, redirect to login
+        console.log("Invalid session, redirecting to login")
         const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
         url.searchParams.set("redirect", pathname)
         return NextResponse.redirect(url)
@@ -65,6 +76,7 @@ export async function middleware(request: NextRequest) {
       // Check if session is expired
       if (new Date(session.expires_at) < new Date()) {
         // Session expired, redirect to login
+        console.log("Session expired, redirecting to login")
         const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
         url.searchParams.set("redirect", pathname)
         url.searchParams.set("expired", "true")
@@ -77,6 +89,7 @@ export async function middleware(request: NextRequest) {
 
         if (!user || user.role !== "admin") {
           // User is not an admin, redirect to unauthorized page
+          console.log("User is not an admin, redirecting to unauthorized")
           return NextResponse.redirect(new URL("/unauthorized", request.url))
         }
       }

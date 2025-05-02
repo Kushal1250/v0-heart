@@ -98,8 +98,6 @@ export async function getUserByEmail(email: string) {
   }
 }
 
-// Add this function after the getUserByEmail function
-
 /**
  * Get user by phone number
  * @param phone Phone number
@@ -153,9 +151,6 @@ export async function getUserById(id: string) {
   }
 }
 
-// Add this function to your existing db.ts file if it doesn't already have it
-// This is a simplified version - adjust according to your actual database schema
-
 export async function createUser(email: string, password: string, name: string, phone = "") {
   try {
     const hashedPassword = await hash(password, 10)
@@ -173,7 +168,6 @@ export async function createUser(email: string, password: string, name: string, 
   }
 }
 
-// Add back the comparePasswords function that was missing
 export async function comparePasswords(password: string, hashedPassword: string) {
   try {
     console.log("Comparing passwords...")
@@ -186,7 +180,6 @@ export async function comparePasswords(password: string, hashedPassword: string)
   }
 }
 
-// Keep the verifyPassword function as an alias for comparePasswords for new code
 export async function verifyPassword(password: string, hashedPassword: string) {
   return comparePasswords(password, hashedPassword)
 }
@@ -242,89 +235,88 @@ export async function deleteSession(token: string) {
   }
 }
 
-/**
- * Extend a session's expiration time
- * @param token The session token
- * @param expiresAt New expiration date
- * @returns Success status
- */
-export async function extendSession(token: string, expiresAt: Date) {
+export async function updateSessionExpiry(token: string, expiresAt: Date) {
   try {
     if (!token || !expiresAt) {
-      throw new Error("Token and expiration date are required to extend a session")
+      throw new Error("Token and expiration date are required to update session expiry")
     }
 
-    console.log(`Extending session with token: ${token} to ${expiresAt}`)
-
-    const result = await sql`
-      UPDATE sessions
-      SET expires_at = ${expiresAt}
-      WHERE token = ${token}
-      RETURNING id, user_id, token, expires_at
-    `
-
-    if (result.length === 0) {
-      console.log(`No session found with token: ${token}`)
-      return null
-    }
-
-    console.log(`Session extended successfully: ${token}`)
-    return result[0]
+    await sql`
+     UPDATE sessions
+     SET expires_at = ${expiresAt}
+     WHERE token = ${token}
+   `
+    return true
   } catch (error) {
-    console.error("Database error in extendSession:", error)
-    throw new Error(`Failed to extend session: ${error instanceof Error ? error.message : "Unknown error"}`)
+    console.error("Database error in updateSessionExpiry:", error)
+    throw new Error(`Failed to update session expiry: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
 
 // Password reset functions
-// Replace the createPasswordResetToken function with this improved version
 export async function createPasswordResetToken(userId: string, token: string, expiresAt: Date) {
   try {
     if (!userId || !token || !expiresAt) {
       throw new Error("User ID, token, and expiration date are required to create a password reset token")
     }
 
-    console.log(`Creating password reset token for user ID: ${userId}`)
-
-    // First, invalidate any existing tokens for this user
-    try {
-      await sql`
-       UPDATE password_reset_tokens 
-       SET is_valid = false 
-       WHERE user_id = ${userId}
-     `
-      console.log(`Invalidated existing tokens for user ID: ${userId}`)
-    } catch (invalidateError) {
-      console.error("Error invalidating existing tokens:", invalidateError)
-      // Continue with token creation even if invalidation fails
-    }
-
-    const resetId = uuidv4()
-
-    // Insert the new token with proper error handling
-    const result = await sql`
-     INSERT INTO password_reset_tokens (id, user_id, token, expires_at)
-     VALUES (${resetId}, ${userId}, ${token}, ${expiresAt})
-     RETURNING id, token, expires_at
+    await sql`
+     INSERT INTO password_reset_tokens (user_id, token, expires_at)
+     VALUES (${userId}, ${token}, ${expiresAt})
    `
-
-    console.log(`Successfully created password reset token for user ID: ${userId}`)
-    return result[0] || true
+    return true
   } catch (error) {
     console.error("Database error in createPasswordResetToken:", error)
+    throw new Error(
+      `Failed to create password reset token: ${error instanceof Error ? error.message : "Unknown error"}`,
+    )
+  }
+}
 
-    // Check for specific database errors
-    const errorMessage = error instanceof Error ? error.message : "Unknown error"
-
-    if (errorMessage.includes("foreign key constraint")) {
-      throw new Error("Invalid user ID provided for password reset token")
+export async function getPasswordResetByToken(token: string) {
+  try {
+    if (!token) {
+      throw new Error("Token is required to get password reset")
     }
 
-    if (errorMessage.includes("relation") && errorMessage.includes("does not exist")) {
-      throw new Error("Password reset tokens table does not exist")
+    const resets = await sql`
+     SELECT * FROM password_reset_tokens
+     WHERE token = ${token} AND expires_at > NOW() AND is_valid = true
+   `
+    return resets[0] || null
+  } catch (error) {
+    console.error("Database error in getPasswordResetByToken:", error)
+    throw new Error(`Failed to get password reset: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+export async function deletePasswordReset(token: string) {
+  try {
+    if (!token) {
+      throw new Error("Token is required to delete password reset")
     }
 
-    throw new Error(`Failed to create password reset token: ${errorMessage}`)
+    await sql`DELETE FROM password_reset_tokens WHERE token = ${token}`
+    return true
+  } catch (error) {
+    console.error("Database error in deletePasswordReset:", error)
+    throw new Error(`Failed to delete password reset: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+export async function updateUserPassword(userId: string, newPassword: string) {
+  try {
+    if (!userId || !newPassword) {
+      throw new Error("User ID and new password are required to update password")
+    }
+
+    const hashedPassword = await hash(newPassword, 10)
+
+    await sql`UPDATE users SET password = ${hashedPassword} WHERE id = ${userId}`
+    return true
+  } catch (error) {
+    console.error("Database error in updateUserPassword:", error)
+    throw new Error(`Failed to update password: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
 
@@ -387,57 +379,6 @@ export async function invalidatePasswordResetToken(token: string) {
   } catch (error) {
     console.error("Error invalidating password reset token:", error)
     throw new Error(`Failed to invalidate token: ${error instanceof Error ? error.message : "Unknown error"}`)
-  }
-}
-
-export async function getPasswordResetByToken(token: string) {
-  try {
-    if (!token) {
-      throw new Error("Token is required to get password reset")
-    }
-
-    const resets = await sql`
-     SELECT * FROM password_reset_tokens
-     WHERE token = ${token} AND expires_at > NOW() AND is_valid = true
-   `
-    return resets[0] || null
-  } catch (error) {
-    console.error("Database error in getPasswordResetByToken:", error)
-    throw new Error(`Failed to get password reset: ${error instanceof Error ? error.message : "Unknown error"}`)
-  }
-}
-
-export async function deletePasswordReset(token: string) {
-  try {
-    if (!token) {
-      throw new Error("Token is required to delete password reset")
-    }
-
-    await sql`DELETE FROM password_resets WHERE token = ${token}`
-    return true
-  } catch (error) {
-    console.error("Database error in deletePasswordReset:", error)
-    throw new Error(`Failed to delete password reset: ${error instanceof Error ? error.message : "Unknown error"}`)
-  }
-}
-
-export async function updateUserPassword(userId: string, newPassword: string) {
-  try {
-    if (!userId || !newPassword) {
-      throw new Error("User ID and new password are required to update password")
-    }
-
-    console.log("Hashing new password...")
-    const hashedPassword = await hash(newPassword, 10)
-
-    console.log("Updating password for user:", userId)
-    await sql`UPDATE users SET password = ${hashedPassword} WHERE id = ${userId}`
-
-    console.log("Password updated successfully")
-    return true
-  } catch (error) {
-    console.error("Database error in updateUserPassword:", error)
-    throw new Error(`Failed to update password: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
 
@@ -509,9 +450,6 @@ export async function updateUserProfile(
   },
 ) {
   try {
-    const sql = neon(process.env.DATABASE_URL!)
-
-    // Build the SET clause dynamically based on provided fields
     const setFields: string[] = []
     const values: any[] = []
     let paramIndex = 1
@@ -549,31 +487,50 @@ export async function updateUserProfile(
    `
 
     const result = await sql(query, ...values)
-    return result.rows[0]
+    return result[0]
   } catch (error) {
     console.error("Error updating user profile:", error)
     return null
   }
 }
 
-// Add this function to update only the profile picture
-export async function updateUserProfilePicture(userId: string, profilePicture: string) {
+/**
+ * Verify an OTP code for a user
+ * @param userId User ID or email
+ * @param otp Verification code
+ * @returns Object with success status and message
+ */
+export async function verifyOTP(userId: string, otp: string) {
   try {
-    if (!userId || !profilePicture) {
-      throw new Error("User ID and profile picture are required to update profile picture")
+    if (!userId || !otp) {
+      return { success: false, message: "User ID and OTP are required" }
     }
 
-    const users = await sql`
-     UPDATE users
-     SET profile_picture = ${profilePicture}
-     WHERE id = ${userId}
-     RETURNING id, name, email, phone, role, profile_picture
-   `
+    // First try to find by direct user ID
+    let verificationRecord = await getVerificationCodeByUserIdAndCode(userId, otp)
 
-    return users[0]
+    // If not found and userId looks like an email, try to get the user first
+    if (!verificationRecord && userId.includes("@")) {
+      const user = await getUserByEmail(userId)
+      if (user) {
+        verificationRecord = await getVerificationCodeByUserIdAndCode(user.id, otp)
+      }
+    }
+
+    if (!verificationRecord) {
+      return { success: false, message: "Verification code not found or expired" }
+    }
+
+    // Delete the used code
+    await deleteVerificationCode(verificationRecord.id)
+
+    return { success: true, message: "Verification successful" }
   } catch (error) {
-    console.error("Error updating user profile picture:", error)
-    return null
+    console.error("Error verifying OTP:", error)
+    return {
+      success: false,
+      message: `Failed to verify OTP: ${error instanceof Error ? error.message : "Unknown error"}`,
+    }
   }
 }
 
@@ -819,46 +776,6 @@ export async function verifyCode(userId: string, code: string) {
 }
 
 /**
- * Verify an OTP code for a user
- * @param userId User ID or email
- * @param otp Verification code
- * @returns Object with success status and message
- */
-export async function verifyOTP(userId: string, otp: string) {
-  try {
-    if (!userId || !otp) {
-      return { success: false, message: "User ID and OTP are required" }
-    }
-
-    // First try to find by direct user ID
-    let verificationRecord = await getVerificationCodeByUserIdAndCode(userId, otp)
-
-    // If not found and userId looks like an email, try to get the user first
-    if (!verificationRecord && userId.includes("@")) {
-      const user = await getUserByEmail(userId)
-      if (user) {
-        verificationRecord = await getVerificationCodeByUserIdAndCode(user.id, otp)
-      }
-    }
-
-    if (!verificationRecord) {
-      return { success: false, message: "Verification code not found or expired" }
-    }
-
-    // Delete the used code
-    await deleteVerificationCode(verificationRecord.id)
-
-    return { success: true, message: "Verification successful" }
-  } catch (error) {
-    console.error("Error verifying OTP:", error)
-    return {
-      success: false,
-      message: `Failed to verify OTP: ${error instanceof Error ? error.message : "Unknown error"}`,
-    }
-  }
-}
-
-/**
  * Deletes a verification code
  * @param identifier User ID, email, or phone
  */
@@ -893,5 +810,31 @@ export async function updateUserPhone(userId: string, phone: string) {
   } catch (error) {
     console.error("Database error in updateUserPhone:", error)
     throw new Error(`Failed to update phone number: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
+ * Update a user's profile picture
+ * @param userId User ID
+ * @param profilePicture Profile picture URL
+ * @returns Updated user object or null
+ */
+export async function updateUserProfilePicture(userId: string, profilePicture: string) {
+  try {
+    if (!userId || !profilePicture) {
+      throw new Error("User ID and profile picture are required to update profile picture")
+    }
+
+    const users = await sql`
+     UPDATE users
+     SET profile_picture = ${profilePicture}
+     WHERE id = ${userId}
+     RETURNING id, name, email, phone, role, profile_picture
+   `
+
+    return users[0]
+  } catch (error) {
+    console.error("Error updating user profile picture:", error)
+    return null
   }
 }

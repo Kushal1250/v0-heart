@@ -2,142 +2,139 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
-import { Eye, EyeOff } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
+  const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirect = searchParams?.get("redirect") || "/admin"
-  const [showPassword, setShowPassword] = useState(false)
+  const { adminLogin, isAdmin } = useAuth()
+
+  // Get redirect path from URL params
+  const redirectPath = searchParams.get("redirect") || "/admin"
+  const sessionExpired = searchParams.get("expired") === "true"
+
+  // Check if already logged in as admin
+  useEffect(() => {
+    // If already logged in as admin, redirect to admin dashboard
+    if (isAdmin) {
+      console.log("Already logged in as admin, redirecting to", redirectPath)
+      router.push(redirectPath)
+    }
+  }, [isAdmin, redirectPath, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+    setError(null)
     setLoading(true)
 
     try {
-      const response = await fetch("/api/auth/admin/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      })
+      console.log("Attempting admin login with email:", email)
+      const result = await adminLogin(email, password)
 
-      const data = await response.json()
+      if (result.success) {
+        console.log("Admin login successful, redirecting to", redirectPath)
 
-      if (!response.ok) {
-        throw new Error(data.message || "Login failed")
+        // Force a page reload to ensure cookies are properly set
+        window.location.href = redirectPath
+      } else {
+        console.error("Admin login failed:", result.message)
+        setError(result.message)
       }
-
-      // Set admin cookie
-      document.cookie = "is_admin=true; path=/; max-age=86400" // 24 hours
-
-      // Redirect to admin dashboard or specified redirect path
-      router.push(redirect)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred")
+      console.error("Error during admin login:", err)
+      setError("An unexpected error occurred. Please try again.")
     } finally {
       setLoading(false)
     }
   }
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword)
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm py-4">
-        <div className="container mx-auto px-4 flex items-center">
-          <Link href="/" className="flex items-center">
-            <div className="text-red-500 mr-2">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
-              </svg>
-            </div>
-            <span className="font-bold text-lg">HeartPredict</span>
-          </Link>
-          <nav className="ml-6">
-            <Link href="/" className="text-gray-600 hover:text-gray-900">
-              Home
-            </Link>
-          </nav>
-        </div>
-      </header>
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold">Admin Login</CardTitle>
+          <CardDescription>Sign in to access the admin dashboard</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-      {/* Login Form */}
-      <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
-        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-          <h1 className="text-2xl font-bold mb-1">Admin Login</h1>
-          <p className="text-gray-600 mb-6">Sign in to access the admin dashboard</p>
+          {sessionExpired && (
+            <Alert className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Session Expired</AlertTitle>
+              <AlertDescription>Your session has expired. Please log in again.</AlertDescription>
+            </Alert>
+          )}
 
-          {error && <div className="bg-red-50 text-red-600 p-3 rounded-md mb-4">{error}</div>}
-
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label htmlFor="email" className="block text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
                 id="email"
+                type="email"
+                placeholder="admin@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@example.com"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
                 required
               />
             </div>
-
-            <div className="mb-6 relative">
-              <label htmlFor="password" className="block text-gray-700 mb-2">
-                Password
-              </label>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+              </div>
               <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
+                <Input
                   id="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 pr-10"
                   required
                 />
-                <button
+                <Button
                   type="button"
-                  onClick={togglePasswordVisibility}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-600 hover:text-gray-800"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3"
+                  onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  <span className="sr-only">{showPassword ? "Hide password" : "Show password"}</span>
+                </Button>
               </div>
             </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-md"
-            >
+            <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Signing in..." : "Sign in"}
-            </button>
+            </Button>
           </form>
-
-          <div className="mt-6 text-center">
-            <Link href="/" className="text-gray-500 hover:text-gray-700 text-sm">
+        </CardContent>
+        <CardFooter>
+          <div className="text-center text-sm text-gray-500 w-full">
+            <Link href="/" className="hover:text-gray-900 underline underline-offset-4">
               Return to home
             </Link>
           </div>
-        </div>
-      </div>
+        </CardFooter>
+      </Card>
     </div>
   )
 }

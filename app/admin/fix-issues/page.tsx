@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, XCircle, AlertTriangle, Loader2, RefreshCw } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 
 export default function FixIssuesPage() {
   const [results, setResults] = useState<any[]>([])
@@ -13,11 +14,32 @@ export default function FixIssuesPage() {
   const [error, setError] = useState<string | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(true)
   const router = useRouter()
+  const { isAdmin, refreshSession } = useAuth()
 
   // Check authentication status on mount
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // First check if we're already authenticated via context
+        if (isAdmin) {
+          setIsAuthenticated(true)
+          return
+        }
+
+        // Try to refresh the session
+        const refreshed = await refreshSession()
+        if (refreshed) {
+          setIsAuthenticated(true)
+          return
+        }
+
+        // Check if admin cookie is set
+        if (document.cookie.includes("is_admin=true")) {
+          setIsAuthenticated(true)
+          return
+        }
+
+        // If all else fails, check with the server
         const response = await fetch("/api/auth/user")
         if (!response.ok) {
           if (response.status === 401) {
@@ -31,11 +53,13 @@ export default function FixIssuesPage() {
         }
       } catch (err) {
         console.error("Error checking auth:", err)
+        // On error, assume we're not authenticated
+        setIsAuthenticated(false)
       }
     }
 
     checkAuth()
-  }, [])
+  }, [isAdmin, refreshSession])
 
   const runFixes = async () => {
     setLoading(true)
@@ -47,6 +71,7 @@ export default function FixIssuesPage() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include", // Important to include credentials
       })
 
       if (!response.ok) {
@@ -72,8 +97,11 @@ export default function FixIssuesPage() {
   const handleRelogin = () => {
     // Clear any existing session
     document.cookie = "session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;"
-    // Redirect to admin login
-    router.push("/admin-login?redirect=/admin/fix-issues")
+    document.cookie = "token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;"
+    document.cookie = "is_admin=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;"
+
+    // Redirect to admin login with the current URL as the redirect target
+    router.push(`/admin-login?redirect=${encodeURIComponent("/admin/fix-issues")}`)
   }
 
   return (
