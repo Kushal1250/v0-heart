@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Progress } from "@/components/ui/progress"
 
 interface SystemStatus {
   database: {
@@ -528,47 +527,54 @@ export default function SystemPage() {
       {/* New System Health and Database Management Section */}
       <div className="grid gap-6 mt-8 md:grid-cols-2">
         {/* System Health Card */}
-        <Card className="bg-white border-gray-200 text-black">
-          <CardHeader>
-            <CardTitle className="text-xl">System Health</CardTitle>
+        <Card className="bg-white border-gray-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl font-bold">System Health</CardTitle>
             <CardDescription>Status of system components</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
+          <CardContent className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-1">
                 <span>Database Connection</span>
-                <span className="text-green-600 font-medium">Connected</span>
+                <span className="font-medium text-blue-600">Connected</span>
               </div>
-              <Progress value={100} className="h-2 bg-gray-200" indicatorClassName="bg-blue-500" />
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div className="bg-blue-600 h-2.5 rounded-full w-full"></div>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-1">
                 <span>Email Service</span>
-                <span className="text-green-600 font-medium">Configured</span>
+                <span className="font-medium text-blue-600">Configured</span>
               </div>
-              <Progress value={100} className="h-2 bg-gray-200" indicatorClassName="bg-blue-500" />
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div className="bg-blue-600 h-2.5 rounded-full w-full"></div>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-1">
                 <span>SMS Service</span>
-                <span className="text-green-600 font-medium">Configured</span>
+                <span className="font-medium text-blue-600">Configured</span>
               </div>
-              <Progress value={100} className="h-2 bg-gray-200" indicatorClassName="bg-blue-500" />
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div className="bg-blue-600 h-2.5 rounded-full w-full"></div>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-1">
                 <span>Storage</span>
-                <span className="text-green-600 font-medium">Available</span>
+                <span className="font-medium text-blue-600">Available</span>
               </div>
-              <Progress value={100} className="h-2 bg-gray-200" indicatorClassName="bg-blue-500" />
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div className="bg-blue-600 h-2.5 rounded-full w-full"></div>
+              </div>
             </div>
 
             <Button
-              variant="outline"
-              className="w-full bg-gray-100 border-gray-300 hover:bg-gray-200 text-black mt-4"
+              className="w-full mt-4 bg-gray-100 text-gray-900 border border-gray-300 hover:bg-gray-200"
               onClick={() => router.push("/admin/diagnostics")}
             >
               Run Diagnostics
@@ -577,9 +583,9 @@ export default function SystemPage() {
         </Card>
 
         {/* Database Management Card */}
-        <Card className="bg-white border-gray-200 text-black">
-          <CardHeader>
-            <CardTitle className="text-xl">Database Management</CardTitle>
+        <Card className="bg-white border-gray-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl font-bold">Database Management</CardTitle>
             <CardDescription>Manage database operations</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -589,8 +595,7 @@ export default function SystemPage() {
                 <p className="text-sm text-gray-500">Update database schema</p>
               </div>
               <Button
-                variant="outline"
-                className="bg-white border-gray-300 hover:bg-gray-100 text-black"
+                className="bg-white text-gray-900 border border-gray-300 hover:bg-gray-100"
                 onClick={() => router.push("/admin/migrate")}
               >
                 Migrate
@@ -603,8 +608,7 @@ export default function SystemPage() {
                 <p className="text-sm text-gray-500">Repair verification system</p>
               </div>
               <Button
-                variant="outline"
-                className="bg-white border-gray-300 hover:bg-gray-100 text-black"
+                className="bg-white text-gray-900 border border-gray-300 hover:bg-gray-100"
                 onClick={() => router.push("/admin/fix-issues")}
               >
                 Fix Issues
@@ -616,27 +620,25 @@ export default function SystemPage() {
                 <h3 className="font-medium">Database Backup</h3>
                 <p className="text-sm text-gray-500">Create a backup of the database</p>
               </div>
-              <Button variant="outline" className="bg-white border-gray-300 hover:bg-gray-100 text-black">
-                Backup
-              </Button>
+              <Button className="bg-white text-gray-900 border border-gray-300 hover:bg-gray-100">Backup</Button>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Configuration Section */}
-      <Card className="bg-white border-gray-200 text-black mt-6">
-        <CardHeader>
-          <CardTitle className="text-xl">Configuration</CardTitle>
+      <Card className="bg-white border-gray-200 mt-6">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xl font-bold">Configuration</CardTitle>
           <CardDescription>System configuration settings</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4">
           <div className="flex items-center justify-between py-3 border-b border-gray-200">
             <div>
               <h3 className="font-medium">Email Notifications</h3>
               <p className="text-sm text-gray-500">Send email notifications to users</p>
             </div>
-            <Switch defaultChecked />
+            <Switch className="data-[state=checked]:bg-red-500" defaultChecked />
           </div>
 
           <div className="flex items-center justify-between py-3 border-b border-gray-200">
@@ -644,7 +646,7 @@ export default function SystemPage() {
               <h3 className="font-medium">SMS Notifications</h3>
               <p className="text-sm text-gray-500">Send SMS notifications to users</p>
             </div>
-            <Switch defaultChecked />
+            <Switch className="data-[state=checked]:bg-red-500" defaultChecked />
           </div>
 
           <div className="flex items-center justify-between py-3 border-b border-gray-200">
@@ -652,7 +654,7 @@ export default function SystemPage() {
               <h3 className="font-medium">Maintenance Mode</h3>
               <p className="text-sm text-gray-500">Put the system in maintenance mode</p>
             </div>
-            <Switch />
+            <Switch className="bg-gray-300 data-[state=checked]:bg-gray-700" />
           </div>
 
           <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white mt-4">Save Configuration</Button>
