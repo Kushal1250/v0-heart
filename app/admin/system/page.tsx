@@ -13,23 +13,115 @@ import {
   BarChart3,
   FileText,
   Wrench,
+  RefreshCw,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+
+interface SystemStatus {
+  database: {
+    status: string
+    lastMigration: string
+  }
+  authentication: {
+    verification: string
+    passwordReset: string
+  }
+  notification: {
+    email: string
+    sms: string
+  }
+}
 
 export default function SystemPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
+  const [activating, setActivating] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [systemStatus, setSystemStatus] = useState<SystemStatus>({
+    database: {
+      status: "connected",
+      lastMigration: "system_settings",
+    },
+    authentication: {
+      verification: "active",
+      passwordReset: "active",
+    },
+    notification: {
+      email: "configured",
+      sms: "configured",
+    },
+  })
 
-  // Simulate loading
+  // Fetch system status on component mount
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false)
-    }, 1000)
-
-    return () => clearTimeout(timer)
+    fetchSystemStatus()
   }, [])
+
+  const fetchSystemStatus = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const response = await fetch("/api/admin/get-system-status", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.status) {
+          setSystemStatus(data.status)
+        }
+      } else {
+        // If API fails, keep default active status
+        console.error("Failed to fetch system status")
+      }
+    } catch (error) {
+      console.error("Error fetching system status:", error)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  const activateAllServices = async () => {
+    try {
+      setActivating(true)
+      setError(null)
+      setSuccess(null)
+
+      const response = await fetch("/api/admin/activate-system-services", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        setSuccess("All system services activated successfully!")
+        // Refresh status after activation
+        await fetchSystemStatus()
+      } else {
+        setError(data.message || "Failed to activate system services")
+      }
+    } catch (error) {
+      console.error("Error activating system services:", error)
+      setError("An error occurred while activating system services")
+    } finally {
+      setActivating(false)
+    }
+  }
+
+  const handleRefresh = () => {
+    setRefreshing(true)
+    fetchSystemStatus()
+  }
 
   if (loading) {
     return (
@@ -44,7 +136,45 @@ export default function SystemPage() {
 
   return (
     <div className="container mx-auto p-4 md:p-6">
-      <h1 className="mb-6 text-3xl font-bold">System</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">System</h1>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={activateAllServices}
+            disabled={activating}
+            className="flex items-center gap-2"
+          >
+            {activating ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                Activating...
+              </>
+            ) : (
+              <>
+                <Database className="h-4 w-4" />
+                Activate All Services
+              </>
+            )}
+          </Button>
+          <Button variant="outline" onClick={handleRefresh} disabled={refreshing} className="flex items-center gap-2">
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {success && (
+        <Alert className="mb-6 bg-green-50 text-green-800 border-green-200">
+          <AlertDescription>{success}</AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-6 mb-8 md:grid-cols-2 lg:grid-cols-3">
         {/* Database Management Card */}
@@ -60,7 +190,7 @@ export default function SystemPage() {
             </div>
             <div className="flex items-center justify-between">
               <span>Last Migration:</span>
-              <span className="text-gray-400">verification_codes_table</span>
+              <span className="text-gray-400">{systemStatus.database.lastMigration}</span>
             </div>
 
             <Button
