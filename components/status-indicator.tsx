@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, CheckCircle, AlertTriangle, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { DatabaseStatusDialog } from "./database-status-dialog"
+import { ServiceStatusDialog } from "./service-status-dialog"
 
 type StatusType = "connected" | "active" | "configured" | "up-to-date" | "error" | "warning" | "unknown"
 
@@ -15,7 +15,7 @@ interface StatusIndicatorProps {
   onClick?: () => Promise<void>
   className?: string
   showDetailedView?: boolean
-  type?: "database" | "verification" | "password-reset" | "email" | "sms" | "migration"
+  type?: "database" | "migration" | "verification" | "password-reset" | "email" | "sms"
 }
 
 export function StatusIndicator({
@@ -28,11 +28,11 @@ export function StatusIndicator({
 }: StatusIndicatorProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [currentStatus, setCurrentStatus] = useState<StatusType>(status)
-  const [showDatabaseDialog, setShowDatabaseDialog] = useState(false)
+  const [showServiceDialog, setShowServiceDialog] = useState(false)
 
   const handleClick = async () => {
-    if (type === "database") {
-      setShowDatabaseDialog(true)
+    if (type) {
+      setShowServiceDialog(true)
       return
     }
 
@@ -112,14 +112,8 @@ export function StatusIndicator({
     <>
       <div className={cn("flex flex-col space-y-1", className)}>
         <span className="text-sm font-medium text-gray-500">{label}</span>
-        <Button variant="ghost" className="p-0 h-auto" onClick={handleClick} disabled={isLoading && !type}>
-          <Badge
-            className={cn(
-              "px-3 py-1 transition-colors",
-              getStatusColor(displayStatus),
-              onClick || type ? "cursor-pointer" : "cursor-default",
-            )}
-          >
+        <Button variant="ghost" className="p-0 h-auto" onClick={handleClick}>
+          <Badge className={cn("px-3 py-1 transition-colors cursor-pointer", getStatusColor(displayStatus))}>
             <span className="flex items-center gap-1.5">
               {getStatusIcon(displayStatus)}
               <span className="font-medium">{displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}</span>
@@ -128,7 +122,14 @@ export function StatusIndicator({
         </Button>
       </div>
 
-      {type === "database" && <DatabaseStatusDialog open={showDatabaseDialog} onOpenChange={setShowDatabaseDialog} />}
+      {type && (
+        <ServiceStatusDialog
+          open={showServiceDialog}
+          onOpenChange={setShowServiceDialog}
+          title={label}
+          serviceType={type}
+        />
+      )}
     </>
   )
 }
