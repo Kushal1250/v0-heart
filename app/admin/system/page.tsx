@@ -12,12 +12,10 @@ import {
   AlertTriangle,
   FileText,
   BarChart3,
-  ShieldAlert,
   HardDrive,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 
 interface SystemStatus {
   database: {
@@ -114,16 +112,6 @@ export default function SystemPage() {
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    if (status === "Connected" || status === "Active" || status === "Configured") {
-      return <Badge className="bg-green-500">Active</Badge>
-    } else if (status === "Not Configured") {
-      return <Badge className="bg-yellow-500">Not Configured</Badge>
-    } else {
-      return <Badge className="bg-gray-500">Unknown</Badge>
-    }
-  }
-
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -143,19 +131,17 @@ export default function SystemPage() {
         {/* Database Management Section */}
         <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5" /> Database Management
-            </CardTitle>
+            <CardTitle className="text-xl">Database Management</CardTitle>
             <CardDescription className="text-gray-400">Manage database and migrations</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span>Database Status:</span>
-              {getStatusBadge(systemStatus.database.status)}
+              <span className="text-white">{systemStatus.database.status}</span>
             </div>
             <div className="flex items-center justify-between">
               <span>Last Migration:</span>
-              <span className="text-sm text-gray-400">{systemStatus.database.lastMigration}</span>
+              <span className="text-white">{systemStatus.database.lastMigration}</span>
             </div>
 
             <Button
@@ -179,19 +165,17 @@ export default function SystemPage() {
         {/* Authentication Systems Section */}
         <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" /> Authentication Systems
-            </CardTitle>
+            <CardTitle className="text-xl">Authentication Systems</CardTitle>
             <CardDescription className="text-gray-400">Fix auth related issues</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span>Verification System:</span>
-              {getStatusBadge(systemStatus.authentication.verification)}
+              <span className="text-white">{systemStatus.authentication.verification}</span>
             </div>
             <div className="flex items-center justify-between">
               <span>Password Reset System:</span>
-              {getStatusBadge(systemStatus.authentication.passwordReset)}
+              <span className="text-white">{systemStatus.authentication.passwordReset}</span>
             </div>
 
             <Button
@@ -215,19 +199,17 @@ export default function SystemPage() {
         {/* Notification Services Section */}
         <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5" /> Notification Services
-            </CardTitle>
+            <CardTitle className="text-xl">Notification Services</CardTitle>
             <CardDescription className="text-gray-400">Manage email and SMS services</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span>Email Service:</span>
-              {getStatusBadge(systemStatus.notification.email)}
+              <span className="text-white">{systemStatus.notification.email}</span>
             </div>
             <div className="flex items-center justify-between">
               <span>SMS Service:</span>
-              {getStatusBadge(systemStatus.notification.sms)}
+              <span className="text-white">{systemStatus.notification.sms}</span>
             </div>
 
             <Button
@@ -251,9 +233,7 @@ export default function SystemPage() {
         {/* System Diagnostics Section */}
         <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ActivitySquare className="h-5 w-5" /> System Diagnostics
-            </CardTitle>
+            <CardTitle className="text-xl">System Diagnostics</CardTitle>
             <CardDescription className="text-gray-400">Debug and repair tools</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -294,9 +274,7 @@ export default function SystemPage() {
         {/* Admin Tools Section */}
         <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5" /> Admin Tools
-            </CardTitle>
+            <CardTitle className="text-xl">Admin Tools</CardTitle>
             <CardDescription className="text-gray-400">Additional administrative tools</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
