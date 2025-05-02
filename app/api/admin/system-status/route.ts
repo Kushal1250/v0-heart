@@ -1,103 +1,85 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
 import { sql } from "@/lib/db"
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    // Check admin authentication
-    const isAdmin = cookies().get("is_admin")?.value === "true"
-
-    if (!isAdmin) {
-      console.log("System Status API: Not an admin")
-      return NextResponse.json({ message: "Forbidden", error: "Not an admin" }, { status: 403 })
+    // Check database connection
+    let databaseStatus = {
+      status: "unknown" as const,
+      message: "Database status is unknown",
+      lastChecked: new Date().toISOString(),
     }
 
-    // Check if system_settings table exists
-    const checkSystemSettingsTable = await sql`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' AND table_name = 'system_settings'
-    `
-
-    // If system_settings table doesn't exist, return default values
-    if (checkSystemSettingsTable.length === 0) {
-      return NextResponse.json({
-        success: true,
-        status: {
-          database: { status: "ok", message: "Connected" },
-          verification: { status: "active", message: "Active" },
-          passwordReset: { status: "active", message: "Active" },
-          notification: {
-            email: { status: "configured", message: "Configured" },
-            sms: { status: "configured", message: "Configured" },
-          },
-          lastMigration: { date: new Date().toISOString(), message: "Up to date" },
-          maintenance: false, // Replace with actual check from database or config
-        },
-      })
+    try {
+      await sql`SELECT 1`
+      databaseStatus = {
+        status: "configured" as const,
+        message: "Database is connected and working properly",
+        lastChecked: new Date().toISOString(),
+      }
+    } catch (error) {
+      databaseStatus = {
+        status: "error" as const,
+        message: "Failed to connect to database",
+        lastChecked: new Date().toISOString(),
+      }
     }
 
-    // Get all system settings
-    const settings = await sql`SELECT * FROM system_settings`
+    // Check email configuration
+    const emailStatus = {
+      status: "not_configured" as const,
+      message: "Email service is not configured",
+      lastChecked: new Date().toISOString(),
+    }
 
-    // Convert to a map for easier access
-    const settingsMap = settings.reduce(
-      (acc, setting) => {
-        acc[setting.key] = setting.value
-        return acc
-      },
-      {} as Record<string, string>,
-    )
+    if (process.env.EMAIL_SERVER && process.env.EMAIL_FROM) {
+      emailStatus.status = "configured"
+      emailStatus.message = "Email service is configured"
+    }
+
+    // Check SMS configuration
+    const smsStatus = {
+      status: "not_configured" as const,
+      message: "SMS service is not configured",
+      lastChecked: new Date().toISOString(),
+    }
+
+    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+      smsStatus.status = "configured"
+      smsStatus.message = "SMS service is configured"
+    }
+
+    // Check last migration
+    let lastMigration = {
+      date: "Unknown",
+      status: "unknown" as const,
+    }
+
+    try {
+      const migrationResult = await sql`
+        SELECT created_at, status FROM migrations 
+        ORDER BY created_at DESC LIMIT 1
+      `
+
+      if (migrationResult && migrationResult.length > 0) {
+        const migration = migrationResult[0]
+        lastMigration = {
+          date: new Date(migration.created_at).toISOString(),
+          status: migration.status === "success" ? "success" : "failed",
+        }
+      }
+    } catch (error) {
+      console.error("Failed to check migration status:", error)
+    }
 
     return NextResponse.json({
-      success: true,
-      status: {
-        database: {
-          status: settingsMap.database_status || "ok",
-          message: settingsMap.database_status === "connected" ? "Connected" : "Unknown",
-        },
-        verification: {
-          status: settingsMap.verification_system || "active",
-          message: settingsMap.verification_system === "active" ? "Active" : "Not Configured",
-        },
-        passwordReset: {
-          status: settingsMap.password_reset_system || "active",
-          message: settingsMap.password_reset_system === "active" ? "Active" : "Not Configured",
-        },
-        notification: {
-          email: {
-            status: settingsMap.email_service || "configured",
-            message: settingsMap.email_service === "configured" ? "Configured" : "Not Configured",
-          },
-          sms: {
-            status: settingsMap.sms_service || "configured",
-            message: settingsMap.sms_service === "configured" ? "Not Configured" : "Configured",
-          },
-        },
-        lastMigration: {
-          date: new Date().toISOString(),
-          message: settingsMap.last_migration || "Up to date",
-        },
-        maintenance: false, // Replace with actual check from database or config
-      },
+      database: databaseStatus,
+      emailService: emailStatus,
+      smsService: smsStatus,
+      lastMigration,
     })
   } catch (error) {
     console.error("Error getting system status:", error)
-
-    // Return default values in case of error
-    return NextResponse.json({
-      success: true,
-      status: {
-        database: { status: "ok", message: "Connected" },
-        verification: { status: "active", message: "Active" },
-        passwordReset: { status: "active", message: "Active" },
-        notification: {
-          email: { status: "configured", message: "Configured" },
-          sms: { status: "configured", message: "Configured" },
-        },
-        lastMigration: { date: new Date().toISOString(), message: "Up to date" },
-        maintenance: false, // Replace with actual check from database or config
-      },
-    })
+    return NextResponse.json({ error: "Failed to get system status" }, { status: 500 })
   }
 }
