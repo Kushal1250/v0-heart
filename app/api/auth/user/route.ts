@@ -6,12 +6,29 @@ export async function GET() {
     const user = await getCurrentUser()
 
     if (!user) {
-      return NextResponse.json({ message: "Not authenticated" }, { status: 401 })
+      return NextResponse.json({ authenticated: false }, { status: 401 })
     }
 
-    return NextResponse.json(user)
+    // Remove sensitive information
+    const safeUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    }
+
+    return NextResponse.json({
+      authenticated: true,
+      user: safeUser,
+    })
   } catch (error) {
-    console.error("User fetch error:", error)
-    return NextResponse.json({ message: "An error occurred" }, { status: 500 })
+    console.error("Error in user route:", error)
+    return NextResponse.json(
+      {
+        authenticated: false,
+        error: "Failed to authenticate user",
+      },
+      { status: 500 },
+    )
   }
 }

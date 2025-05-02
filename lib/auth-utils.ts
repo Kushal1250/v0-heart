@@ -52,7 +52,7 @@ export function createResponseWithCookie(data: any, token: string): any {
   // Set cookie with proper configuration
   response.headers.set(
     "Set-Cookie",
-    `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax`, // Adjust secure based on your environment
+    `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`, // 24 hours
   )
 
   return response
@@ -125,10 +125,10 @@ export async function verifyAdminSession(request: Request): Promise<{
 /**
  * Extracts user information from an incoming request
  */
-export async function getUserFromRequest(request: NextRequest) {
+export async function getUserFromRequest(request: Request | NextRequest) {
   try {
     // Get the session token from the cookie
-    const cookieStore = request.cookies || cookies()
+    const cookieStore = cookies()
     const sessionToken = cookieStore.get("session")?.value
 
     if (!sessionToken) {
