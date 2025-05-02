@@ -12,68 +12,68 @@ export async function initDatabase() {
   try {
     // Create users table if it doesn't exist
     await sql`
-      CREATE TABLE IF NOT EXISTS users (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        name TEXT,
-        phone TEXT,
-        role TEXT NOT NULL DEFAULT 'user',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        last_login TIMESTAMP WITH TIME ZONE,
-        provider TEXT,
-        profile_picture TEXT
-      )
-    `
+     CREATE TABLE IF NOT EXISTS users (
+       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+       email TEXT UNIQUE NOT NULL,
+       password TEXT NOT NULL,
+       name TEXT,
+       phone TEXT,
+       role TEXT NOT NULL DEFAULT 'user',
+       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+       last_login TIMESTAMP WITH TIME ZONE,
+       provider TEXT,
+       profile_picture TEXT
+     )
+   `
 
     // Create sessions table if it doesn't exist
     await sql`
-      CREATE TABLE IF NOT EXISTS sessions (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        token TEXT UNIQUE NOT NULL,
-        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      )
-    `
+     CREATE TABLE IF NOT EXISTS sessions (
+       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+       token TEXT UNIQUE NOT NULL,
+       expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+     )
+   `
 
     // Create password_resets table if it doesn't exist
     await sql`
-      CREATE TABLE IF NOT EXISTS password_reset_tokens (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id TEXT NOT NULL,
-        token TEXT NOT NULL,
-        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-        is_valid BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      );
-      
-      CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
-      CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
-    `
+     CREATE TABLE IF NOT EXISTS password_reset_tokens (
+       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+       user_id TEXT NOT NULL,
+       token TEXT NOT NULL,
+       expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+       is_valid BOOLEAN DEFAULT true,
+       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+     );
+     
+     CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
+     CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
+   `
 
     // Create predictions table if it doesn't exist
     await sql`
-      CREATE TABLE IF NOT EXISTS predictions (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        result NUMERIC NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        prediction_data JSONB
-      )
-    `
+     CREATE TABLE IF NOT EXISTS predictions (
+       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+       result NUMERIC NOT NULL,
+       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+       prediction_data JSONB
+     )
+   `
 
     // Create verification codes table if it doesn't exist
     await sql`
-      CREATE TABLE IF NOT EXISTS verification_codes (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id TEXT NOT NULL,
-        code TEXT NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '15 minutes')
-      )
-    `
+     CREATE TABLE IF NOT EXISTS verification_codes (
+       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+       user_id TEXT NOT NULL,
+       code TEXT NOT NULL,
+       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+       expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '15 minutes')
+     )
+   `
 
     console.log("Database initialized successfully")
     return true
@@ -107,9 +107,9 @@ export async function getUserByEmail(email: string) {
  */
 export async function getUserByPhone(phone: string) {
   const result = await sql`
-    SELECT * FROM users
-    WHERE phone = ${phone}
-  `
+   SELECT * FROM users
+   WHERE phone = ${phone}
+ `
 
   return result.length > 0 ? result[0] : null
 }
@@ -161,10 +161,10 @@ export async function createUser(email: string, password: string, name: string, 
     const hashedPassword = await hash(password, 10)
 
     const result = await sql`
-      INSERT INTO users (email, password, name, phone)
-      VALUES (${email}, ${hashedPassword}, ${name}, ${phone})
-      RETURNING id, email, name, role, phone
-    `
+     INSERT INTO users (email, password, name, phone)
+     VALUES (${email}, ${hashedPassword}, ${name}, ${phone})
+     RETURNING id, email, name, role, phone
+   `
 
     return result[0]
   } catch (error) {
@@ -201,9 +201,9 @@ export async function createSession(userId: string, token: string, expiresAt: Da
     const sessionId = uuidv4()
 
     await sql`
-      INSERT INTO sessions (id, user_id, token, expires_at)
-      VALUES (${sessionId}, ${userId}, ${token}, ${expiresAt})
-    `
+     INSERT INTO sessions (id, user_id, token, expires_at)
+     VALUES (${sessionId}, ${userId}, ${token}, ${expiresAt})
+   `
     return true
   } catch (error) {
     console.error("Database error in createSession:", error)
@@ -218,9 +218,9 @@ export async function getSessionByToken(token: string) {
     }
 
     const sessions = await sql`
-      SELECT * FROM sessions 
-      WHERE token = ${token} AND expires_at > NOW()
-    `
+     SELECT * FROM sessions 
+     WHERE token = ${token} AND expires_at > NOW()
+   `
     return sessions[0] || null
   } catch (error) {
     console.error("Database error in getSessionByToken:", error)
@@ -242,6 +242,40 @@ export async function deleteSession(token: string) {
   }
 }
 
+/**
+ * Extend a session's expiration time
+ * @param token The session token
+ * @param expiresAt New expiration date
+ * @returns Success status
+ */
+export async function extendSession(token: string, expiresAt: Date) {
+  try {
+    if (!token || !expiresAt) {
+      throw new Error("Token and expiration date are required to extend a session")
+    }
+
+    console.log(`Extending session with token: ${token} to ${expiresAt}`)
+
+    const result = await sql`
+      UPDATE sessions
+      SET expires_at = ${expiresAt}
+      WHERE token = ${token}
+      RETURNING id, user_id, token, expires_at
+    `
+
+    if (result.length === 0) {
+      console.log(`No session found with token: ${token}`)
+      return null
+    }
+
+    console.log(`Session extended successfully: ${token}`)
+    return result[0]
+  } catch (error) {
+    console.error("Database error in extendSession:", error)
+    throw new Error(`Failed to extend session: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
 // Password reset functions
 // Replace the createPasswordResetToken function with this improved version
 export async function createPasswordResetToken(userId: string, token: string, expiresAt: Date) {
@@ -255,10 +289,10 @@ export async function createPasswordResetToken(userId: string, token: string, ex
     // First, invalidate any existing tokens for this user
     try {
       await sql`
-        UPDATE password_reset_tokens 
-        SET is_valid = false 
-        WHERE user_id = ${userId}
-      `
+       UPDATE password_reset_tokens 
+       SET is_valid = false 
+       WHERE user_id = ${userId}
+     `
       console.log(`Invalidated existing tokens for user ID: ${userId}`)
     } catch (invalidateError) {
       console.error("Error invalidating existing tokens:", invalidateError)
@@ -269,10 +303,10 @@ export async function createPasswordResetToken(userId: string, token: string, ex
 
     // Insert the new token with proper error handling
     const result = await sql`
-      INSERT INTO password_reset_tokens (id, user_id, token, expires_at)
-      VALUES (${resetId}, ${userId}, ${token}, ${expiresAt})
-      RETURNING id, token, expires_at
-    `
+     INSERT INTO password_reset_tokens (id, user_id, token, expires_at)
+     VALUES (${resetId}, ${userId}, ${token}, ${expiresAt})
+     RETURNING id, token, expires_at
+   `
 
     console.log(`Successfully created password reset token for user ID: ${userId}`)
     return result[0] || true
@@ -309,11 +343,11 @@ export async function verifyPasswordResetToken(token: string) {
     console.log(`Verifying password reset token: ${token}`)
 
     const result = await sql`
-      SELECT * FROM password_reset_tokens
-      WHERE token = ${token}
-      AND expires_at > NOW()
-      AND is_valid = true
-    `
+     SELECT * FROM password_reset_tokens
+     WHERE token = ${token}
+     AND expires_at > NOW()
+     AND is_valid = true
+   `
 
     if (result.length === 0) {
       console.log(`No valid token found for: ${token}`)
@@ -343,10 +377,10 @@ export async function invalidatePasswordResetToken(token: string) {
     console.log(`Invalidating password reset token: ${token}`)
 
     await sql`
-      UPDATE password_reset_tokens
-      SET is_valid = false
-      WHERE token = ${token}
-    `
+     UPDATE password_reset_tokens
+     SET is_valid = false
+     WHERE token = ${token}
+   `
 
     console.log(`Token invalidated successfully: ${token}`)
     return true
@@ -363,9 +397,9 @@ export async function getPasswordResetByToken(token: string) {
     }
 
     const resets = await sql`
-      SELECT * FROM password_reset_tokens
-      WHERE token = ${token} AND expires_at > NOW() AND is_valid = true
-    `
+     SELECT * FROM password_reset_tokens
+     WHERE token = ${token} AND expires_at > NOW() AND is_valid = true
+   `
     return resets[0] || null
   } catch (error) {
     console.error("Database error in getPasswordResetByToken:", error)
@@ -411,10 +445,10 @@ export async function updateUserPassword(userId: string, newPassword: string) {
 export async function getAllUsers() {
   try {
     const users = await sql`
-      SELECT id, email, name, phone, role, created_at 
-      FROM users 
-      ORDER BY created_at DESC
-    `
+     SELECT id, email, name, phone, role, created_at 
+     FROM users 
+     ORDER BY created_at DESC
+   `
     return users
   } catch (error) {
     console.error("Database error in getAllUsers:", error)
@@ -426,10 +460,10 @@ export async function getAllUsersWithDetails() {
   try {
     // Modified query to exclude the last_login column that doesn't exist
     const users = await sql`
-      SELECT id, email, name, phone, role, created_at, provider, profile_picture
-      FROM users
-      ORDER BY created_at DESC
-    `
+     SELECT id, email, name, phone, role, created_at, provider, profile_picture
+     FROM users
+     ORDER BY created_at DESC
+   `
     return users
   } catch (error) {
     console.error("Database error in getAllUsersWithDetails:", error)
@@ -508,11 +542,11 @@ export async function updateUserProfile(
     values.push(userId)
 
     const query = `
-      UPDATE users
-      SET ${setFields.join(", ")}
-      WHERE id = $${paramIndex}
-      RETURNING id, name, email, phone, role, profile_picture
-    `
+     UPDATE users
+     SET ${setFields.join(", ")}
+     WHERE id = $${paramIndex}
+     RETURNING id, name, email, phone, role, profile_picture
+   `
 
     const result = await sql(query, ...values)
     return result.rows[0]
@@ -530,11 +564,11 @@ export async function updateUserProfilePicture(userId: string, profilePicture: s
     }
 
     const users = await sql`
-      UPDATE users
-      SET profile_picture = ${profilePicture}
-      WHERE id = ${userId}
-      RETURNING id, name, email, phone, role, profile_picture
-    `
+     UPDATE users
+     SET profile_picture = ${profilePicture}
+     WHERE id = ${userId}
+     RETURNING id, name, email, phone, role, profile_picture
+   `
 
     return users[0]
   } catch (error) {
@@ -552,10 +586,10 @@ export async function createPrediction(userId: string, result: any, predictionDa
     const predictionId = uuidv4()
 
     const predictions = await sql`
-      INSERT INTO predictions (id, user_id, result, prediction_data)
-      VALUES (${predictionId}, ${userId}, ${result.score / 100}, ${JSON.stringify(predictionData)})
-      RETURNING *
-    `
+     INSERT INTO predictions (id, user_id, result, prediction_data)
+     VALUES (${predictionId}, ${userId}, ${result.score / 100}, ${JSON.stringify(predictionData)})
+     RETURNING *
+   `
 
     if (!predictions || predictions.length === 0) {
       throw new Error("Prediction creation failed - no prediction returned from database")
@@ -571,11 +605,11 @@ export async function createPrediction(userId: string, result: any, predictionDa
 export async function getAllPredictions() {
   try {
     const predictions = await sql`
-      SELECT p.*, u.name, u.email
-      FROM predictions p
-      JOIN users u ON p.user_id = u.id
-      ORDER BY p.created_at DESC
-    `
+     SELECT p.*, u.name, u.email
+     FROM predictions p
+     JOIN users u ON p.user_id = u.id
+     ORDER BY p.created_at DESC
+   `
     return predictions
   } catch (error) {
     console.error("Database error in getAllPredictions:", error)
@@ -592,10 +626,10 @@ export async function getPredictionsByUserId(userId: string) {
     console.log(`Getting predictions for user ID: ${userId}`)
 
     const predictions = await sql`
-      SELECT * FROM predictions
-      WHERE user_id = ${userId}
-      ORDER BY created_at DESC
-    `
+     SELECT * FROM predictions
+     WHERE user_id = ${userId}
+     ORDER BY created_at DESC
+   `
 
     console.log(`Found ${predictions.length} predictions in database for user ID: ${userId}`)
 
@@ -613,11 +647,11 @@ export async function getPredictionById(id: string) {
     }
 
     const predictions = await sql`
-      SELECT p.*, u.name, u.email
-      FROM predictions p
-      JOIN users u ON p.user_id = u.id
-      WHERE p.id = ${id}
-    `
+     SELECT p.*, u.name, u.email
+     FROM predictions p
+     JOIN users u ON p.user_id = u.id
+     WHERE p.id = ${id}
+   `
     return predictions[0] || null
   } catch (error) {
     console.error("Database error in getPredictionById:", error)
@@ -691,10 +725,10 @@ export async function createVerificationCode(identifier: string, code: string) {
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
 
     const result = await sql`
-      INSERT INTO verification_codes (id, user_id, code, expires_at)
-      VALUES (${verificationId}, ${identifier}, ${code}, ${expiresAt})
-      RETURNING id, user_id, code, created_at, expires_at
-    `
+     INSERT INTO verification_codes (id, user_id, code, expires_at)
+     VALUES (${verificationId}, ${identifier}, ${code}, ${expiresAt})
+     RETURNING id, user_id, code, created_at, expires_at
+   `
 
     console.log(`Verification code created successfully for ${identifier}`)
     return result[0]
@@ -717,9 +751,9 @@ export async function getVerificationCodeByUserIdAndCode(userId: string, code: s
     }
 
     const codes = await sql`
-      SELECT * FROM verification_codes
-      WHERE user_id = ${userId} AND code = ${code} AND expires_at > NOW()
-    `
+     SELECT * FROM verification_codes
+     WHERE user_id = ${userId} AND code = ${code} AND expires_at > NOW()
+   `
     return codes[0] || null
   } catch (error) {
     console.error("Database error in getVerificationCodeByUserIdAndCode:", error)
@@ -741,9 +775,9 @@ export async function getVerificationCode(identifier: string) {
     console.log(`Getting verification code for identifier: ${identifier}`)
 
     const codes = await sql`
-      SELECT * FROM verification_codes
-      WHERE user_id = ${identifier} AND expires_at > NOW()
-    `
+     SELECT * FROM verification_codes
+     WHERE user_id = ${identifier} AND expires_at > NOW()
+   `
 
     if (codes.length === 0) {
       console.log(`No valid verification code found for ${identifier}`)
@@ -771,11 +805,11 @@ export async function verifyCode(userId: string, code: string) {
     }
 
     const result = await sql`
-      SELECT * FROM verification_codes
-      WHERE user_id = ${userId}
-      AND code = ${code}
-      AND expires_at > NOW()
-    `
+     SELECT * FROM verification_codes
+     WHERE user_id = ${userId}
+     AND code = ${code}
+     AND expires_at > NOW()
+   `
 
     return result.length > 0
   } catch (error) {

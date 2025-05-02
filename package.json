@@ -72,8 +72,8 @@
     "twilio": "latest",
     "uuid": "latest",
     "util": "latest",
-    "bcrypt-ts": "latest",
-    "jsonwebtoken": "latest"
+    "jsonwebtoken": "latest",
+    "bcrypt-ts": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
