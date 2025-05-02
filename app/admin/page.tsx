@@ -19,6 +19,9 @@ import {
   ChevronUp,
   ChevronDown,
   Shield,
+  Mail,
+  MessageSquare,
+  Wrench,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -37,8 +40,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Progress } from "@/components/ui/progress"
-import { Separator } from "@/components/ui/separator"
-import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 
 interface User {
@@ -981,147 +982,189 @@ export default function AdminDashboard() {
         </TabsContent>
 
         {/* System Tab */}
+
         <TabsContent value="system" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>System Health</CardTitle>
-                <CardDescription>Status of system components</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Database Connection</span>
-                    <Badge variant={systemHealth.database ? "success" : "destructive"}>
-                      {systemHealth.database ? "Connected" : "Disconnected"}
-                    </Badge>
-                  </div>
-                  <Progress value={systemHealth.database ? 100 : 0} className="h-2" />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Email Service</span>
-                    <Badge variant={systemHealth.email ? "success" : "destructive"}>
-                      {systemHealth.email ? "Configured" : "Not Configured"}
-                    </Badge>
-                  </div>
-                  <Progress value={systemHealth.email ? 100 : 0} className="h-2" />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">SMS Service</span>
-                    <Badge variant={systemHealth.sms ? "success" : "destructive"}>
-                      {systemHealth.sms ? "Configured" : "Not Configured"}
-                    </Badge>
-                  </div>
-                  <Progress value={systemHealth.sms ? 100 : 0} className="h-2" />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Storage</span>
-                    <Badge variant={systemHealth.storage ? "success" : "destructive"}>
-                      {systemHealth.storage ? "Available" : "Unavailable"}
-                    </Badge>
-                  </div>
-                  <Progress value={systemHealth.storage ? 100 : 0} className="h-2" />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => router.push("/admin/diagnostics")}
-                >
-                  Run Diagnostics
-                </Button>
-              </CardFooter>
-            </Card>
-
-            <Card>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {/* Database Management */}
+            <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
               <CardHeader>
                 <CardTitle>Database Management</CardTitle>
-                <CardDescription>Manage database operations</CardDescription>
+                <CardDescription>Manage database and migrations</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="text-sm font-medium">Run Database Migration</div>
-                    <div className="text-xs text-muted-foreground">Update database schema</div>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={runMigration} disabled={migrating}>
-                    {migrating ? "Migrating..." : "Migrate"}
+                <div className="flex justify-between items-center">
+                  <span>Database Status:</span>
+                  <Badge variant="outline">Unknown</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Last Migration:</span>
+                  <span className="text-gray-400">Unknown</span>
+                </div>
+                <div className="space-y-2 mt-4">
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                    onClick={runMigration}
+                  >
+                    <Database className="mr-2 h-4 w-4" /> Run Migration
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                    onClick={() => router.push("/admin/detailed-db-diagnostics")}
+                  >
+                    <Database className="mr-2 h-4 w-4" /> Database Diagnostics
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
 
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="text-sm font-medium">Fix Verification Codes</div>
-                    <div className="text-xs text-muted-foreground">Repair verification system</div>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => router.push("/admin/fix-issues")}>
-                    Fix Issues
+            {/* Authentication Systems */}
+            <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
+              <CardHeader>
+                <CardTitle>Authentication Systems</CardTitle>
+                <CardDescription>Fix auth related issues</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span>Verification System:</span>
+                  <Badge variant="outline">Not Configured</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Password Reset System:</span>
+                  <Badge className="bg-green-600">Active</Badge>
+                </div>
+                <div className="space-y-2 mt-4">
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                    onClick={() => router.push("/admin/verification-settings")}
+                  >
+                    <UserCheck className="mr-2 h-4 w-4" /> Fix Verification System
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                    onClick={() => router.push("/admin/reset-token-diagnostics")}
+                  >
+                    <Key className="mr-2 h-4 w-4" /> Fix Password Reset System
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
 
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="text-sm font-medium">Database Backup</div>
-                    <div className="text-xs text-muted-foreground">Create a backup of the database</div>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => alert("Backup functionality not implemented")}>
-                    Backup
+            {/* Notification Services */}
+            <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
+              <CardHeader>
+                <CardTitle>Notification Services</CardTitle>
+                <CardDescription>Manage email and SMS services</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span>Email Service:</span>
+                  <Badge variant="outline">Not Configured</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>SMS Service:</span>
+                  <Badge variant="outline">Not Configured</Badge>
+                </div>
+                <div className="space-y-2 mt-4">
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                    onClick={() => router.push("/admin/email-settings")}
+                  >
+                    <Mail className="mr-2 h-4 w-4" /> Email Settings
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                    onClick={() => router.push("/admin/sms-diagnostics")}
+                  >
+                    <MessageSquare className="mr-2 h-4 w-4" /> SMS Settings
                   </Button>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Configuration</CardTitle>
-              <CardDescription>System configuration settings</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="email-notifications">Email Notifications</Label>
-                  <p className="text-xs text-muted-foreground">Send email notifications to users</p>
-                </div>
-                <Switch id="email-notifications" defaultChecked />
-              </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* System Diagnostics */}
+            <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
+              <CardHeader>
+                <CardTitle>System Diagnostics</CardTitle>
+                <CardDescription>Debug and repair tools</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={() => router.push("/admin/diagnostics")}
+                >
+                  <Activity className="mr-2 h-4 w-4" /> General Diagnostics
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={() => router.push("/admin/email-diagnostics")}
+                >
+                  <Mail className="mr-2 h-4 w-4" /> Email Diagnostics
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={() => router.push("/admin/sms-diagnostics")}
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" /> SMS Diagnostics
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={() => router.push("/admin/fix-issues")}
+                >
+                  <AlertTriangle className="mr-2 h-4 w-4" /> Fix System Issues
+                </Button>
+              </CardContent>
+            </Card>
 
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="sms-notifications">SMS Notifications</Label>
-                  <p className="text-xs text-muted-foreground">Send SMS notifications to users</p>
-                </div>
-                <Switch id="sms-notifications" defaultChecked />
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="maintenance-mode">Maintenance Mode</Label>
-                  <p className="text-xs text-muted-foreground">Put the system in maintenance mode</p>
-                </div>
-                <Switch id="maintenance-mode" />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full">Save Configuration</Button>
-            </CardFooter>
-          </Card>
+            {/* Admin Tools */}
+            <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
+              <CardHeader>
+                <CardTitle>Admin Tools</CardTitle>
+                <CardDescription>Additional administrative tools</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={() => router.push("/admin/system-health")}
+                >
+                  <BarChart3 className="mr-2 h-4 w-4" /> System Health
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={() => router.push("/admin/detailed-db-diagnostics")}
+                >
+                  <Database className="mr-2 h-4 w-4" /> Detailed DB Diagnostics
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={() => router.push("/admin/reset-token-diagnostics")}
+                >
+                  <Key className="mr-2 h-4 w-4" /> Reset Token Diagnostics
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={() => router.push("/admin/fix-database")}
+                >
+                  <Wrench className="mr-2 h-4 w-4" /> Fix Database
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 
