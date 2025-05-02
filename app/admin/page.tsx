@@ -18,6 +18,7 @@ import {
   Key,
   ChevronUp,
   ChevronDown,
+  Shield,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -721,6 +722,81 @@ export default function AdminDashboard() {
           </div>
 
           {/* System Status Card - Added to bottom of Dashboard */}
+          <div className="mt-8 rounded-lg border bg-[#0c0c14] border-[#1e1e2f] p-6 text-card-foreground shadow-sm">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-white">System Status</h3>
+              <p className="text-sm text-muted-foreground">Health of various system components</p>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-white">Database</p>
+                <div className="flex items-center">
+                  <AlertTriangle className="h-4 w-4 text-yellow-500 mr-1" />
+                  <span className="text-sm text-yellow-500">Unknown</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-white">Email Service</p>
+                <div className="flex items-center">
+                  <AlertTriangle className="h-4 w-4 text-yellow-500 mr-1" />
+                  <span className="text-sm text-yellow-500">Not Configured</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-white">SMS Service</p>
+                <div className="flex items-center">
+                  <AlertTriangle className="h-4 w-4 text-yellow-500 mr-1" />
+                  <span className="text-sm text-yellow-500">Not Configured</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-white">Last Migration</p>
+                <span className="text-sm text-muted-foreground">Unknown</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <Button
+                variant="outline"
+                className="w-full justify-center dark:bg-[#0c0c14] dark:border-[#1e1e2f] dark:hover:bg-[#1e1e2f] flex items-center gap-2"
+                onClick={runMigration}
+              >
+                <Database className="h-4 w-4" />
+                Run Migration
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full justify-center dark:bg-[#0c0c14] dark:border-[#1e1e2f] dark:hover:bg-[#1e1e2f] flex items-center gap-2"
+                onClick={() => router.push("/admin/fix-issues")}
+              >
+                <UserCheck className="h-4 w-4" />
+                Fix Verification System
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full justify-center dark:bg-[#0c0c14] dark:border-[#1e1e2f] dark:hover:bg-[#1e1e2f] flex items-center gap-2"
+                onClick={() => router.push("/admin/reset-token-diagnostics")}
+              >
+                <Shield className="h-4 w-4" />
+                Fix Reset Tokens
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full justify-center dark:bg-[#0c0c14] dark:border-[#1e1e2f] dark:hover:bg-[#1e1e2f] flex items-center gap-2"
+                onClick={() => router.push("/admin/diagnostics")}
+              >
+                <Activity className="h-4 w-4" />
+                System Diagnostics
+              </Button>
+            </div>
+          </div>
         </TabsContent>
 
         {/* Users Tab */}
