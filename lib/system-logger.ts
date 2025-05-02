@@ -82,11 +82,11 @@ class SystemLogger {
       this.consoleLog(level, logData)
 
       // Store critical logs in database if needed
-      // if (level === "error") {
-      //   this.persistLog(logData).catch((err) => {
-      //     console.error("Failed to persist log:", err)
-      //   })
-      // }
+      if (level === "error") {
+        this.persistLog(logData).catch((err) => {
+          console.error("Failed to persist log:", err)
+        })
+      }
     } else {
       // In development, just use console with formatting
       this.consoleLog(level, logData)
@@ -141,6 +141,9 @@ class SystemLogger {
   }
 }
 
-// Export a singleton instance
-const systemLogger = new SystemLogger()
-export { systemLogger }
+// Create a singleton instance
+const logger = new SystemLogger()
+
+// Export both as default and named export to support different import styles
+export default logger
+export const systemLogger = logger
