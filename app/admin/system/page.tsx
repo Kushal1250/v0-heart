@@ -14,11 +14,13 @@ import {
   FileText,
   Wrench,
   RefreshCw,
+  Power,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Progress } from "@/components/ui/progress"
 
 interface SystemStatus {
   database: {
@@ -38,7 +40,7 @@ interface SystemStatus {
 export default function SystemPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
-  const [activating, setActivating] = useState(false)
+  const [initializing, setInitializing] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -67,7 +69,7 @@ export default function SystemPage() {
       setLoading(true)
       setError(null)
 
-      const response = await fetch("/api/admin/get-system-status", {
+      const response = await fetch("/api/admin/system-status", {
         method: "GET",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
@@ -79,7 +81,6 @@ export default function SystemPage() {
           setSystemStatus(data.status)
         }
       } else {
-        // If API fails, keep default active status
         console.error("Failed to fetch system status")
       }
     } catch (error) {
@@ -90,13 +91,13 @@ export default function SystemPage() {
     }
   }
 
-  const activateAllServices = async () => {
+  const initializeSystem = async () => {
     try {
-      setActivating(true)
+      setInitializing(true)
       setError(null)
       setSuccess(null)
 
-      const response = await fetch("/api/admin/activate-system-services", {
+      const response = await fetch("/api/admin/initialize-system", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       })
@@ -104,17 +105,17 @@ export default function SystemPage() {
       const data = await response.json()
 
       if (response.ok && data.success) {
-        setSuccess("All system services activated successfully!")
-        // Refresh status after activation
+        setSuccess("System initialized successfully!")
+        // Refresh status after initialization
         await fetchSystemStatus()
       } else {
-        setError(data.message || "Failed to activate system services")
+        setError(data.message || "Failed to initialize system")
       }
     } catch (error) {
-      console.error("Error activating system services:", error)
-      setError("An error occurred while activating system services")
+      console.error("Error initializing system:", error)
+      setError("An error occurred while initializing the system")
     } finally {
-      setActivating(false)
+      setInitializing(false)
     }
   }
 
@@ -123,12 +124,23 @@ export default function SystemPage() {
     fetchSystemStatus()
   }
 
+  const getBadgeColor = (status: string) => {
+    if (status === "connected" || status === "active" || status === "configured") {
+      return "bg-green-500 text-white"
+    } else if (status === "warning") {
+      return "bg-yellow-500 text-white"
+    } else {
+      return "bg-red-500 text-white"
+    }
+  }
+
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-          <p className="text-lg font-medium">Loading system status...</p>
+      <div className="container mx-auto p-4 md:p-6">
+        <h1 className="mb-6 text-3xl font-bold">System</h1>
+        <div className="space-y-4">
+          <p className="text-lg">Loading system status...</p>
+          <Progress value={50} className="w-full" />
         </div>
       </div>
     )
@@ -141,19 +153,19 @@ export default function SystemPage() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={activateAllServices}
-            disabled={activating}
+            onClick={initializeSystem}
+            disabled={initializing}
             className="flex items-center gap-2"
           >
-            {activating ? (
+            {initializing ? (
               <>
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-                Activating...
+                Initializing...
               </>
             ) : (
               <>
-                <Database className="h-4 w-4" />
-                Activate All Services
+                <Power className="h-4 w-4" />
+                Initialize System
               </>
             )}
           </Button>
@@ -186,7 +198,9 @@ export default function SystemPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span>Database Status:</span>
-              <Badge className="bg-green-500 text-white">Connected</Badge>
+              <Badge className={getBadgeColor(systemStatus.database.status)}>
+                {systemStatus.database.status === "connected" ? "Connected" : systemStatus.database.status}
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span>Last Migration:</span>
@@ -220,11 +234,19 @@ export default function SystemPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span>Verification System:</span>
-              <Badge className="bg-green-500 text-white">Active</Badge>
+              <Badge className={getBadgeColor(systemStatus.authentication.verification)}>
+                {systemStatus.authentication.verification === "active"
+                  ? "Active"
+                  : systemStatus.authentication.verification}
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span>Password Reset System:</span>
-              <Badge className="bg-green-500 text-white">Active</Badge>
+              <Badge className={getBadgeColor(systemStatus.authentication.passwordReset)}>
+                {systemStatus.authentication.passwordReset === "active"
+                  ? "Active"
+                  : systemStatus.authentication.passwordReset}
+              </Badge>
             </div>
 
             <Button
@@ -254,11 +276,15 @@ export default function SystemPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span>Email Service:</span>
-              <Badge className="bg-green-500 text-white">Configured</Badge>
+              <Badge className={getBadgeColor(systemStatus.notification.email)}>
+                {systemStatus.notification.email === "configured" ? "Configured" : systemStatus.notification.email}
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span>SMS Service:</span>
-              <Badge className="bg-green-500 text-white">Configured</Badge>
+              <Badge className={getBadgeColor(systemStatus.notification.sms)}>
+                {systemStatus.notification.sms === "configured" ? "Configured" : systemStatus.notification.sms}
+              </Badge>
             </div>
 
             <Button
