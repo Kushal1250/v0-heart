@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getUserFromRequest } from "@/lib/auth-utils"
 import { getRecentErrorLogs } from "@/lib/error-logger"
-import { isTwilioConfigured } from "@/lib/enhanced-sms-utils"
+import { isTwilioConfigured } from "@/lib/sms-utils"
 
 export async function GET(request: Request) {
   try {
