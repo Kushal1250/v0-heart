@@ -59,6 +59,7 @@ export default function SystemStatusDisplay({ refreshInterval }: SystemStatusPro
       case "ok":
       case "active":
       case "configured":
+      case "healthy":
         return (
           <Badge className="bg-green-500">
             <CheckCircle className="h-3 w-3 mr-1" /> OK
@@ -79,6 +80,67 @@ export default function SystemStatusDisplay({ refreshInterval }: SystemStatusPro
       default:
         return <Badge variant="outline">{status}</Badge>
     }
+  }
+
+  const renderHealthIndicator = (isHealthy: boolean) => {
+    return (
+      <div className={isHealthy ? "text-green-500" : "text-red-500"}>
+        {isHealthy ? (
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L20 18H4L12 2Z" fill="currentColor" />
+          </svg>
+        ) : (
+          <AlertTriangle className="h-6 w-6" />
+        )}
+      </div>
+    )
+  }
+
+  const renderCompactHealthCard = () => {
+    if (!status) return null
+
+    const isHealthy =
+      status.database?.status === "ok" &&
+      status.notification?.email?.status === "configured" &&
+      status.notification?.sms?.status === "configured"
+
+    return (
+      <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-base font-medium">System Health</CardTitle>
+            {renderHealthIndicator(isHealthy)}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <h2 className="text-3xl font-bold mb-4">{isHealthy ? "Healthy" : "Warning"}</h2>
+          <div className="grid grid-cols-2 gap-y-2">
+            <div className="flex items-center">
+              <div
+                className={`w-2 h-2 rounded-full ${status.database?.status === "ok" ? "bg-green-500" : "bg-red-500"} mr-2`}
+              ></div>
+              <span>Database</span>
+            </div>
+            <div className="flex items-center">
+              <div
+                className={`w-2 h-2 rounded-full ${status.notification?.email?.status === "configured" ? "bg-green-500" : "bg-red-500"} mr-2`}
+              ></div>
+              <span>Email</span>
+            </div>
+            <div className="flex items-center">
+              <div
+                className={`w-2 h-2 rounded-full ${status.notification?.sms?.status === "configured" ? "bg-green-500" : "bg-red-500"} mr-2`}
+              ></div>
+              <span>SMS</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+              <span>Storage</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   if (loading && !status) {
@@ -118,6 +180,7 @@ export default function SystemStatusDisplay({ refreshInterval }: SystemStatusPro
 
   return (
     <div className="space-y-6">
+      {renderCompactHealthCard()}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-xl font-semibold">System Status</h2>
