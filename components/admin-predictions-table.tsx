@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Eye, RefreshCw } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, Eye, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -26,6 +26,9 @@ interface Prediction {
   data: Record<string, any>
 }
 
+type SortField = "userName" | "result" | "timestamp" | "userId"
+type SortDirection = "asc" | "desc"
+
 export function AdminPredictionsTable() {
   const [predictions, setPredictions] = useState<Prediction[]>([])
   const [loading, setLoading] = useState(true)
@@ -33,6 +36,8 @@ export function AdminPredictionsTable() {
   const [refreshing, setRefreshing] = useState(false)
   const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null)
   const [showPredictionDialog, setShowPredictionDialog] = useState(false)
+  const [sortField, setSortField] = useState<SortField>("timestamp")
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
 
   useEffect(() => {
     fetchPredictions()
@@ -76,6 +81,42 @@ export function AdminPredictionsTable() {
     if (!id) return "N/A"
     return id.substring(0, 8) + "..."
   }
+
+  // Function to handle sorting
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+    } else {
+      // Set new field and default to ascending
+      setSortField(field)
+      setSortDirection("asc")
+    }
+  }
+
+  // Function to get sort icon
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="ml-2 h-4 w-4" />
+    }
+    return sortDirection === "asc" ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />
+  }
+
+  // Sort predictions
+  const sortedPredictions = [...predictions].sort((a, b) => {
+    if (sortField === "userName") {
+      return sortDirection === "asc" ? a.userName.localeCompare(b.userName) : b.userName.localeCompare(a.userName)
+    } else if (sortField === "result") {
+      return sortDirection === "asc" ? a.result - b.result : b.result - a.result
+    } else if (sortField === "timestamp") {
+      return sortDirection === "asc"
+        ? new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        : new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    } else if (sortField === "userId") {
+      return sortDirection === "asc" ? a.userId.localeCompare(b.userId) : b.userId.localeCompare(a.userId)
+    }
+    return 0
+  })
 
   if (loading) {
     return (
@@ -125,15 +166,27 @@ export function AdminPredictionsTable() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>User</TableHead>
-              <TableHead>User ID</TableHead>
-              <TableHead>Risk Level</TableHead>
-              <TableHead>Date</TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort("userName")}>
+                User
+                {getSortIcon("userName")}
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort("result")}>
+                Risk Level
+                {getSortIcon("result")}
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort("timestamp")}>
+                Date
+                {getSortIcon("timestamp")}
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort("userId")}>
+                User ID
+                {getSortIcon("userId")}
+              </TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {predictions.length === 0 ? (
+            {sortedPredictions.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center">
                   <div className="flex flex-col items-center gap-2">
@@ -145,14 +198,9 @@ export function AdminPredictionsTable() {
                 </TableCell>
               </TableRow>
             ) : (
-              predictions.slice(0, 5).map((pred) => (
+              sortedPredictions.slice(0, 5).map((pred) => (
                 <TableRow key={pred.id}>
                   <TableCell className="font-medium">{pred.userName}</TableCell>
-                  <TableCell>
-                    <span title={pred.userId} className="text-xs font-mono bg-muted px-1 py-0.5 rounded">
-                      {truncateId(pred.userId)}
-                    </span>
-                  </TableCell>
                   <TableCell>
                     <Badge
                       variant={pred.result > 0.5 ? "destructive" : "success"}
@@ -162,6 +210,11 @@ export function AdminPredictionsTable() {
                     </Badge>
                   </TableCell>
                   <TableCell>{new Date(pred.timestamp).toLocaleString()}</TableCell>
+                  <TableCell>
+                    <span title={pred.userId} className="text-xs font-mono bg-muted px-1 py-0.5 rounded">
+                      {truncateId(pred.userId)}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => handlePredictionClick(pred)}>
                       <Eye className="h-4 w-4" />
