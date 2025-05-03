@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth-utils"
-import { getUserProfile, updateUserProfile } from "@/lib/profile-service"
+import { getUserById, updateUserProfile } from "@/lib/db"
 
 export async function GET() {
   try {
@@ -13,7 +13,7 @@ export async function GET() {
     }
 
     console.log(`GET /api/user/profile - Fetching user with ID: ${currentUser.id}`)
-    const user = await getUserProfile(currentUser.id)
+    const user = await getUserById(currentUser.id)
 
     if (!user) {
       console.log(`GET /api/user/profile - User with ID ${currentUser.id} not found`)
@@ -22,14 +22,25 @@ export async function GET() {
 
     console.log(`GET /api/user/profile - Successfully retrieved user data for ID: ${currentUser.id}`)
 
-    // Return user data
-    return NextResponse.json(user, {
-      headers: {
-        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-        Pragma: "no-cache",
-        Expires: "0",
+    // Return user data without sensitive information
+    return NextResponse.json(
+      {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        created_at: user.created_at,
+        profile_picture: user.profile_picture,
       },
-    })
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
+    )
   } catch (error) {
     console.error("Error fetching user profile:", error)
     return NextResponse.json({ message: "Failed to fetch user profile" }, { status: 500 })
@@ -60,7 +71,10 @@ export async function PUT(request: NextRequest) {
 
     // Update user profile
     console.log(`PUT /api/user/profile - Updating user with ID: ${currentUser.id}`)
-    const updatedUser = await updateUserProfile(currentUser.id, data)
+    const updatedUser = await updateUserProfile(currentUser.id, {
+      name: data.name,
+      phone: data.phone,
+    })
 
     if (!updatedUser) {
       console.log(`PUT /api/user/profile - Failed to update user with ID: ${currentUser.id}`)
@@ -70,7 +84,12 @@ export async function PUT(request: NextRequest) {
     console.log(`PUT /api/user/profile - Successfully updated user with ID: ${currentUser.id}`)
 
     // Return updated user data
-    return NextResponse.json(updatedUser)
+    return NextResponse.json({
+      id: updatedUser.id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      phone: updatedUser.phone,
+    })
   } catch (error) {
     console.error("Error updating user profile:", error)
     return NextResponse.json({ message: "Failed to update user profile" }, { status: 500 })
