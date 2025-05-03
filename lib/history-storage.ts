@@ -1,3 +1,5 @@
+import { safeLocalStorage } from "@/lib/safe-client-utils"
+
 // Type definition for assessment history item
 export interface AssessmentHistoryItem {
   id: string
@@ -54,7 +56,7 @@ export function saveToHistory(assessment: Omit<AssessmentHistoryItem, "id" | "da
     }
 
     // Save back to localStorage
-    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history))
+    safeLocalStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history))
   } catch (error) {
     console.error("Error saving assessment to history:", error)
   }
@@ -63,7 +65,7 @@ export function saveToHistory(assessment: Omit<AssessmentHistoryItem, "id" | "da
 // Get all history items
 export function getHistory(): AssessmentHistoryItem[] {
   try {
-    const historyJson = localStorage.getItem(HISTORY_STORAGE_KEY)
+    const historyJson = safeLocalStorage.getItem(HISTORY_STORAGE_KEY)
     if (!historyJson) return []
     return JSON.parse(historyJson)
   } catch (error) {
@@ -77,7 +79,7 @@ export function deleteHistoryItem(id: string): void {
   try {
     const history = getHistory()
     const updatedHistory = history.filter((item) => item.id !== id)
-    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updatedHistory))
+    safeLocalStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updatedHistory))
   } catch (error) {
     console.error("Error deleting history item:", error)
   }
@@ -86,7 +88,7 @@ export function deleteHistoryItem(id: string): void {
 // Clear all history
 export function clearHistory(): void {
   try {
-    localStorage.removeItem(HISTORY_STORAGE_KEY)
+    safeLocalStorage.removeItem(HISTORY_STORAGE_KEY)
   } catch (error) {
     console.error("Error clearing history:", error)
   }

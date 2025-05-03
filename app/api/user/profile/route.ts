@@ -30,7 +30,7 @@ export async function GET() {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        createdAt: user.created_at,
+        created_at: user.created_at,
         profile_picture: user.profile_picture,
       },
       {

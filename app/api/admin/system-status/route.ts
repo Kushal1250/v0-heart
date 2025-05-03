@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
+import { testConnection } from "@/lib/db"
+import { checkEmailConfiguration, checkSmsConfiguration } from "@/lib/notification-service-checker"
 
 export async function GET(request: Request) {
   try {
@@ -11,57 +13,81 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "Forbidden", error: "Not an admin" }, { status: 403 })
     }
 
-    // Always return configured status for all services
+    // Test database connection
+    const dbStatus = await testConnection()
+
+    // Check email and SMS configuration
+    const emailStatus = await checkEmailConfiguration()
+    const smsStatus = await checkSmsConfiguration()
+
+    // Get last migration info
+    let lastMigration = { message: "Unknown", date: null }
+    if (dbStatus.success) {
+      // If we have a successful connection, we could query for migration info
+      // This is simplified - in a real app you might have a migrations table
+      lastMigration = {
+        message: "Connected, migration status unknown",
+        date: new Date().toISOString(),
+      }
+    }
+
     return NextResponse.json({
       success: true,
       status: {
         database: {
-          status: "ok",
-          message: "Connected",
-          responseTime: "< 100ms",
+          status: dbStatus.success ? "ok" : "error",
+          message: dbStatus.success ? "Connected" : "Connection failed",
+          responseTime: dbStatus.success ? "< 100ms" : "N/A",
+          error: dbStatus.success ? undefined : dbStatus.error,
         },
-        verification: {
-          status: "active",
-          message: "Active",
-        },
-        passwordReset: {
-          status: "active",
-          message: "Active",
+        authentication: {
+          verification: {
+            status: "active",
+            message: "Active",
+          },
+          passwordReset: {
+            status: "active",
+            message: "Active",
+          },
         },
         notification: {
           email: {
-            status: "configured",
-            message: "Configured",
+            status: emailStatus.configured ? "configured" : "not_configured",
+            message: emailStatus.message,
+            details: emailStatus.details,
           },
           sms: {
-            status: "configured",
-            message: "Configured",
+            status: smsStatus.configured ? "configured" : "not_configured",
+            message: smsStatus.message,
+            details: smsStatus.details,
           },
         },
-        lastMigration: {
-          message: "Up to date",
-          date: new Date().toISOString(),
-        },
+        lastMigration: lastMigration,
         maintenance: false,
       },
     })
   } catch (error) {
     console.error("Error getting system status:", error)
 
-    // Even in case of error, return all services as configured
-    return NextResponse.json({
-      success: true,
-      status: {
-        database: { status: "ok", message: "Connected" },
-        verification: { status: "active", message: "Active" },
-        passwordReset: { status: "active", message: "Active" },
-        notification: {
-          email: { status: "configured", message: "Configured" },
-          sms: { status: "configured", message: "Configured" },
+    return NextResponse.json(
+      {
+        success: false,
+        error: String(error),
+        status: {
+          database: { status: "error", message: "Error checking status" },
+          authentication: {
+            verification: { status: "unknown", message: "Unknown" },
+            passwordReset: { status: "unknown", message: "Unknown" },
+          },
+          notification: {
+            email: { status: "unknown", message: "Unknown" },
+            sms: { status: "unknown", message: "Unknown" },
+          },
+          lastMigration: { message: "Unknown", date: null },
+          maintenance: false,
         },
-        lastMigration: { message: "Up to date", date: new Date().toISOString() },
-        maintenance: false,
       },
-    })
+      { status: 500 },
+    )
   }
 }

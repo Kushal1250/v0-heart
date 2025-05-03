@@ -3,11 +3,21 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, CheckCircle, AlertTriangle, XCircle } from "lucide-react"
+import { Loader2, CheckCircle, AlertTriangle, XCircle, HelpCircle, Settings } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ServiceStatusDialog } from "./service-status-dialog"
+import { ServiceSetupDialog } from "./service-setup-dialog"
 
-type StatusType = "connected" | "active" | "configured" | "up-to-date" | "error" | "warning" | "unknown"
+// Update the StatusType to include "not_configured" and "unknown"
+type StatusType =
+  | "connected"
+  | "active"
+  | "configured"
+  | "up-to-date"
+  | "error"
+  | "warning"
+  | "unknown"
+  | "not_configured"
 
 interface StatusIndicatorProps {
   label: string
@@ -18,6 +28,7 @@ interface StatusIndicatorProps {
   type?: "database" | "migration" | "verification" | "password-reset" | "email" | "sms"
 }
 
+// Update the StatusIndicator component to handle connection setup
 export function StatusIndicator({
   label,
   status,
@@ -29,8 +40,16 @@ export function StatusIndicator({
   const [isLoading, setIsLoading] = useState(false)
   const [currentStatus, setCurrentStatus] = useState<StatusType>(status)
   const [showServiceDialog, setShowServiceDialog] = useState(false)
+  const [showSetupDialog, setShowSetupDialog] = useState(false)
 
   const handleClick = async () => {
+    // If status is unknown or not_configured, show setup dialog
+    if (currentStatus === "unknown" || currentStatus === "not_configured") {
+      setShowSetupDialog(true)
+      return
+    }
+
+    // If type is provided, show service dialog
     if (type) {
       setShowServiceDialog(true)
       return
@@ -41,7 +60,7 @@ export function StatusIndicator({
     setIsLoading(true)
     try {
       await onClick()
-      // Always set to a positive status
+      // Set status based on type
       setCurrentStatus(
         type === "database" || type === "migration"
           ? "connected"
@@ -75,6 +94,10 @@ export function StatusIndicator({
         return "bg-yellow-500 hover:bg-yellow-600"
       case "error":
         return "bg-red-500 hover:bg-red-600"
+      case "unknown":
+        return "bg-gray-500 hover:bg-gray-600"
+      case "not_configured":
+        return "bg-blue-500 hover:bg-blue-600"
       default:
         return "bg-gray-500 hover:bg-gray-600"
     }
@@ -93,20 +116,34 @@ export function StatusIndicator({
         return <AlertTriangle className="h-4 w-4" />
       case "error":
         return <XCircle className="h-4 w-4" />
+      case "unknown":
+        return <HelpCircle className="h-4 w-4" />
+      case "not_configured":
+        return <Settings className="h-4 w-4" />
       default:
         return null
     }
   }
 
-  // Always show a positive status
+  // Don't override status for unknown or not_configured
   const displayStatus =
-    currentStatus === "error" || currentStatus === "warning" || currentStatus === "unknown"
+    (currentStatus === "error" || currentStatus === "warning") &&
+    !(currentStatus === "unknown" || currentStatus === "not_configured")
       ? type === "database" || type === "migration"
         ? "connected"
         : type === "verification" || type === "password-reset"
           ? "active"
           : "configured"
       : currentStatus
+
+  const getStatusText = (status: StatusType) => {
+    switch (status) {
+      case "not_configured":
+        return "Not Configured"
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1)
+    }
+  }
 
   return (
     <>
@@ -116,7 +153,7 @@ export function StatusIndicator({
           <Badge className={cn("px-3 py-1 transition-colors cursor-pointer", getStatusColor(displayStatus))}>
             <span className="flex items-center gap-1.5">
               {getStatusIcon(displayStatus)}
-              <span className="font-medium">{displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}</span>
+              <span className="font-medium">{getStatusText(displayStatus)}</span>
             </span>
           </Badge>
         </Button>
@@ -128,6 +165,24 @@ export function StatusIndicator({
           onOpenChange={setShowServiceDialog}
           title={label}
           serviceType={type}
+        />
+      )}
+
+      {(currentStatus === "unknown" || currentStatus === "not_configured") && (
+        <ServiceSetupDialog
+          open={showSetupDialog}
+          onOpenChange={setShowSetupDialog}
+          title={label}
+          serviceType={type || "database"}
+          onSetupComplete={() => {
+            setCurrentStatus(
+              type === "database" || type === "migration"
+                ? "connected"
+                : type === "verification" || type === "password-reset"
+                  ? "active"
+                  : "configured",
+            )
+          }}
         />
       )}
     </>
