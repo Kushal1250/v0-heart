@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Eye, Search, RefreshCw, AlertTriangle } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, Eye, Search, RefreshCw, AlertTriangle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -27,6 +27,9 @@ interface Prediction {
   data: Record<string, any>
 }
 
+type SortField = "userName" | "result" | "timestamp" | "userId"
+type SortDirection = "asc" | "desc"
+
 export default function PredictionsPage() {
   const router = useRouter()
   const [predictions, setPredictions] = useState<Prediction[]>([])
@@ -38,6 +41,8 @@ export default function PredictionsPage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null)
   const [showPredictionDialog, setShowPredictionDialog] = useState(false)
+  const [sortField, setSortField] = useState<SortField>("timestamp")
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
 
   // Check if user is admin
   useEffect(() => {
@@ -82,6 +87,42 @@ export default function PredictionsPage() {
     }
   }, [searchTerm, predictions])
 
+  // Function to handle sorting
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+    } else {
+      // Set new field and default to ascending
+      setSortField(field)
+      setSortDirection("asc")
+    }
+  }
+
+  // Function to get sort icon
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="ml-2 h-4 w-4" />
+    }
+    return sortDirection === "asc" ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />
+  }
+
+  // Sort predictions
+  const sortedPredictions = [...filteredPredictions].sort((a, b) => {
+    if (sortField === "userName") {
+      return sortDirection === "asc" ? a.userName.localeCompare(b.userName) : b.userName.localeCompare(a.userName)
+    } else if (sortField === "result") {
+      return sortDirection === "asc" ? a.result - b.result : b.result - a.result
+    } else if (sortField === "timestamp") {
+      return sortDirection === "asc"
+        ? new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        : new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    } else if (sortField === "userId") {
+      return sortDirection === "asc" ? a.userId.localeCompare(b.userId) : b.userId.localeCompare(a.userId)
+    }
+    return 0
+  })
+
   const fetchPredictions = async () => {
     try {
       setRefreshing(true)
@@ -121,6 +162,12 @@ export default function PredictionsPage() {
     document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
     document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
     router.push("/admin-login?redirect=/admin/predictions")
+  }
+
+  // Function to truncate UUID for display
+  const truncateId = (id: string) => {
+    if (!id) return "N/A"
+    return id.substring(0, 8) + "..."
   }
 
   if (loading) {
@@ -206,16 +253,37 @@ export default function PredictionsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>User</TableHead>
-              <TableHead>Risk Level</TableHead>
-              <TableHead>Date</TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort("userName")}>
+                <div className="flex items-center">
+                  User
+                  {getSortIcon("userName")}
+                </div>
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort("result")}>
+                <div className="flex items-center">
+                  Risk Level
+                  {getSortIcon("result")}
+                </div>
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort("timestamp")}>
+                <div className="flex items-center">
+                  Date
+                  {getSortIcon("timestamp")}
+                </div>
+              </TableHead>
+              <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort("userId")}>
+                <div className="flex items-center">
+                  User ID
+                  {getSortIcon("userId")}
+                </div>
+              </TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredPredictions.length === 0 ? (
+            {sortedPredictions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center">
+                <TableCell colSpan={5} className="h-24 text-center">
                   {predictions.length === 0 ? (
                     <div className="flex flex-col items-center gap-2">
                       <p>No predictions found</p>
@@ -229,7 +297,7 @@ export default function PredictionsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredPredictions.map((pred) => (
+              sortedPredictions.map((pred) => (
                 <TableRow key={pred.id}>
                   <TableCell className="font-medium">{pred.userName}</TableCell>
                   <TableCell>
@@ -241,6 +309,11 @@ export default function PredictionsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>{new Date(pred.timestamp).toLocaleString()}</TableCell>
+                  <TableCell>
+                    <span title={pred.userId} className="text-xs font-mono bg-muted px-1 py-0.5 rounded">
+                      {truncateId(pred.userId)}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => handlePredictionClick(pred)}>
                       <Eye className="h-4 w-4" />
@@ -281,7 +354,9 @@ export default function PredictionsPage() {
 
                 <div className="grid grid-cols-3 items-center gap-4">
                   <Label className="text-right">User ID</Label>
-                  <div className="col-span-2">{selectedPrediction.userId}</div>
+                  <div className="col-span-2">
+                    <code className="bg-muted px-1 py-0.5 rounded text-xs">{selectedPrediction.userId}</code>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 items-center gap-4">
