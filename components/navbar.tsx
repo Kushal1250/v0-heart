@@ -158,12 +158,6 @@ export default function Navbar() {
                                 )}
                               </div>
                               <p className="text-xs leading-none text-gray-400">{user.email || "admin@example.com"}</p>
-                              <p
-                                className="text-xs leading-none text-gray-400 mt-1 font-mono truncate max-w-[200px]"
-                                title={user.id}
-                              >
-                                ID: {user.id || "80eb4411-132d-48f3-a560-93e90808c849"}
-                              </p>
                             </div>
                           </DropdownMenuLabel>
                           <div className="px-2 py-2">

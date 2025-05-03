@@ -919,15 +919,6 @@ export default function AdminDashboard() {
                             <Key className="h-4 w-4" />
                             <span className="sr-only">Reset password</span>
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteConfirmation(user.id)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete user</span>
-                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1407,10 +1398,8 @@ export default function AdminDashboard() {
 
                 <div className="grid grid-cols-3 gap-4">
                   <Label className="text-right pt-2">Input Data</Label>
-                  <div className="col-span-2 max-h-80 overflow-y-auto rounded-md bg-muted p-2 text-xs">
-                    <pre className="whitespace-pre-wrap break-words">
-                      {JSON.stringify(selectedPrediction.data, null, 2)}
-                    </pre>
+                  <div className="col-span-2 max-h-40 overflow-y-auto rounded-md bg-muted p-2 text-xs">
+                    <pre>{JSON.stringify(selectedPrediction.data, null, 2)}</pre>
                   </div>
                 </div>
               </div>
