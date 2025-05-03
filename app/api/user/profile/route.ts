@@ -9,7 +9,7 @@ export async function GET() {
 
     if (!currentUser) {
       console.log("GET /api/user/profile - No current user found")
-      return NextResponse.json({ message: "Unauthorized", error: "No user found" }, { status: 401 })
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
     console.log(`GET /api/user/profile - Fetching user with ID: ${currentUser.id}`)
@@ -17,7 +17,7 @@ export async function GET() {
 
     if (!user) {
       console.log(`GET /api/user/profile - User with ID ${currentUser.id} not found`)
-      return NextResponse.json({ message: "User not found", error: "User not found in database" }, { status: 404 })
+      return NextResponse.json({ message: "User not found" }, { status: 404 })
     }
 
     console.log(`GET /api/user/profile - Successfully retrieved user data for ID: ${currentUser.id}`)
@@ -26,12 +26,12 @@ export async function GET() {
     return NextResponse.json(
       {
         id: user.id,
-        name: user.name || "",
-        email: user.email || "",
-        phone: user.phone || "",
-        role: user.role || "user",
-        created_at: user.created_at || new Date().toISOString(),
-        profile_picture: user.profile_picture || "",
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        created_at: user.created_at,
+        profile_picture: user.profile_picture,
       },
       {
         headers: {
@@ -43,13 +43,7 @@ export async function GET() {
     )
   } catch (error) {
     console.error("Error fetching user profile:", error)
-    return NextResponse.json(
-      {
-        message: "Failed to fetch user profile",
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ message: "Failed to fetch user profile" }, { status: 500 })
   }
 }
 
@@ -60,7 +54,7 @@ export async function PUT(request: NextRequest) {
 
     if (!currentUser) {
       console.log("PUT /api/user/profile - No current user found")
-      return NextResponse.json({ message: "Unauthorized", error: "No user found" }, { status: 401 })
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
     const data = await request.json()
@@ -68,11 +62,11 @@ export async function PUT(request: NextRequest) {
 
     // Validate input data
     if (data.name && typeof data.name !== "string") {
-      return NextResponse.json({ message: "Invalid name format", error: "Name must be a string" }, { status: 400 })
+      return NextResponse.json({ message: "Invalid name format" }, { status: 400 })
     }
 
     if (data.phone && typeof data.phone !== "string") {
-      return NextResponse.json({ message: "Invalid phone format", error: "Phone must be a string" }, { status: 400 })
+      return NextResponse.json({ message: "Invalid phone format" }, { status: 400 })
     }
 
     // Update user profile
@@ -84,10 +78,7 @@ export async function PUT(request: NextRequest) {
 
     if (!updatedUser) {
       console.log(`PUT /api/user/profile - Failed to update user with ID: ${currentUser.id}`)
-      return NextResponse.json(
-        { message: "Failed to update profile", error: "Database update failed" },
-        { status: 500 },
-      )
+      return NextResponse.json({ message: "Failed to update profile" }, { status: 500 })
     }
 
     console.log(`PUT /api/user/profile - Successfully updated user with ID: ${currentUser.id}`)
@@ -95,19 +86,12 @@ export async function PUT(request: NextRequest) {
     // Return updated user data
     return NextResponse.json({
       id: updatedUser.id,
-      name: updatedUser.name || "",
-      email: updatedUser.email || "",
-      phone: updatedUser.phone || "",
-      role: updatedUser.role || "user",
+      name: updatedUser.name,
+      email: updatedUser.email,
+      phone: updatedUser.phone,
     })
   } catch (error) {
     console.error("Error updating user profile:", error)
-    return NextResponse.json(
-      {
-        message: "Failed to update user profile",
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ message: "Failed to update user profile" }, { status: 500 })
   }
 }

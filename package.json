@@ -100,8 +100,7 @@
     "util": "latest",
     "jsonwebtoken": "latest",
     "drizzle-orm": "latest",
-    "bcrypt-ts": "latest",
-    "jose": "latest"
+    "bcrypt-ts": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

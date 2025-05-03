@@ -11,9 +11,6 @@ import type { NextRequest } from "next/server"
 import { sendSMS } from "@/lib/sms-utils"
 import { logError } from "@/lib/error-logger"
 import { sendEmail } from "@/lib/email-utils"
-import { jwtVerify } from "jose"
-
-const JWT_SECRET = process.env.JWT_SECRET_KEY || "your-secret-key"
 
 export function getSessionToken(): string | undefined {
   return cookies().get("session")?.value
@@ -66,45 +63,37 @@ export function clearSessionCookie(): void {
 }
 
 // Add back the getCurrentUser function that was missing
-export async function getCurrentUser() {
+export async function getCurrentUser(): Promise<{
+  id: string
+  email: string
+  name: string | null
+  role: string
+} | null> {
   try {
-    // Get the token from cookies
-    const cookieStore = cookies()
-    const token = cookieStore.get("token")?.value
+    const token = getSessionToken()
 
     if (!token) {
-      console.log("No token found in cookies")
+      console.log("No session token found")
       return null
     }
 
-    // First try to verify the JWT token
-    try {
-      const encoder = new TextEncoder()
-      const { payload } = await jwtVerify(token, encoder.encode(JWT_SECRET))
-
-      if (payload.id) {
-        console.log(`JWT token verified, user ID: ${payload.id}`)
-        const user = await getUserById(payload.id as string)
-        return user
-      }
-    } catch (jwtError) {
-      console.log("JWT verification failed, trying session lookup:", jwtError)
-      // If JWT verification fails, try to get the session from the database
-    }
-
-    // If JWT verification fails or doesn't contain user ID, try to get the session from the database
     const session = await getSessionByToken(token)
 
     if (!session) {
-      console.log("No valid session found for token")
+      console.log("No session found for token")
       return null
     }
 
-    console.log(`Session found, user ID: ${session.user_id}`)
     const user = await getUserById(session.user_id)
+
+    if (!user) {
+      console.log("No user found for session user_id")
+      return null
+    }
+
     return user
   } catch (error) {
-    console.error("Error in getCurrentUser:", error)
+    console.error("Error getting current user:", error)
     return null
   }
 }
@@ -442,7 +431,14 @@ export async function resendVerificationCode(
  * @param user User object or user role string
  * @returns Boolean indicating if the user is an admin
  */
-export async function isAdmin() {
-  const user = await getCurrentUser()
-  return user?.role === "admin"
+export function isAdmin(user: { role?: string } | string | null | undefined): boolean {
+  if (!user) return false
+
+  // If user is a string, assume it's the role
+  if (typeof user === "string") {
+    return user === "admin"
+  }
+
+  // Otherwise, check the role property
+  return user.role === "admin"
 }

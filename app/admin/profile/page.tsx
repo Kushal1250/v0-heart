@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -13,35 +14,21 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/components/ui/use-toast"
-import {
-  User,
-  Mail,
-  Shield,
-  Key,
-  Clock,
-  AlertCircle,
-  CheckCircle2,
-  Save,
-  X,
-  Edit,
-  Phone,
-  RefreshCw,
-} from "lucide-react"
+import { User, Mail, Shield, Key, Clock, AlertCircle, CheckCircle2, Save, X, Edit, Phone } from "lucide-react"
 
 export default function AdminProfilePage() {
+  const { user, isLoading } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isRetrying, setIsRetrying] = useState(false)
   const [profileData, setProfileData] = useState({
     id: "",
-    name: "Admin",
-    email: "admin@example.com",
+    name: "",
+    email: "",
     phone: "",
-    role: "admin",
-    created_at: new Date().toISOString(),
+    role: "",
+    created_at: "",
     profile_picture: "",
   })
   const [formData, setFormData] = useState({
@@ -53,74 +40,37 @@ export default function AdminProfilePage() {
   const [success, setSuccess] = useState("")
 
   useEffect(() => {
-    fetchAdminProfile()
-  }, [])
+    if (!isLoading && !user) {
+      router.push("/admin-login")
+    } else if (user) {
+      fetchAdminProfile()
+    }
+  }, [user, isLoading, router])
 
   const fetchAdminProfile = async () => {
     try {
-      setIsLoading(true)
-      setError("")
-      setIsRetrying(false)
-
-      console.log("Fetching admin profile...")
       const response = await fetch("/api/user/profile", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        cache: "no-store",
       })
 
-      console.log("Profile API response status:", response.status)
-
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error("Profile API error:", errorData)
-
-        if (response.status === 401) {
-          // Unauthorized - redirect to login
-          toast({
-            title: "Session expired",
-            description: "Please log in again to continue.",
-            variant: "destructive",
-          })
-          router.push("/admin-login")
-          return
-        }
-
-        throw new Error(errorData.message || "Failed to fetch profile data")
+        throw new Error("Failed to fetch profile data")
       }
 
       const data = await response.json()
-      console.log("Profile data received:", data)
-
-      // Use received data but fallback to defaults for missing fields
-      setProfileData({
-        id: data.id || "",
-        name: data.name || "Admin",
-        email: data.email || "admin@example.com",
-        phone: data.phone || "",
-        role: data.role || "admin",
-        created_at: data.created_at || new Date().toISOString(),
-        profile_picture: data.profile_picture || "",
-      })
-
+      setProfileData(data)
       setFormData({
-        name: data.name || "Admin",
-        email: data.email || "admin@example.com",
+        name: data.name || "",
+        email: data.email || "",
         phone: data.phone || "",
       })
     } catch (error) {
       console.error("Error fetching profile:", error)
       setError("Failed to load profile data. Please try again later.")
-      toast({
-        title: "Error",
-        description: "Failed to load profile data. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -151,15 +101,14 @@ export default function AdminProfilePage() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || "Failed to update profile")
+        throw new Error("Failed to update profile")
       }
 
       const data = await response.json()
       setProfileData((prev) => ({
         ...prev,
-        name: data.name || prev.name,
-        phone: data.phone || prev.phone,
+        name: data.name,
+        phone: data.phone,
       }))
 
       setSuccess("Profile updated successfully!")
@@ -196,11 +145,6 @@ export default function AdminProfilePage() {
     setError("")
   }
 
-  const handleRetry = () => {
-    setIsRetrying(true)
-    fetchAdminProfile()
-  }
-
   if (isLoading) {
     return (
       <div className="container mx-auto py-10">
@@ -230,21 +174,7 @@ export default function AdminProfilePage() {
             <Alert variant="destructive" className="mb-6">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Error</AlertTitle>
-              <AlertDescription className="flex items-center justify-between">
-                <span>{error}</span>
-                <Button variant="outline" size="sm" onClick={handleRetry} disabled={isRetrying} className="ml-2 h-8">
-                  {isRetrying ? (
-                    <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2"></div>
-                      Retrying...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2" /> Retry
-                    </>
-                  )}
-                </Button>
-              </AlertDescription>
+              <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
@@ -268,12 +198,12 @@ export default function AdminProfilePage() {
             </Avatar>
             <div>
               <h2 className="text-xl font-semibold flex items-center gap-2">
-                {profileData.name}
+                {profileData.name || "Admin"}
                 <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded">Admin</span>
               </h2>
               <p className="text-gray-600">{profileData.email}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Admin since: {new Date(profileData.created_at).toLocaleDateString()}
+                Admin since: {profileData.created_at ? new Date(profileData.created_at).toLocaleDateString() : "N/A"}
               </p>
             </div>
           </div>
@@ -387,7 +317,9 @@ export default function AdminProfilePage() {
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Clock className="h-4 w-4" /> Account Created
                         </div>
-                        <div className="font-medium">{new Date(profileData.created_at).toLocaleString()}</div>
+                        <div className="font-medium">
+                          {profileData.created_at ? new Date(profileData.created_at).toLocaleString() : "Unknown"}
+                        </div>
                       </div>
                     </div>
 
