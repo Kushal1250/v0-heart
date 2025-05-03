@@ -15,27 +15,35 @@ interface ErrorBoundaryProps {
 export function ClientErrorBoundary({ children }: ErrorBoundaryProps) {
   const [hasError, setHasError] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  const [errorInfo, setErrorInfo] = useState<string>("")
 
   useEffect(() => {
+    // Error event handler
     const errorHandler = (event: ErrorEvent) => {
-      console.error("Client error caught:", event.error)
+      console.error("Client error caught by boundary:", event.error)
       setError(event.error)
+      setErrorInfo(event.error?.stack || "No stack trace available")
       setHasError(true)
-      // Prevent the default error handling
+      // Prevent default error handling
       event.preventDefault()
     }
 
+    // Unhandled promise rejection handler
     const rejectionHandler = (event: PromiseRejectionEvent) => {
-      console.error("Unhandled promise rejection:", event.reason)
-      setError(new Error(event.reason?.message || "Unhandled Promise Rejection"))
+      console.error("Unhandled promise rejection caught by boundary:", event.reason)
+      const errorMessage = event.reason?.message || "Unhandled Promise Rejection"
+      setError(new Error(errorMessage))
+      setErrorInfo(event.reason?.stack || "No stack trace available")
       setHasError(true)
-      // Prevent the default error handling
+      // Prevent default error handling
       event.preventDefault()
     }
 
+    // Add event listeners
     window.addEventListener("error", errorHandler)
     window.addEventListener("unhandledrejection", rejectionHandler)
 
+    // Clean up
     return () => {
       window.removeEventListener("error", errorHandler)
       window.removeEventListener("unhandledrejection", rejectionHandler)

@@ -26,9 +26,20 @@ export function initErrorTracking() {
             : args[0],
       }
 
-      // You could send this to your backend or a logging service
-      // For now, just log it to console in a structured way
+      // Log it to console in a structured way
       originalConsoleError.call(console, "Detailed error info:", errorInfo)
+
+      // You could send this to your backend for logging
+      try {
+        // Store in sessionStorage for debugging
+        const errors = JSON.parse(sessionStorage.getItem("app_errors") || "[]")
+        errors.push(errorInfo)
+        // Keep only the last 10 errors
+        if (errors.length > 10) errors.shift()
+        sessionStorage.setItem("app_errors", JSON.stringify(errors))
+      } catch (e) {
+        // Ignore storage errors
+      }
     }
 
     // Global error handler

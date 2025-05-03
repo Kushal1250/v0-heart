@@ -20,15 +20,36 @@ export function safeClientOperation<T>(fn: () => T): T | undefined {
  */
 export const safeLocalStorage = {
   getItem: (key: string): string | null => {
-    return safeClientOperation(() => localStorage.getItem(key)) ?? null
+    return (
+      safeClientOperation(() => {
+        try {
+          return localStorage.getItem(key)
+        } catch (e) {
+          console.error("localStorage.getItem failed:", e)
+          return null
+        }
+      }) ?? null
+    )
   },
 
   setItem: (key: string, value: string): void => {
-    safeClientOperation(() => localStorage.setItem(key, value))
+    safeClientOperation(() => {
+      try {
+        localStorage.setItem(key, value)
+      } catch (e) {
+        console.error("localStorage.setItem failed:", e)
+      }
+    })
   },
 
   removeItem: (key: string): void => {
-    safeClientOperation(() => localStorage.removeItem(key))
+    safeClientOperation(() => {
+      try {
+        localStorage.removeItem(key)
+      } catch (e) {
+        console.error("localStorage.removeItem failed:", e)
+      }
+    })
   },
 }
 
@@ -37,14 +58,35 @@ export const safeLocalStorage = {
  */
 export const safeSessionStorage = {
   getItem: (key: string): string | null => {
-    return safeClientOperation(() => sessionStorage.getItem(key)) ?? null
+    return (
+      safeClientOperation(() => {
+        try {
+          return sessionStorage.getItem(key)
+        } catch (e) {
+          console.error("sessionStorage.getItem failed:", e)
+          return null
+        }
+      }) ?? null
+    )
   },
 
   setItem: (key: string, value: string): void => {
-    safeClientOperation(() => sessionStorage.setItem(key, value))
+    safeClientOperation(() => {
+      try {
+        sessionStorage.setItem(key, value)
+      } catch (e) {
+        console.error("sessionStorage.setItem failed:", e)
+      }
+    })
   },
 
   removeItem: (key: string): void => {
-    safeClientOperation(() => sessionStorage.removeItem(key))
+    safeClientOperation(() => {
+      try {
+        sessionStorage.removeItem(key)
+      } catch (e) {
+        console.error("sessionStorage.removeItem failed:", e)
+      }
+    })
   },
 }
