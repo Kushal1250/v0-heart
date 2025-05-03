@@ -14,6 +14,18 @@ type Message = {
   timestamp: Date
 }
 
+// Define automated responses
+const automatedResponses = [
+  "I understand your concern. Let me help you with that.",
+  "Thank you for providing that information. Let me check our resources.",
+  "That's a great question about heart health. Here's what I can tell you...",
+  "I'd be happy to explain how our prediction model works.",
+  "Would you like me to connect you with one of our healthcare specialists for more detailed information?",
+  "Based on your symptoms, I recommend consulting with a healthcare professional.",
+  "Our HeartPredict model analyzes multiple factors to assess your risk level.",
+  "Regular exercise and a balanced diet are key factors in maintaining heart health.",
+]
+
 export function LiveChatWidget() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
@@ -53,27 +65,24 @@ export function LiveChatWidget() {
     // Show typing indicator
     setIsTyping(true)
 
-    // Simulate agent response after a delay
+    // Simulate agent response after a delay (within 25 seconds, but using 2-4 seconds for better UX)
+    const responseTime = Math.floor(Math.random() * 2000) + 2000 // 2-4 seconds
+
     setTimeout(() => {
       setIsTyping(false)
 
-      const responses = [
-        "I understand your concern. Let me help you with that.",
-        "Thank you for providing that information. Let me check our resources.",
-        "That's a great question about heart health. Here's what I can tell you...",
-        "I'd be happy to explain how our prediction model works.",
-        "Would you like me to connect you with one of our healthcare specialists for more detailed information?",
-      ]
+      // Select a random response
+      const randomResponse = automatedResponses[Math.floor(Math.random() * automatedResponses.length)]
 
       const agentMessage: Message = {
         id: Date.now().toString(),
-        text: responses[Math.floor(Math.random() * responses.length)],
+        text: randomResponse,
         sender: "agent",
         timestamp: new Date(),
       }
 
       setMessages((prev) => [...prev, agentMessage])
-    }, 1500)
+    }, responseTime)
   }
 
   const formatTime = (date: Date) => {
