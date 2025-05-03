@@ -12,63 +12,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { AlertCircle, CheckCircle, Edit, Save, Upload, X } from "lucide-react"
+import { AlertCircle, CheckCircle, Edit, Save, Upload, X, User, Mail, Phone } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Switch } from "@/components/ui/switch"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/components/ui/use-toast"
+import { format, formatDistanceToNow } from "date-fns"
 
-interface UserData {
-  id: string
-  name: string
-  email: string
-  phone: string
-  dateOfBirth?: string
-  gender?: string
-  profilePicture?: string
-  height?: string
-  weight?: string
-  bloodType?: string
-  allergies?: string
-  medicalConditions?: string
-  medications?: string
-  emergencyContactName?: string
-  emergencyContactPhone?: string
-  emergencyContactRelationship?: string
-  accountType?: string
-  memberSince?: string
-  lastLogin?: string
-  subscriptionStatus?: string
-  subscriptionRenewal?: string
-  emailNotifications?: boolean
-  smsNotifications?: boolean
-  appNotifications?: boolean
-  twoFactorEnabled?: boolean
-  emailVerified?: boolean
-  phoneVerified?: boolean
-  dataSharing?: boolean
-  anonymousDataCollection?: boolean
-  recentAssessments?: Array<{
-    id: string
-    date: string
-    score: number
-    riskLevel: string
-  }>
-  appointments?: Array<{
-    id: string
-    date: string
-    doctor: string
-    purpose: string
-  }>
-  reports?: Array<{
-    id: string
-    date: string
-    title: string
-    link: string
-  }>
-}
-
-export default function DynamicProfile() {
+export function DynamicProfile() {
   const { user, updateUserProfile } = useAuth()
   const { toast } = useToast()
 
@@ -109,8 +60,6 @@ export default function DynamicProfile() {
     phoneVerified: false,
     dataSharing: true,
     anonymousDataCollection: true,
-    appointments: [],
-    reports: [],
   })
 
   // Fetch user data
@@ -398,13 +347,8 @@ export default function DynamicProfile() {
     }
   }
 
-  const handlePasswordChange = () => {
-    // Implement password change logic here
-    console.log("Password change initiated")
-  }
-
   // Loading state
-  if (loading) {
+  if (loading && !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -425,21 +369,6 @@ export default function DynamicProfile() {
         </Alert>
         <div className="mt-4">
           <Button onClick={() => window.location.reload()}>Retry</Button>
-        </div>
-      </div>
-    )
-  }
-
-  // If no user data is available
-  if (!user) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>No user data available. Please log in again.</AlertDescription>
-        </Alert>
-        <div className="mt-4">
-          <Button onClick={() => (window.location.href = "/login")}>Go to Login</Button>
         </div>
       </div>
     )
@@ -471,8 +400,8 @@ export default function DynamicProfile() {
               <div className="flex justify-center mb-4">
                 <div className="relative">
                   <Avatar className="w-24 h-24">
-                    <AvatarImage src={user.profilePicture || "/abstract-profile.png"} alt={user.name} />
-                    <AvatarFallback>{user.name?.charAt(0) || "U"}</AvatarFallback>
+                    <AvatarImage src={user?.profile_picture || "/abstract-profile.png"} alt={user?.name || "User"} />
+                    <AvatarFallback>{user?.name?.charAt(0) || "U"}</AvatarFallback>
                   </Avatar>
                   <label
                     htmlFor="profile-picture"
@@ -489,13 +418,18 @@ export default function DynamicProfile() {
                   </label>
                 </div>
               </div>
-              <CardTitle className="text-2xl">{user.name}</CardTitle>
-              <CardDescription>{user.email}</CardDescription>
+              <CardTitle className="text-2xl">{user?.name || "User"}</CardTitle>
+              <CardDescription>{user?.email || "No email provided"}</CardDescription>
               <div className="mt-2">
-                <Badge variant={user.accountType === "Premium" ? "default" : "outline"}>
-                  {user.accountType || "Standard"} Account
+                <Badge variant={profileData.accountType === "Premium" ? "default" : "outline"}>
+                  {profileData.accountType || "Standard"} Account
                 </Badge>
               </div>
+              {user?.id && (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  <span className="font-mono">ID: {user.id}</span>
+                </div>
+              )}
             </CardHeader>
           </Card>
         </div>
@@ -510,21 +444,25 @@ export default function DynamicProfile() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Member Since</p>
-                  <p className="font-medium">{user.memberSince || "N/A"}</p>
+                  <p className="font-medium">
+                    {profileData.memberSince ? format(new Date(profileData.memberSince), "MMMM d, yyyy") : "N/A"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Last Login</p>
-                  <p className="font-medium">{user.lastLogin || "N/A"}</p>
+                  <p className="font-medium">
+                    {user?.last_login ? formatDistanceToNow(new Date(user.last_login), { addSuffix: true }) : "N/A"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Subscription Status</p>
-                  <p className="font-medium">{user.subscriptionStatus || "N/A"}</p>
+                  <p className="font-medium">{profileData.accountType || "Standard"}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Heart Health Score</p>
                   <div className="flex items-center gap-2">
-                    <Progress value={user.recentAssessments?.[0]?.score || 0} className="h-2" />
-                    <span className="font-medium">{user.recentAssessments?.[0]?.score || "N/A"}</span>
+                    <Progress value={profileData.heartHealthScores?.[0] || 0} className="h-2" />
+                    <span className="font-medium">{profileData.heartHealthScores?.[0] || "N/A"}</span>
                   </div>
                 </div>
               </div>
@@ -560,8 +498,17 @@ export default function DynamicProfile() {
                   <Button variant="outline" onClick={() => setEditingPersonal(false)}>
                     <X className="h-4 w-4 mr-2" /> Cancel
                   </Button>
-                  <Button onClick={savePersonalInfo}>
-                    <Save className="h-4 w-4 mr-2" /> Save
+                  <Button onClick={savePersonalInfo} disabled={loading}>
+                    {loading ? (
+                      <>
+                        <span className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" /> Save
+                      </>
+                    )}
                   </Button>
                 </div>
               )}
@@ -570,46 +517,58 @@ export default function DynamicProfile() {
               <div className="grid gap-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="name">Full Name</Label>
+                    <Label htmlFor="name" className="flex items-center gap-2">
+                      <User className="h-4 w-4" /> Full Name
+                    </Label>
                     {editingPersonal ? (
                       <Input
                         id="name"
                         name="name"
-                        value={personalFormData.name || ""}
+                        value={personalFormData.name}
                         onChange={handlePersonalChange}
+                        placeholder="Enter your full name"
                       />
                     ) : (
-                      <p className="mt-1 p-2 bg-muted rounded-md">{user.name || "Not provided"}</p>
+                      <p className="mt-1 p-2 bg-muted rounded-md">{personalFormData.name || "Not provided"}</p>
                     )}
                   </div>
                   <div>
-                    <Label htmlFor="email">Email Address</Label>
+                    <Label htmlFor="email" className="flex items-center gap-2">
+                      <Mail className="h-4 w-4" /> Email Address
+                    </Label>
                     {editingPersonal ? (
                       <Input
                         id="email"
                         name="email"
                         type="email"
-                        value={personalFormData.email || ""}
-                        onChange={handlePersonalChange}
+                        value={personalFormData.email}
+                        disabled
+                        className="bg-muted"
                       />
                     ) : (
-                      <p className="mt-1 p-2 bg-muted rounded-md">{user.email || "Not provided"}</p>
+                      <p className="mt-1 p-2 bg-muted rounded-md">{personalFormData.email || "Not provided"}</p>
+                    )}
+                    {editingPersonal && (
+                      <p className="text-xs text-muted-foreground mt-1">Email address cannot be changed</p>
                     )}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="phone">Phone Number</Label>
+                    <Label htmlFor="phone" className="flex items-center gap-2">
+                      <Phone className="h-4 w-4" /> Phone Number
+                    </Label>
                     {editingPersonal ? (
                       <Input
                         id="phone"
                         name="phone"
-                        value={personalFormData.phone || ""}
+                        value={personalFormData.phone}
                         onChange={handlePersonalChange}
+                        placeholder="Enter your phone number"
                       />
                     ) : (
-                      <p className="mt-1 p-2 bg-muted rounded-md">{user.phone || "Not provided"}</p>
+                      <p className="mt-1 p-2 bg-muted rounded-md">{personalFormData.phone || "Not provided"}</p>
                     )}
                   </div>
                   <div>
@@ -619,11 +578,15 @@ export default function DynamicProfile() {
                         id="dateOfBirth"
                         name="dateOfBirth"
                         type="date"
-                        value={personalFormData.dateOfBirth || ""}
+                        value={personalFormData.dateOfBirth}
                         onChange={handlePersonalChange}
                       />
                     ) : (
-                      <p className="mt-1 p-2 bg-muted rounded-md">{user.dateOfBirth || "Not provided"}</p>
+                      <p className="mt-1 p-2 bg-muted rounded-md">
+                        {personalFormData.dateOfBirth
+                          ? format(new Date(personalFormData.dateOfBirth), "MMMM d, yyyy")
+                          : "Not provided"}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -634,7 +597,7 @@ export default function DynamicProfile() {
                     <select
                       id="gender"
                       name="gender"
-                      value={personalFormData.gender || ""}
+                      value={personalFormData.gender}
                       onChange={handlePersonalChange}
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
@@ -645,7 +608,7 @@ export default function DynamicProfile() {
                       <option value="Prefer not to say">Prefer not to say</option>
                     </select>
                   ) : (
-                    <p className="mt-1 p-2 bg-muted rounded-md">{user.gender || "Not provided"}</p>
+                    <p className="mt-1 p-2 bg-muted rounded-md">{personalFormData.gender || "Not provided"}</p>
                   )}
                 </div>
               </div>
@@ -670,8 +633,17 @@ export default function DynamicProfile() {
                   <Button variant="outline" onClick={() => setEditingHealth(false)}>
                     <X className="h-4 w-4 mr-2" /> Cancel
                   </Button>
-                  <Button onClick={saveHealthInfo}>
-                    <Save className="h-4 w-4 mr-2" /> Save
+                  <Button onClick={saveHealthInfo} disabled={loading}>
+                    {loading ? (
+                      <>
+                        <span className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" /> Save
+                      </>
+                    )}
                   </Button>
                 </div>
               )}
@@ -685,12 +657,12 @@ export default function DynamicProfile() {
                       <Input
                         id="height"
                         name="height"
-                        value={healthFormData.height || ""}
+                        value={healthFormData.height}
                         onChange={handleHealthChange}
                         placeholder="e.g., 175 cm"
                       />
                     ) : (
-                      <p className="mt-1 p-2 bg-muted rounded-md">{user.height || "Not provided"}</p>
+                      <p className="mt-1 p-2 bg-muted rounded-md">{healthFormData.height || "Not provided"}</p>
                     )}
                   </div>
                   <div>
@@ -699,12 +671,12 @@ export default function DynamicProfile() {
                       <Input
                         id="weight"
                         name="weight"
-                        value={healthFormData.weight || ""}
+                        value={healthFormData.weight}
                         onChange={handleHealthChange}
                         placeholder="e.g., 75 kg"
                       />
                     ) : (
-                      <p className="mt-1 p-2 bg-muted rounded-md">{user.weight || "Not provided"}</p>
+                      <p className="mt-1 p-2 bg-muted rounded-md">{healthFormData.weight || "Not provided"}</p>
                     )}
                   </div>
                   <div>
@@ -713,7 +685,7 @@ export default function DynamicProfile() {
                       <select
                         id="bloodType"
                         name="bloodType"
-                        value={healthFormData.bloodType || ""}
+                        value={healthFormData.bloodType}
                         onChange={handleHealthChange}
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       >
@@ -729,7 +701,7 @@ export default function DynamicProfile() {
                         <option value="Unknown">Unknown</option>
                       </select>
                     ) : (
-                      <p className="mt-1 p-2 bg-muted rounded-md">{user.bloodType || "Not provided"}</p>
+                      <p className="mt-1 p-2 bg-muted rounded-md">{healthFormData.bloodType || "Not provided"}</p>
                     )}
                   </div>
                 </div>
@@ -740,12 +712,12 @@ export default function DynamicProfile() {
                     <Textarea
                       id="allergies"
                       name="allergies"
-                      value={healthFormData.allergies || ""}
+                      value={healthFormData.allergies}
                       onChange={handleHealthChange}
                       placeholder="List any allergies you have"
                     />
                   ) : (
-                    <p className="mt-1 p-2 bg-muted rounded-md">{user.allergies || "None"}</p>
+                    <p className="mt-1 p-2 bg-muted rounded-md">{healthFormData.allergies || "None"}</p>
                   )}
                 </div>
 
@@ -755,12 +727,12 @@ export default function DynamicProfile() {
                     <Textarea
                       id="medicalConditions"
                       name="medicalConditions"
-                      value={healthFormData.medicalConditions || ""}
+                      value={healthFormData.medicalConditions}
                       onChange={handleHealthChange}
                       placeholder="List any medical conditions you have"
                     />
                   ) : (
-                    <p className="mt-1 p-2 bg-muted rounded-md">{user.medicalConditions || "None"}</p>
+                    <p className="mt-1 p-2 bg-muted rounded-md">{healthFormData.medicalConditions || "None"}</p>
                   )}
                 </div>
 
@@ -770,16 +742,16 @@ export default function DynamicProfile() {
                     <Textarea
                       id="medications"
                       name="medications"
-                      value={healthFormData.medications || ""}
+                      value={healthFormData.medications}
                       onChange={handleHealthChange}
                       placeholder="List any medications you are currently taking"
                     />
                   ) : (
-                    <p className="mt-1 p-2 bg-muted rounded-md">{user.medications || "None"}</p>
+                    <p className="mt-1 p-2 bg-muted rounded-md">{healthFormData.medications || "None"}</p>
                   )}
                 </div>
 
-                <div className="border-t pt-4">
+                <div className="border-t pt-4 mt-2">
                   <h3 className="font-medium mb-2">Emergency Contact</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -788,11 +760,13 @@ export default function DynamicProfile() {
                         <Input
                           id="emergencyContactName"
                           name="emergencyContactName"
-                          value={healthFormData.emergencyContactName || ""}
+                          value={healthFormData.emergencyContactName}
                           onChange={handleHealthChange}
                         />
                       ) : (
-                        <p className="mt-1 p-2 bg-muted rounded-md">{user.emergencyContactName || "Not provided"}</p>
+                        <p className="mt-1 p-2 bg-muted rounded-md">
+                          {healthFormData.emergencyContactName || "Not provided"}
+                        </p>
                       )}
                     </div>
                     <div>
@@ -801,11 +775,13 @@ export default function DynamicProfile() {
                         <Input
                           id="emergencyContactPhone"
                           name="emergencyContactPhone"
-                          value={healthFormData.emergencyContactPhone || ""}
+                          value={healthFormData.emergencyContactPhone}
                           onChange={handleHealthChange}
                         />
                       ) : (
-                        <p className="mt-1 p-2 bg-muted rounded-md">{user.emergencyContactPhone || "Not provided"}</p>
+                        <p className="mt-1 p-2 bg-muted rounded-md">
+                          {healthFormData.emergencyContactPhone || "Not provided"}
+                        </p>
                       )}
                     </div>
                     <div>
@@ -814,12 +790,12 @@ export default function DynamicProfile() {
                         <Input
                           id="emergencyContactRelationship"
                           name="emergencyContactRelationship"
-                          value={healthFormData.emergencyContactRelationship || ""}
+                          value={healthFormData.emergencyContactRelationship}
                           onChange={handleHealthChange}
                         />
                       ) : (
                         <p className="mt-1 p-2 bg-muted rounded-md">
-                          {user.emergencyContactRelationship || "Not provided"}
+                          {healthFormData.emergencyContactRelationship || "Not provided"}
                         </p>
                       )}
                     </div>
@@ -842,25 +818,13 @@ export default function DynamicProfile() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <h3 className="font-medium mb-2">Account Type</h3>
-                    <p className="p-2 bg-muted rounded-md">{user.accountType || "Standard"}</p>
+                    <p className="p-2 bg-muted rounded-md">{profileData.accountType || "Standard"}</p>
                   </div>
                   <div>
                     <h3 className="font-medium mb-2">Member Since</h3>
-                    <p className="p-2 bg-muted rounded-md">{user.memberSince || "N/A"}</p>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-2">Subscription</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Status</p>
-                      <p className="p-2 bg-muted rounded-md">{user.subscriptionStatus || "N/A"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Renewal Date</p>
-                      <p className="p-2 bg-muted rounded-md">{user.subscriptionRenewal || "N/A"}</p>
-                    </div>
+                    <p className="p-2 bg-muted rounded-md">
+                      {profileData.memberSince ? format(new Date(profileData.memberSince), "MMMM d, yyyy") : "N/A"}
+                    </p>
                   </div>
                 </div>
 
@@ -876,7 +840,7 @@ export default function DynamicProfile() {
                       </div>
                       <Switch
                         id="emailNotifications"
-                        checked={user.emailNotifications || false}
+                        checked={profileData.emailNotifications}
                         onCheckedChange={(checked) => handleToggleChange("emailNotifications", checked)}
                       />
                     </div>
@@ -890,7 +854,7 @@ export default function DynamicProfile() {
                       </div>
                       <Switch
                         id="smsNotifications"
-                        checked={user.smsNotifications || false}
+                        checked={profileData.smsNotifications}
                         onCheckedChange={(checked) => handleToggleChange("smsNotifications", checked)}
                       />
                     </div>
@@ -904,7 +868,7 @@ export default function DynamicProfile() {
                       </div>
                       <Switch
                         id="appNotifications"
-                        checked={user.appNotifications || false}
+                        checked={profileData.appNotifications}
                         onCheckedChange={(checked) => handleToggleChange("appNotifications", checked)}
                       />
                     </div>
@@ -914,7 +878,7 @@ export default function DynamicProfile() {
                 <div className="border-t pt-4">
                   <h3 className="font-medium mb-2">Account Actions</h3>
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={handlePasswordChange}>
+                    <Button variant="outline" onClick={() => (window.location.href = "/change-password")}>
                       Change Password
                     </Button>
                     <Button variant="outline" onClick={() => (window.location.href = "/reset-password-profile")}>
@@ -930,246 +894,191 @@ export default function DynamicProfile() {
           </Card>
         </TabsContent>
 
+        {/* Privacy & Security Tab */}
+        <TabsContent value="privacy">
+          <Card>
+            <CardHeader>
+              <CardTitle>Privacy & Security</CardTitle>
+              <CardDescription>Manage your privacy and security settings</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-6">
+                <div>
+                  <h3 className="font-medium mb-2">Account Verification</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">Email Verification</p>
+                        <p className="text-sm text-muted-foreground">
+                          {profileData.emailVerified ? "Your email is verified" : "Your email is not verified"}
+                        </p>
+                      </div>
+                      {!profileData.emailVerified && (
+                        <Button variant="outline" onClick={() => handleVerification("email")}>
+                          Verify Email
+                        </Button>
+                      )}
+                      {profileData.emailVerified && (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          Verified
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">Phone Verification</p>
+                        <p className="text-sm text-muted-foreground">
+                          {profileData.phoneVerified ? "Your phone is verified" : "Your phone is not verified"}
+                        </p>
+                      </div>
+                      {!profileData.phoneVerified && (
+                        <Button variant="outline" onClick={() => handleVerification("phone")}>
+                          Verify Phone
+                        </Button>
+                      )}
+                      {profileData.phoneVerified && (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          Verified
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="font-medium mb-2">Two-Factor Authentication</h3>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Add an extra layer of security to your account</p>
+                    </div>
+                    <Switch
+                      id="twoFactorEnabled"
+                      checked={profileData.twoFactorEnabled}
+                      onCheckedChange={(checked) => handleToggleChange("twoFactorEnabled", checked)}
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="font-medium mb-2">Data Privacy</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label htmlFor="dataSharing" className="font-medium">
+                          Data Sharing
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Allow sharing your data with healthcare providers
+                        </p>
+                      </div>
+                      <Switch
+                        id="dataSharing"
+                        checked={profileData.dataSharing}
+                        onCheckedChange={(checked) => handleToggleChange("dataSharing", checked)}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label htmlFor="anonymousDataCollection" className="font-medium">
+                          Anonymous Data Collection
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Allow anonymous data collection for research purposes
+                        </p>
+                      </div>
+                      <Switch
+                        id="anonymousDataCollection"
+                        checked={profileData.anonymousDataCollection}
+                        onCheckedChange={(checked) => handleToggleChange("anonymousDataCollection", checked)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Activity Tab */}
         <TabsContent value="activity">
-          <div className="space-y-6">
-            {/* Recent Health Assessments */}
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="w-5 h-5 mr-2"
-                  >
-                    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-                  </svg>
-                  <CardTitle>Recent Health Assessments</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {profileData.recentAssessments && profileData.recentAssessments.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-2 px-4">Date</th>
-                          <th className="text-left py-2 px-4">Score</th>
-                          <th className="text-left py-2 px-4">Risk Level</th>
-                          <th className="text-left py-2 px-4">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {profileData.recentAssessments.map((assessment: any) => (
-                          <tr key={assessment.id} className="border-b">
-                            <td className="py-2 px-4">{new Date(assessment.date).toLocaleDateString()}</td>
-                            <td className="py-2 px-4">{assessment.score}</td>
-                            <td className="py-2 px-4">
-                              <Badge
-                                variant={
-                                  assessment.riskLevel === "Low"
-                                    ? "outline"
-                                    : assessment.riskLevel === "Moderate"
-                                      ? "secondary"
-                                      : "destructive"
-                                }
-                              >
-                                {assessment.riskLevel}
-                              </Badge>
-                            </td>
-                            <td className="py-2 px-4">
-                              <Button variant="link" className="p-0 h-auto">
-                                View Details
-                              </Button>
-                            </td>
+          <Card>
+            <CardHeader>
+              <CardTitle>Activity</CardTitle>
+              <CardDescription>View your recent activity and assessments</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-6">
+                <div>
+                  <h3 className="font-medium mb-2">Recent Heart Health Assessments</h3>
+                  {profileData.recentAssessments && profileData.recentAssessments.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-2 px-4">Date</th>
+                            <th className="text-left py-2 px-4">Score</th>
+                            <th className="text-left py-2 px-4">Risk Level</th>
+                            <th className="text-left py-2 px-4">Actions</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-10 bg-gray-50 rounded-md">
-                    <p className="text-muted-foreground mb-4">No health assessments found</p>
-                    <Button
-                      variant="link"
-                      className="text-blue-500 hover:text-blue-700"
-                      onClick={() => (window.location.href = "/predict")}
-                    >
-                      Take an assessment
+                        </thead>
+                        <tbody>
+                          {profileData.recentAssessments.map((assessment: any) => (
+                            <tr key={assessment.id} className="border-b">
+                              <td className="py-2 px-4">{format(new Date(assessment.date), "MMM d, yyyy")}</td>
+                              <td className="py-2 px-4">{assessment.score}</td>
+                              <td className="py-2 px-4">
+                                <Badge
+                                  variant={
+                                    assessment.riskLevel === "Low"
+                                      ? "outline"
+                                      : assessment.riskLevel === "Moderate"
+                                        ? "secondary"
+                                        : "destructive"
+                                  }
+                                >
+                                  {assessment.riskLevel}
+                                </Badge>
+                              </td>
+                              <td className="py-2 px-4">
+                                <Button
+                                  variant="link"
+                                  className="p-0 h-auto"
+                                  onClick={() => (window.location.href = `/predict/results/${assessment.id}`)}
+                                >
+                                  View Details
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-gray-50 rounded-md border border-gray-200">
+                      <p className="text-muted-foreground">No recent assessments found.</p>
+                      <Button variant="link" className="mt-2" onClick={() => (window.location.href = "/predict")}>
+                        Take an assessment
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="font-medium mb-2">Activity Actions</h3>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={() => (window.location.href = "/history")}>
+                      View Full History
+                    </Button>
+                    <Button variant="outline" onClick={() => (window.location.href = "/predict")}>
+                      New Assessment
                     </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Heart Health Score Trend */}
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="w-5 h-5 mr-2"
-                  >
-                    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
-                  </svg>
-                  <CardTitle>Heart Health Score Trend</CardTitle>
                 </div>
-              </CardHeader>
-              <CardContent>
-                {profileData.heartHealthScores && profileData.heartHealthScores.length > 0 ? (
-                  <div className="h-60">
-                    {/* Chart would go here */}
-                    <p>Score trend visualization would appear here</p>
-                  </div>
-                ) : (
-                  <div className="text-center py-10 bg-gray-50 rounded-md">
-                    <p className="text-muted-foreground mb-2">No heart health scores available</p>
-                    <p className="text-sm text-muted-foreground">Score trend visualization would appear here</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Upcoming Appointments */}
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="w-5 h-5 mr-2"
-                  >
-                    <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-                    <line x1="16" x2="16" y1="2" y2="6" />
-                    <line x1="8" x2="8" y1="2" y2="6" />
-                    <line x1="3" x2="21" y1="10" y2="10" />
-                  </svg>
-                  <CardTitle>Upcoming Appointments</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {profileData.appointments && profileData.appointments.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-2 px-4">Date</th>
-                          <th className="text-left py-2 px-4">Doctor</th>
-                          <th className="text-left py-2 px-4">Purpose</th>
-                          <th className="text-left py-2 px-4">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {profileData.appointments.map((appointment: any) => (
-                          <tr key={appointment.id} className="border-b">
-                            <td className="py-2 px-4">{appointment.date}</td>
-                            <td className="py-2 px-4">{appointment.doctor}</td>
-                            <td className="py-2 px-4">{appointment.purpose}</td>
-                            <td className="py-2 px-4">
-                              <div className="flex gap-2">
-                                <Button variant="link" className="p-0 h-auto">
-                                  Reschedule
-                                </Button>
-                                <Button variant="link" className="p-0 h-auto text-destructive">
-                                  Cancel
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-10 bg-gray-50 rounded-md">
-                    <p className="text-muted-foreground mb-4">No upcoming appointments</p>
-                    <Button variant="link" className="text-blue-500 hover:text-blue-700">
-                      Schedule an appointment
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Recent Reports */}
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="w-5 h-5 mr-2"
-                  >
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <path d="M14 2v6h6" />
-                    <path d="M16 13H8" />
-                    <path d="M16 17H8" />
-                    <path d="M10 9H8" />
-                  </svg>
-                  <CardTitle>Recent Reports</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {profileData.reports && profileData.reports.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-2 px-4">Date</th>
-                          <th className="text-left py-2 px-4">Title</th>
-                          <th className="text-left py-2 px-4">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {profileData.reports.map((report: any) => (
-                          <tr key={report.id} className="border-b">
-                            <td className="py-2 px-4">{report.date}</td>
-                            <td className="py-2 px-4">{report.title}</td>
-                            <td className="py-2 px-4">
-                              <div className="flex gap-2">
-                                <Button variant="link" className="p-0 h-auto">
-                                  View
-                                </Button>
-                                <Button variant="link" className="p-0 h-auto">
-                                  Download
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-10 bg-gray-50 rounded-md">
-                    <p className="text-muted-foreground">No reports available</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
