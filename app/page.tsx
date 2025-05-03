@@ -1,8 +1,29 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Heart, Activity, BarChart2, Shield, Users, ArrowRight } from "lucide-react"
 
 export default function HomePage() {
+  const [isLoaded, setIsLoaded] = useState(false)
+
+  useEffect(() => {
+    setIsLoaded(true)
+  }, [])
+
+  // Show a simple loading state during SSR to prevent hydration issues
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse text-center">
+          <p className="text-xl">Loading HeartPredict...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Rest of your component remains the same
   return (
     <div className="min-h-screen bg-background relative">
       <div className="home-bg-animation">
