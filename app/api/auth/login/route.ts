@@ -11,20 +11,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Email and password are required" }, { status: 400 })
     }
 
-    // Validate phone number is provided and in correct format
-    if (!phone || phone.trim() === "") {
+    // Validate phone number is provided
+    if (!phone) {
       return NextResponse.json({ message: "Phone number is required" }, { status: 400 })
-    }
-
-    // Make sure the phone number starts with a plus sign for international format
-    if (!phone.startsWith("+")) {
-      return NextResponse.json({ message: "Phone number must include country code (e.g., +1)" }, { status: 400 })
-    }
-
-    // Ensure the phone number contains only valid characters
-    const phoneDigits = phone.replace(/\D/g, "")
-    if (phoneDigits.length < 10) {
-      return NextResponse.json({ message: "Phone number must have at least 10 digits" }, { status: 400 })
     }
 
     // Get user
