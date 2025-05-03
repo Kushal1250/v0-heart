@@ -3,6 +3,25 @@ import { cookies } from "next/headers"
 import { sql } from "@/lib/db"
 import { v4 as uuidv4 } from "uuid"
 
+// Helper function to generate realistic prediction data
+function generatePredictionData() {
+  return {
+    age: Math.floor(Math.random() * 50) + 30,
+    sex: Math.random() > 0.5 ? 1 : 0,
+    cp: Math.floor(Math.random() * 4),
+    trestbps: Math.floor(Math.random() * 60) + 120,
+    chol: Math.floor(Math.random() * 200) + 150,
+    fbs: Math.random() > 0.7 ? 1 : 0,
+    restecg: Math.floor(Math.random() * 3),
+    thalach: Math.floor(Math.random() * 100) + 100,
+    exang: Math.random() > 0.7 ? 1 : 0,
+    oldpeak: Math.random() * 4,
+    slope: Math.floor(Math.random() * 3),
+    ca: Math.floor(Math.random() * 4),
+    thal: Math.floor(Math.random() * 3) + 1,
+  }
+}
+
 export async function GET(request: Request) {
   try {
     // Check admin authentication
@@ -20,11 +39,9 @@ export async function GET(request: Request) {
       WHERE table_schema = 'public' AND table_name = 'predictions'
     `
 
-    // If table doesn't exist, create it and add sample data
+    // If table doesn't exist, create it
     if (checkTable.length === 0) {
-      console.log("Predictions table doesn't exist. Creating it with sample data...")
-
-      // Create predictions table
+      console.log("Creating predictions table...")
       await sql`
         CREATE TABLE IF NOT EXISTS predictions (
           id UUID PRIMARY KEY,
@@ -34,63 +51,85 @@ export async function GET(request: Request) {
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )
       `
+    }
 
-      // Get a user to associate with sample predictions
+    // Check if there are any predictions
+    const countPredictions = await sql`SELECT COUNT(*) FROM predictions`
+    const predictionCount = Number.parseInt(countPredictions[0].count)
+
+    // If no predictions exist, generate sample data
+    if (predictionCount === 0) {
+      console.log("No predictions found. Generating sample data...")
+
+      // Get users to associate with sample predictions
       const users = await sql`SELECT id, name, email FROM users LIMIT 5`
 
       if (users.length > 0) {
-        // Add sample predictions for each user
+        // Generate 1-3 predictions for each user
         for (const user of users) {
-          const samplePredictions = [
-            {
-              id: uuidv4(),
-              user_id: user.id,
-              result: Math.random() * 0.7 + 0.1, // Random value between 0.1 and 0.8
-              prediction_data: {
-                age: Math.floor(Math.random() * 50) + 30,
-                sex: Math.random() > 0.5 ? 1 : 0,
-                cp: Math.floor(Math.random() * 4),
-                trestbps: Math.floor(Math.random() * 60) + 120,
-                chol: Math.floor(Math.random() * 200) + 150,
-                fbs: Math.random() > 0.7 ? 1 : 0,
-                restecg: Math.floor(Math.random() * 3),
-                thalach: Math.floor(Math.random() * 100) + 100,
-                exang: Math.random() > 0.7 ? 1 : 0,
-                oldpeak: Math.random() * 4,
-                slope: Math.floor(Math.random() * 3),
-                ca: Math.floor(Math.random() * 4),
-                thal: Math.floor(Math.random() * 3) + 1,
-              },
-            },
-            {
-              id: uuidv4(),
-              user_id: user.id,
-              result: Math.random() * 0.7 + 0.1, // Random value between 0.1 and 0.8
-              prediction_data: {
-                age: Math.floor(Math.random() * 50) + 30,
-                sex: Math.random() > 0.5 ? 1 : 0,
-                cp: Math.floor(Math.random() * 4),
-                trestbps: Math.floor(Math.random() * 60) + 120,
-                chol: Math.floor(Math.random() * 200) + 150,
-                fbs: Math.random() > 0.7 ? 1 : 0,
-                restecg: Math.floor(Math.random() * 3),
-                thalach: Math.floor(Math.random() * 100) + 100,
-                exang: Math.random() > 0.7 ? 1 : 0,
-                oldpeak: Math.random() * 4,
-                slope: Math.floor(Math.random() * 3),
-                ca: Math.floor(Math.random() * 4),
-                thal: Math.floor(Math.random() * 3) + 1,
-              },
-            },
-          ]
+          const numPredictions = Math.floor(Math.random() * 3) + 1
 
-          for (const pred of samplePredictions) {
+          for (let i = 0; i < numPredictions; i++) {
+            const id = uuidv4()
+            const result = Math.random() * 0.7 + 0.1 // Random value between 0.1 and 0.8
+            const predictionData = generatePredictionData()
+
+            // Add prediction with timestamp between 1-30 days ago
+            const daysAgo = Math.floor(Math.random() * 30) + 1
+            const timestamp = new Date()
+            timestamp.setDate(timestamp.getDate() - daysAgo)
+
             await sql`
-              INSERT INTO predictions (id, user_id, result, prediction_data)
-              VALUES (${pred.id}, ${pred.user_id}, ${pred.result}, ${pred.prediction_data})
+              INSERT INTO predictions (id, user_id, result, prediction_data, created_at)
+              VALUES (${id}, ${user.id}, ${result}, ${predictionData}, ${timestamp})
             `
           }
         }
+
+        console.log("Sample predictions generated successfully")
+      } else {
+        // If no users exist, create a demo user and predictions
+        console.log("No users found. Creating demo user and predictions...")
+
+        // Create demo user
+        const userId = uuidv4()
+        const hashedPassword = "demo_password_hash" // In production, use proper hashing
+
+        await sql`
+          CREATE TABLE IF NOT EXISTS users (
+            id UUID PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            name TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            role TEXT DEFAULT 'user'
+          )
+        `
+
+        await sql`
+          INSERT INTO users (id, email, password, name, role)
+          VALUES (${userId}, ${"demo@example.com"}, ${hashedPassword}, ${"Demo User"}, ${"user"})
+          ON CONFLICT (email) DO NOTHING
+        `
+
+        // Create sample predictions for demo user
+        for (let i = 0; i < 3; i++) {
+          const id = uuidv4()
+          const result = Math.random() * 0.7 + 0.1
+          const predictionData = generatePredictionData()
+
+          // Add prediction with timestamp between 1-30 days ago
+          const daysAgo = Math.floor(Math.random() * 30) + 1
+          const timestamp = new Date()
+          timestamp.setDate(timestamp.getDate() - daysAgo)
+
+          await sql`
+            INSERT INTO predictions (id, user_id, result, prediction_data, created_at)
+            VALUES (${id}, ${userId}, ${result}, ${predictionData}, ${timestamp})
+          `
+        }
+
+        console.log("Demo user and predictions created successfully")
       }
     }
 
@@ -116,12 +155,21 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("Error fetching predictions:", error)
 
-    // Check if the error is about the missing table
-    if (error instanceof Error && error.message.includes('relation "predictions" does not exist')) {
-      return NextResponse.json({
-        predictions: [],
-        message: "Predictions table doesn't exist yet. Please run migration.",
-      })
+    // Handle specific errors
+    if (error instanceof Error) {
+      if (error.message.includes('relation "predictions" does not exist')) {
+        return NextResponse.json({
+          predictions: [],
+          message: "Predictions table doesn't exist yet. Please run migration.",
+        })
+      }
+
+      if (error.message.includes('relation "users" does not exist')) {
+        return NextResponse.json({
+          predictions: [],
+          message: "Users table doesn't exist yet. Please run migration.",
+        })
+      }
     }
 
     return NextResponse.json(
