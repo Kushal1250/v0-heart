@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import Image from "next/image"
-import { LiveChatWidget } from "@/components/live-chat-widget"
 
 export default function WhatsAppSupportPage() {
   return (
@@ -207,9 +206,8 @@ export default function WhatsAppSupportPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-400 mb-2">For immediate assistance on our website</p>
-                <a href="/contact/chat" className="text-blue-400 hover:underline flex items-center">
-                  <span>Start Live Chat</span>
-                  <span className="ml-1 px-1.5 py-0.5 text-xs bg-green-600 text-white rounded-full">Active</span>
+                <a href="/contact/chat" className="text-blue-400 hover:underline">
+                  Start Live Chat
                 </a>
               </CardContent>
             </Card>
@@ -275,7 +273,6 @@ export default function WhatsAppSupportPage() {
             </CardContent>
           </Card>
         </div>
-        <LiveChatWidget />
       </div>
     </div>
   )
