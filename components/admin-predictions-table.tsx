@@ -71,6 +71,12 @@ export function AdminPredictionsTable() {
     setShowPredictionDialog(true)
   }
 
+  // Function to truncate UUID for display
+  const truncateId = (id: string) => {
+    if (!id) return "N/A"
+    return id.substring(0, 8) + "..."
+  }
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -120,6 +126,7 @@ export function AdminPredictionsTable() {
           <TableHeader>
             <TableRow>
               <TableHead>User</TableHead>
+              <TableHead>User ID</TableHead>
               <TableHead>Risk Level</TableHead>
               <TableHead>Date</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -128,7 +135,7 @@ export function AdminPredictionsTable() {
           <TableBody>
             {predictions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center">
+                <TableCell colSpan={5} className="h-24 text-center">
                   <div className="flex flex-col items-center gap-2">
                     <p>Loading predictions...</p>
                     <Button variant="outline" size="sm" onClick={fetchPredictions}>
@@ -141,6 +148,11 @@ export function AdminPredictionsTable() {
               predictions.slice(0, 5).map((pred) => (
                 <TableRow key={pred.id}>
                   <TableCell className="font-medium">{pred.userName}</TableCell>
+                  <TableCell>
+                    <span title={pred.userId} className="text-xs font-mono bg-muted px-1 py-0.5 rounded">
+                      {truncateId(pred.userId)}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <Badge
                       variant={pred.result > 0.5 ? "destructive" : "success"}
@@ -189,6 +201,13 @@ export function AdminPredictionsTable() {
                 </div>
 
                 <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">User ID</Label>
+                  <div className="col-span-2">
+                    <code className="bg-muted px-1 py-0.5 rounded text-xs">{selectedPrediction.userId}</code>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
                   <Label className="text-right">Risk Level</Label>
                   <div className="col-span-2">
                     <Badge
@@ -203,6 +222,13 @@ export function AdminPredictionsTable() {
                 <div className="grid grid-cols-3 items-center gap-4">
                   <Label className="text-right">Date</Label>
                   <div className="col-span-2">{new Date(selectedPrediction.timestamp).toLocaleString()}</div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Prediction ID</Label>
+                  <div className="col-span-2">
+                    <code className="bg-muted px-1 py-0.5 rounded text-xs">{selectedPrediction.id}</code>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
