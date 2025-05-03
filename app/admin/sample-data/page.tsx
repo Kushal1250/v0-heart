@@ -2,17 +2,16 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { AlertTriangle } from "lucide-react"
+import { PredictionGenerator } from "@/components/prediction-generator"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import AddSamplePrediction from "@/scripts/add-sample-prediction"
 
 export default function SampleDataPage() {
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  // Check if user is admin
   useEffect(() => {
     const checkAdmin = () => {
       const cookies = document.cookie.split(";")
@@ -20,14 +19,13 @@ export default function SampleDataPage() {
       const isAdmin = isAdminCookie ? isAdminCookie.split("=")[1] === "true" : false
 
       setIsAdmin(isAdmin)
+      setLoading(false)
 
       if (!isAdmin) {
         setTimeout(() => {
           router.push("/admin-login?redirect=/admin/sample-data")
         }, 2000)
       }
-
-      setLoading(false)
     }
 
     checkAdmin()
@@ -61,21 +59,22 @@ export default function SampleDataPage() {
 
   return (
     <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Sample Data Management</h1>
-      <p className="text-muted-foreground mb-8">
-        Use this page to add sample data to your database for testing purposes.
-      </p>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <AddSamplePrediction />
-
-        {/* You can add more sample data generators here */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Sample Data Generator</h1>
+        <p className="text-muted-foreground">Generate sample data for testing purposes</p>
       </div>
 
-      <div className="mt-8 flex justify-end">
-        <Button variant="outline" onClick={() => router.push("/admin")}>
-          Back to Admin Dashboard
-        </Button>
+      <div className="grid gap-6 md:grid-cols-2">
+        <PredictionGenerator />
+
+        <div className="flex flex-col gap-4">
+          <Button variant="outline" onClick={() => router.push("/admin")}>
+            Return to Admin Dashboard
+          </Button>
+          <Button variant="outline" onClick={() => router.push("/admin/predictions")}>
+            View All Predictions
+          </Button>
+        </div>
       </div>
     </div>
   )
