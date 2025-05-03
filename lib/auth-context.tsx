@@ -42,49 +42,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [lastRefresh, setLastRefresh] = useState<number>(0)
-  const [isMounted, setIsMounted] = useState(false)
   const router = useRouter()
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  // Return a minimal provider during SSR to prevent hydration issues
-  if (!isMounted) {
-    return (
-      <AuthContext.Provider
-        value={{
-          user: null,
-          isAdmin: false,
-          isLoading: true,
-          refreshSession: async () => false,
-          login: async () => ({ success: false, message: "" }),
-          adminLogin: async () => ({ success: false, message: "" }),
-          signup: async () => ({ success: false, message: "" }),
-          logout: async () => {},
-          updateUserProfile: () => {},
-          updateUserDetails: () => {},
-        }}
-      >
-        {children}
-      </AuthContext.Provider>
-    )
-  }
 
   // Update the checkAuthStatus function to be more resilient
   const checkAuthStatus = useCallback(
     async (force = false) => {
+      // Don't check too frequently unless forced
+      const now = Date.now()
+      if (!force && lastRefresh > 0 && now - lastRefresh < 60000) {
+        // 1 minute cooldown
+        return
+      }
+
       setIsLoading(true)
       try {
         // Check for admin cookie first
         const isAdminCookie = document.cookie.includes("is_admin=true")
-        const now = Date.now()
-        const shouldRefresh = force || lastRefresh === 0 || now - lastRefresh > 60000
-
-        if (!shouldRefresh) {
-          setIsLoading(false)
-          return
-        }
 
         if (isAdminCookie) {
           console.log("Admin cookie found, setting admin status")
@@ -194,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ) // 25 minutes
 
     return () => clearInterval(intervalId)
-  }, [checkAuthStatus, refreshSession])
+  }, [checkAuthStatus])
 
   const login = async (email: string, password: string, phone: string, rememberMe = false) => {
     try {
