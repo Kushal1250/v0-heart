@@ -160,7 +160,7 @@ importers:
         version: 0.12.7
       pdfkit:
         specifier: latest
-        version: 0.17.0
+        version: 0.17.1
       react:
         specifier: ^19
         version: 19.0.0
@@ -2136,8 +2136,8 @@ packages:
   path@0.12.7:
     resolution: {integrity: sha512-aXXC6s+1w7otVF9UletFkFcDsJeO7lSZBPUQhtb5O0xJe8LtYhj/GxldoL09bBj9+ZmE2hNoHqQSFMN5fikh4Q==}
 
-  pdfkit@0.17.0:
-    resolution: {integrity: sha512-XRb2Bwtl+oIo+TOf4HOlbqIn6NBiYk8Um4FsfKXrgX9uZQILTbXDlbf0DEZQJxFqognrwIS5QFn5PsOxU8eLMA==}
+  pdfkit@0.17.1:
+    resolution: {integrity: sha512-Kkf1I9no14O/uo593DYph5u3QwiMfby7JsBSErN1WqeyTgCBNJE3K4pXBn3TgkdKUIVu+buSl4bYUNC+8Up4xg==}
 
   performance-now@2.1.0:
     resolution: {integrity: sha512-7EAHlyLHI56VEIdK57uwHdHKIaAGbnXPiw0yWbarQZOKaKpvUIgW0jWRVLiatnM+XXlSwsanIBH/hzGMJulMow==}
@@ -4509,7 +4509,7 @@ snapshots:
       process: 0.11.10
       util: 0.10.4
 
-  pdfkit@0.17.0:
+  pdfkit@0.17.1:
     dependencies:
       crypto-js: 4.2.0
       fontkit: 2.0.4
