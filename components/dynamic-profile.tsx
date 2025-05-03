@@ -1003,110 +1003,82 @@ export function DynamicProfile() {
 
         {/* Activity Tab */}
         <TabsContent value="activity">
-          <div className="space-y-6">
-            {/* Recent Health Assessments */}
-            <div>
-              <div className="flex items-center mb-2">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-5 h-5 mr-2"
-                >
-                  <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-                </svg>
-                <h3 className="text-xl font-bold">Recent Health Assessments</h3>
-              </div>
-              <div className="border rounded-md p-8 text-center">
-                <p className="text-gray-600 mb-4">No health assessments found</p>
-                <a href="/predict" className="text-blue-500 hover:underline">
-                  Take an assessment
-                </a>
-              </div>
-            </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Activity</CardTitle>
+              <CardDescription>View your recent activity and assessments</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-6">
+                <div>
+                  <h3 className="font-medium mb-2">Recent Heart Health Assessments</h3>
+                  {profileData.recentAssessments && profileData.recentAssessments.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-2 px-4">Date</th>
+                            <th className="text-left py-2 px-4">Score</th>
+                            <th className="text-left py-2 px-4">Risk Level</th>
+                            <th className="text-left py-2 px-4">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {profileData.recentAssessments.map((assessment: any) => (
+                            <tr key={assessment.id} className="border-b">
+                              <td className="py-2 px-4">{format(new Date(assessment.date), "MMM d, yyyy")}</td>
+                              <td className="py-2 px-4">{assessment.score}</td>
+                              <td className="py-2 px-4">
+                                <Badge
+                                  variant={
+                                    assessment.riskLevel === "Low"
+                                      ? "outline"
+                                      : assessment.riskLevel === "Moderate"
+                                        ? "secondary"
+                                        : "destructive"
+                                  }
+                                >
+                                  {assessment.riskLevel}
+                                </Badge>
+                              </td>
+                              <td className="py-2 px-4">
+                                <Button
+                                  variant="link"
+                                  className="p-0 h-auto"
+                                  onClick={() => (window.location.href = `/predict/results/${assessment.id}`)}
+                                >
+                                  View Details
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-gray-50 rounded-md border border-gray-200">
+                      <p className="text-muted-foreground">No recent assessments found.</p>
+                      <Button variant="link" className="mt-2" onClick={() => (window.location.href = "/predict")}>
+                        Take an assessment
+                      </Button>
+                    </div>
+                  )}
+                </div>
 
-            {/* Heart Health Score Trend */}
-            <div>
-              <div className="flex items-center mb-2">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-5 h-5 mr-2"
-                >
-                  <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
-                  <polyline points="16 7 22 7 22 13"></polyline>
-                </svg>
-                <h3 className="text-xl font-bold">Heart Health Score Trend</h3>
+                <div className="border-t pt-4">
+                  <h3 className="font-medium mb-2">Activity Actions</h3>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={() => (window.location.href = "/history")}>
+                      View Full History
+                    </Button>
+                    <Button variant="outline" onClick={() => (window.location.href = "/predict")}>
+                      New Assessment
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <div className="border rounded-md p-8 text-center">
-                <p className="text-gray-600 mb-2">No heart health scores available</p>
-                <p className="text-sm text-gray-500">Score trend visualization would appear here</p>
-              </div>
-            </div>
-
-            {/* Upcoming Appointments */}
-            <div>
-              <div className="flex items-center mb-2">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-5 h-5 mr-2"
-                >
-                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-                  <line x1="16" x2="16" y1="2" y2="6" />
-                  <line x1="8" x2="8" y1="2" y2="6" />
-                  <line x1="3" x2="21" y1="10" y2="10" />
-                </svg>
-                <h3 className="text-xl font-bold">Upcoming Appointments</h3>
-              </div>
-              <div className="border rounded-md p-8 text-center">
-                <p className="text-gray-600 mb-4">No upcoming appointments</p>
-                <a href="#" className="text-blue-500 hover:underline">
-                  Schedule an appointment
-                </a>
-              </div>
-            </div>
-
-            {/* Recent Reports */}
-            <div>
-              <div className="flex items-center mb-2">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-5 h-5 mr-2"
-                >
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="16" y1="13" x2="8" y2="13" />
-                  <line x1="16" y1="17" x2="8" y2="17" />
-                  <polyline points="10 9 9 9 8 9" />
-                </svg>
-                <h3 className="text-xl font-bold">Recent Reports</h3>
-              </div>
-              <div className="border rounded-md p-8 text-center">
-                <p className="text-gray-600">No reports available</p>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
