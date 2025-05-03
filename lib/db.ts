@@ -1,27 +1,11 @@
-// Update the database connection code to properly use the Neon database URL
-// Make sure to import and use the neon client correctly
-
 import { neon } from "@neondatabase/serverless"
-import { drizzle } from "drizzle-orm/neon-http"
 import { hash, compare } from "bcrypt-ts"
 import { v4 as uuidv4 } from "uuid"
 
-// Create SQL client with Neon
+// Create a SQL query executor using the Neon serverless driver
 export const sql = neon(process.env.DATABASE_URL!)
-
-// Create Drizzle client with Neon
-export const db = drizzle(sql)
-
-// Export a function to test the database connection
-export async function testConnection() {
-  try {
-    const result = await sql`SELECT NOW() as time`
-    return { success: true, time: result[0]?.time }
-  } catch (error) {
-    console.error("Database connection error:", error)
-    return { success: false, error: String(error) }
-  }
-}
+// Export db as an alias for sql for backward compatibility
+export const db = sql
 
 // Initialize database tables
 export async function initDatabase() {
@@ -144,57 +128,27 @@ export async function getUserByEmailAndPhone(email: string, phone: string) {
   }
 }
 
-// Mock database functions for testing
+export async function getUserById(id: string) {
+  try {
+    if (!id) {
+      console.error("getUserById called with empty ID")
+      throw new Error("User ID is required")
+    }
 
-interface User {
-  id: string
-  name: string
-  email: string
-  phone?: string
-  profile_picture?: string
-  role: string
-  created_at: string
-  updated_at?: string
-}
+    console.log(`getUserById - Fetching user with ID: ${id}`)
+    const users = await sql`SELECT * FROM users WHERE id = ${id}`
 
-// Mock user data
-const mockUsers: Record<string, User> = {
-  "user-123": {
-    id: "user-123",
-    name: "Test User",
-    email: "test@example.com",
-    phone: "555-123-4567",
-    profile_picture: null,
-    role: "user",
-    created_at: new Date().toISOString(),
-  },
-}
+    if (users.length === 0) {
+      console.log(`getUserById - No user found with ID: ${id}`)
+      return null
+    }
 
-export async function getUserById(id: string): Promise<User | null> {
-  // Simulate database delay
-  await new Promise((resolve) => setTimeout(resolve, 200))
-
-  return mockUsers[id] || null
-}
-
-export async function updateUserProfile(
-  id: string,
-  data: { name?: string; email?: string; phone?: string },
-): Promise<User | null> {
-  // Simulate database delay
-  await new Promise((resolve) => setTimeout(resolve, 300))
-
-  const user = mockUsers[id]
-  if (!user) return null
-
-  const updatedUser = {
-    ...user,
-    ...data,
-    updated_at: new Date().toISOString(),
+    console.log(`getUserById - Successfully retrieved user with ID: ${id}`)
+    return users[0] || null
+  } catch (error) {
+    console.error(`Database error in getUserById for ID ${id}:`, error)
+    throw new Error(`Failed to get user by ID: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
-
-  mockUsers[id] = updatedUser
-  return updatedUser
 }
 
 export async function createUser(email: string, password: string, name: string, phone = "") {
@@ -487,58 +441,58 @@ export async function deleteUser(userId: string) {
 }
 
 // Add profile_picture to the updateUserProfile function
-// export async function updateUserProfile(
-//   userId: string,
-//   data: {
-//     name?: string
-//     phone?: string
-//     profile_picture?: string
-//   },
-// ) {
-//   try {
-//     const setFields: string[] = []
-//     const values: any[] = []
-//     let paramIndex = 1
+export async function updateUserProfile(
+  userId: string,
+  data: {
+    name?: string
+    phone?: string
+    profile_picture?: string
+  },
+) {
+  try {
+    const setFields: string[] = []
+    const values: any[] = []
+    let paramIndex = 1
 
-//     if (data.name !== undefined) {
-//       setFields.push(`name = $${paramIndex}`)
-//       values.push(data.name)
-//       paramIndex++
-//     }
+    if (data.name !== undefined) {
+      setFields.push(`name = $${paramIndex}`)
+      values.push(data.name)
+      paramIndex++
+    }
 
-//     if (data.phone !== undefined) {
-//       setFields.push(`phone = $${paramIndex}`)
-//       values.push(data.phone)
-//       paramIndex++
-//     }
+    if (data.phone !== undefined) {
+      setFields.push(`phone = $${paramIndex}`)
+      values.push(data.phone)
+      paramIndex++
+    }
 
-//     if (data.profile_picture !== undefined) {
-//       setFields.push(`profile_picture = $${paramIndex}`)
-//       values.push(data.profile_picture)
-//       paramIndex++
-//     }
+    if (data.profile_picture !== undefined) {
+      setFields.push(`profile_picture = $${paramIndex}`)
+      values.push(data.profile_picture)
+      paramIndex++
+    }
 
-//     if (setFields.length === 0) {
-//       return null // Nothing to update
-//     }
+    if (setFields.length === 0) {
+      return null // Nothing to update
+    }
 
-//     // Add the user ID as the last parameter
-//     values.push(userId)
+    // Add the user ID as the last parameter
+    values.push(userId)
 
-//     const query = `
-//      UPDATE users
-//      SET ${setFields.join(", ")}
-//      WHERE id = $${paramIndex}
-//      RETURNING id, name, email, phone, role, profile_picture
-//    `
+    const query = `
+     UPDATE users
+     SET ${setFields.join(", ")}
+     WHERE id = $${paramIndex}
+     RETURNING id, name, email, phone, role, profile_picture
+   `
 
-//     const result = await sql(query, ...values)
-//     return result[0]
-//   } catch (error) {
-//     console.error("Error updating user profile:", error)
-//     return null
-//   }
-// }
+    const result = await sql(query, ...values)
+    return result[0]
+  } catch (error) {
+    console.error("Error updating user profile:", error)
+    return null
+  }
+}
 
 /**
  * Verify an OTP code for a user

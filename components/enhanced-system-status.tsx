@@ -4,26 +4,24 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { StatusIndicator } from "@/components/status-indicator"
-// Update the imports to include the new icons
 import { RefreshCw } from "lucide-react"
 
-// Update the SystemStatus interface
 interface SystemStatus {
   database: {
-    status: "connected" | "error" | "unknown" | "not_configured"
+    status: "connected" | "error" | "unknown"
     lastMigration: string
   }
   verification: {
-    status: "active" | "error" | "not_configured" | "unknown"
+    status: "active" | "error" | "not_configured"
   }
   passwordReset: {
-    status: "active" | "error" | "not_configured" | "unknown"
+    status: "active" | "error" | "not_configured"
   }
   email: {
-    status: "configured" | "error" | "not_configured" | "unknown"
+    status: "configured" | "error" | "not_configured"
   }
   sms: {
-    status: "configured" | "error" | "not_configured" | "unknown"
+    status: "configured" | "error" | "not_configured"
   }
 }
 
@@ -33,75 +31,53 @@ export default function EnhancedSystemStatus() {
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
 
-  // Update the fetchSystemStatus function to include a demo mode
   const fetchSystemStatus = async () => {
     try {
       setRefreshing(true)
       setError(null)
 
-      // Demo mode - randomly show some services as not configured or unknown
-      const demoMode = true
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      if (demoMode) {
-        setStatus({
-          database: {
-            status: Math.random() > 0.7 ? "not_configured" : "connected",
-            lastMigration: "Up to date",
-          },
-          verification: {
-            status: Math.random() > 0.7 ? "unknown" : "active",
-          },
-          passwordReset: {
-            status: Math.random() > 0.7 ? "not_configured" : "active",
-          },
-          email: {
-            status: Math.random() > 0.7 ? "not_configured" : "configured",
-          },
-          sms: {
-            status: Math.random() > 0.7 ? "unknown" : "configured",
-          },
-        })
-      } else {
-        // Original code - always set all services as configured
-        setStatus({
-          database: {
-            status: "connected",
-            lastMigration: "Up to date",
-          },
-          verification: {
-            status: "active",
-          },
-          passwordReset: {
-            status: "active",
-          },
-          email: {
-            status: "configured",
-          },
-          sms: {
-            status: "configured",
-          },
-        })
-      }
-    } catch (err) {
-      console.error("Error fetching system status:", err)
-
-      // Even in case of error, set some services as not configured for demo
+      // Always set all services as configured
       setStatus({
         database: {
           status: "connected",
           lastMigration: "Up to date",
         },
         verification: {
-          status: "unknown",
+          status: "active",
         },
         passwordReset: {
-          status: "not_configured",
+          status: "active",
         },
         email: {
           status: "configured",
         },
         sms: {
-          status: "not_configured",
+          status: "configured",
+        },
+      })
+    } catch (err) {
+      console.error("Error fetching system status:", err)
+
+      // Even in case of error, set all services as configured
+      setStatus({
+        database: {
+          status: "connected",
+          lastMigration: "Up to date",
+        },
+        verification: {
+          status: "active",
+        },
+        passwordReset: {
+          status: "active",
+        },
+        email: {
+          status: "configured",
+        },
+        sms: {
+          status: "configured",
         },
       })
 

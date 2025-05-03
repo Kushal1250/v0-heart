@@ -1163,13 +1163,6 @@ export default function AdminDashboard() {
                 >
                   <AlertTriangle className="mr-2 h-4 w-4" /> Fix System Issues
                 </Button>
-                <Button
-                  variant="outline"
-                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
-                  onClick={() => router.push("/admin/sample-data")}
-                >
-                  <Activity className="mr-2 h-4 w-4" /> Add Sample Data
-                </Button>
               </CardContent>
             </Card>
 
