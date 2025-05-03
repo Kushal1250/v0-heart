@@ -12,183 +12,149 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { AlertCircle, CheckCircle, Edit, Save, Upload, X } from "lucide-react"
+import { AlertCircle, CheckCircle, Edit, Save, Upload, X, User, Mail, Phone } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Switch } from "@/components/ui/switch"
+import { useAuth } from "@/lib/auth-context"
+import { useToast } from "@/components/ui/use-toast"
+import { format, formatDistanceToNow } from "date-fns"
 
-interface UserData {
-  id: string
-  name: string
-  email: string
-  phone: string
-  dateOfBirth?: string
-  gender?: string
-  profilePicture?: string
-  height?: string
-  weight?: string
-  bloodType?: string
-  allergies?: string
-  medicalConditions?: string
-  medications?: string
-  emergencyContactName?: string
-  emergencyContactPhone?: string
-  emergencyContactRelationship?: string
-  accountType?: string
-  memberSince?: string
-  lastLogin?: string
-  subscriptionStatus?: string
-  subscriptionRenewal?: string
-  emailNotifications?: boolean
-  smsNotifications?: boolean
-  appNotifications?: boolean
-  twoFactorEnabled?: boolean
-  emailVerified?: boolean
-  phoneVerified?: boolean
-  dataSharing?: boolean
-  anonymousDataCollection?: boolean
-  recentAssessments?: Array<{
-    id: string
-    date: string
-    score: number
-    riskLevel: string
-  }>
-  appointments?: Array<{
-    id: string
-    date: string
-    doctor: string
-    purpose: string
-  }>
-  reports?: Array<{
-    id: string
-    date: string
-    title: string
-    link: string
-  }>
-}
+export function DynamicProfile() {
+  const { user, updateUserProfile } = useAuth()
+  const { toast } = useToast()
 
-export default function DynamicProfile() {
-  const [user, setUser] = useState<UserData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [editingPersonal, setEditingPersonal] = useState(false)
   const [editingHealth, setEditingHealth] = useState(false)
-  const [personalFormData, setPersonalFormData] = useState<Partial<UserData>>({})
-  const [healthFormData, setHealthFormData] = useState<Partial<UserData>>({})
+  const [personalFormData, setPersonalFormData] = useState({
+    name: user?.name || "",
+    email: user?.email || "",
+    phone: user?.phone || "",
+    dateOfBirth: "",
+    gender: "",
+  })
+  const [healthFormData, setHealthFormData] = useState({
+    height: "",
+    weight: "",
+    bloodType: "",
+    allergies: "",
+    medicalConditions: "",
+    medications: "",
+    emergencyContactName: "",
+    emergencyContactPhone: "",
+    emergencyContactRelationship: "",
+  })
   const [activeTab, setActiveTab] = useState("personal")
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [profileData, setProfileData] = useState({
+    recentAssessments: [],
+    heartHealthScores: [],
+    accountType: "Standard",
+    memberSince: user?.created_at || new Date().toISOString(),
+    emailNotifications: true,
+    smsNotifications: false,
+    appNotifications: true,
+    twoFactorEnabled: false,
+    emailVerified: true,
+    phoneVerified: false,
+    dataSharing: true,
+    anonymousDataCollection: true,
+  })
 
   // Fetch user data
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         setLoading(true)
-        // Fetch user data from API
-        const response = await fetch("/api/user/profile")
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch user data")
+        // Fetch user profile data
+        const profileResponse = await fetch("/api/user/profile", {
+          headers: {
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          },
+          cache: "no-store",
+        })
+
+        if (!profileResponse.ok) {
+          throw new Error("Failed to fetch profile data")
         }
 
-        const userData = await response.json()
+        const profileData = await profileResponse.json()
 
-        // Initialize form data with user data
-        setUser(userData)
-        setPersonalFormData({
-          name: userData.name,
-          email: userData.email,
-          phone: userData.phone,
-          dateOfBirth: userData.dateOfBirth,
-          gender: userData.gender,
-        })
+        // Update form data with fetched data
+        setPersonalFormData((prev) => ({
+          ...prev,
+          name: profileData.name || user?.name || "",
+          email: profileData.email || user?.email || "",
+          phone: profileData.phone || user?.phone || "",
+        }))
 
-        setHealthFormData({
-          height: userData.height,
-          weight: userData.weight,
-          bloodType: userData.bloodType,
-          allergies: userData.allergies,
-          medicalConditions: userData.medicalConditions,
-          medications: userData.medications,
-          emergencyContactName: userData.emergencyContactName,
-          emergencyContactPhone: userData.emergencyContactPhone,
-          emergencyContactRelationship: userData.emergencyContactRelationship,
-        })
+        // Fetch health metrics if available
+        try {
+          const healthResponse = await fetch("/api/user/health-metrics")
+          if (healthResponse.ok) {
+            const healthData = await healthResponse.json()
+            setHealthFormData((prev) => ({
+              ...prev,
+              height: healthData.height || "",
+              weight: healthData.weight || "",
+              bloodType: healthData.bloodType || "",
+              allergies: healthData.allergies || "",
+              medicalConditions: healthData.medicalConditions || "",
+              medications: healthData.medications || "",
+            }))
+          }
+        } catch (healthError) {
+          console.error("Error fetching health data:", healthError)
+        }
+
+        // Fetch predictions/assessments if available
+        try {
+          const predictionsResponse = await fetch("/api/user/predictions")
+          if (predictionsResponse.ok) {
+            const predictionsData = await predictionsResponse.json()
+
+            // Format the predictions data for the UI
+            const formattedAssessments = predictionsData.map((pred: any) => ({
+              id: pred.id,
+              date: pred.created_at,
+              score: Math.round(pred.result * 100),
+              riskLevel: getRiskLevel(pred.result * 100),
+            }))
+
+            // Extract scores for the chart
+            const scores = formattedAssessments.map((a: any) => a.score).reverse()
+
+            setProfileData((prev) => ({
+              ...prev,
+              recentAssessments: formattedAssessments,
+              heartHealthScores: scores,
+            }))
+          }
+        } catch (predictionsError) {
+          console.error("Error fetching predictions data:", predictionsError)
+        }
       } catch (err) {
         console.error("Error fetching user data:", err)
         setError("Failed to load profile data. Please try again later.")
-
-        // For demo purposes, load fallback data if API fails
-        const fallbackData: UserData = {
-          id: "123456",
-          name: "John Doe",
-          email: "john.doe@example.com",
-          phone: "+1 (555) 123-4567",
-          dateOfBirth: "1985-06-15",
-          gender: "Male",
-          profilePicture: "/abstract-profile.png",
-          height: "175 cm",
-          weight: "75 kg",
-          bloodType: "O+",
-          allergies: "None",
-          medicalConditions: "Hypertension",
-          medications: "Lisinopril 10mg daily",
-          emergencyContactName: "Jane Doe",
-          emergencyContactPhone: "+1 (555) 987-6543",
-          emergencyContactRelationship: "Spouse",
-          accountType: "Premium",
-          memberSince: "2023-01-15",
-          lastLogin: "2023-05-10",
-          subscriptionStatus: "Active",
-          subscriptionRenewal: "2024-01-15",
-          emailNotifications: true,
-          smsNotifications: false,
-          appNotifications: true,
-          twoFactorEnabled: false,
-          emailVerified: true,
-          phoneVerified: false,
-          dataSharing: true,
-          anonymousDataCollection: true,
-          recentAssessments: [
-            { id: "a1", date: "2023-05-01", score: 85, riskLevel: "Low" },
-            { id: "a2", date: "2023-04-01", score: 78, riskLevel: "Moderate" },
-            { id: "a3", date: "2023-03-01", score: 72, riskLevel: "Moderate" },
-          ],
-          appointments: [
-            { id: "apt1", date: "2023-05-20", doctor: "Dr. Smith", purpose: "Annual Checkup" },
-            { id: "apt2", date: "2023-06-15", doctor: "Dr. Johnson", purpose: "Cardiology Consultation" },
-          ],
-          reports: [
-            { id: "r1", date: "2023-05-01", title: "Heart Health Assessment", link: "#" },
-            { id: "r2", date: "2023-04-01", title: "Blood Work Results", link: "#" },
-          ],
-        }
-
-        setUser(fallbackData)
-        setPersonalFormData({
-          name: fallbackData.name,
-          email: fallbackData.email,
-          phone: fallbackData.phone,
-          dateOfBirth: fallbackData.dateOfBirth,
-          gender: fallbackData.gender,
-        })
-
-        setHealthFormData({
-          height: fallbackData.height,
-          weight: fallbackData.weight,
-          bloodType: fallbackData.bloodType,
-          allergies: fallbackData.allergies,
-          medicalConditions: fallbackData.medicalConditions,
-          medications: fallbackData.medications,
-          emergencyContactName: fallbackData.emergencyContactName,
-          emergencyContactPhone: fallbackData.emergencyContactPhone,
-          emergencyContactRelationship: fallbackData.emergencyContactRelationship,
-        })
       } finally {
         setLoading(false)
       }
     }
 
-    fetchUserData()
-  }, [])
+    if (user) {
+      fetchUserData()
+    }
+  }, [user])
+
+  // Helper function to determine risk level based on score
+  const getRiskLevel = (score: number) => {
+    if (score >= 80) return "Low"
+    if (score >= 60) return "Moderate"
+    return "High"
+  }
 
   // Handle personal info form changes
   const handlePersonalChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -213,7 +179,7 @@ export default function DynamicProfile() {
       // });
 
       // Update local state
-      setUser((prev) => (prev ? { ...prev, [name]: checked } : null))
+      setProfileData((prev) => ({ ...prev, [name]: checked }))
 
       setSuccessMessage("Setting updated successfully")
       setTimeout(() => setSuccessMessage(null), 3000)
@@ -226,28 +192,58 @@ export default function DynamicProfile() {
   // Save personal info
   const savePersonalInfo = async () => {
     try {
-      // In a real app, you would send this to the server
-      // await fetch('/api/user/profile', {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(personalFormData)
-      // });
+      setLoading(true)
 
-      // Update local state
-      setUser((prev) => (prev ? { ...prev, ...personalFormData } : null))
+      // Send update to the API
+      const response = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: personalFormData.name,
+          phone: personalFormData.phone,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to update profile")
+      }
+
+      const updatedProfile = await response.json()
+
+      // Update the auth context if available
+      if (updateUserProfile) {
+        updateUserProfile({
+          name: personalFormData.name,
+          phone: personalFormData.phone,
+        })
+      }
+
       setEditingPersonal(false)
-
       setSuccessMessage("Personal information updated successfully")
+      toast({
+        title: "Success",
+        description: "Your profile has been updated successfully!",
+      })
+
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err) {
-      setError("Failed to update personal information. Please try again.")
-      setTimeout(() => setError(null), 3000)
+    } catch (err: any) {
+      setError(err.message || "Failed to update personal information. Please try again.")
+      toast({
+        title: "Error",
+        description: err.message || "Failed to update profile",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
   // Save health info
   const saveHealthInfo = async () => {
     try {
+      setLoading(true)
+
       // In a real app, you would send this to the server
       // await fetch('/api/user/health', {
       //   method: 'PUT',
@@ -255,15 +251,23 @@ export default function DynamicProfile() {
       //   body: JSON.stringify(healthFormData)
       // });
 
-      // Update local state
-      setUser((prev) => (prev ? { ...prev, ...healthFormData } : null))
       setEditingHealth(false)
-
       setSuccessMessage("Health information updated successfully")
+      toast({
+        title: "Success",
+        description: "Your health information has been updated successfully!",
+      })
+
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err) {
       setError("Failed to update health information. Please try again.")
-      setTimeout(() => setError(null), 3000)
+      toast({
+        title: "Error",
+        description: "Failed to update health information",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -273,48 +277,78 @@ export default function DynamicProfile() {
     if (!file) return
 
     try {
-      // In a real app, you would upload the file to the server
-      // const formData = new FormData();
-      // formData.append('profilePicture', file);
-      // await fetch('/api/user/profile/upload-photo', {
-      //   method: 'POST',
-      //   body: formData
-      // });
+      setLoading(true)
 
-      // For demo, create a local URL
-      const localUrl = URL.createObjectURL(file)
-      setUser((prev) => (prev ? { ...prev, profilePicture: localUrl } : null))
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch("/api/user/profile/upload-photo", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to upload profile picture")
+      }
+
+      const data = await response.json()
+
+      // Update the auth context if available
+      if (updateUserProfile) {
+        updateUserProfile({
+          profile_picture: data.url,
+        })
+      }
 
       setSuccessMessage("Profile picture updated successfully")
+      toast({
+        title: "Success",
+        description: "Your profile picture has been updated successfully!",
+      })
+
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err) {
-      setError("Failed to upload profile picture. Please try again.")
-      setTimeout(() => setError(null), 3000)
+    } catch (err: any) {
+      setError(err.message || "Failed to upload profile picture. Please try again.")
+      toast({
+        title: "Error",
+        description: err.message || "Failed to upload profile picture",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
   // Handle verification
   const handleVerification = async (type: "email" | "phone") => {
     try {
+      setLoading(true)
+
       // In a real app, you would send a verification request
       // await fetch(`/api/user/verify-${type}`, { method: 'POST' });
 
       setSuccessMessage(`Verification code sent to your ${type}`)
+      toast({
+        title: "Verification Sent",
+        description: `A verification code has been sent to your ${type}`,
+      })
+
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err) {
       setError(`Failed to send verification code to your ${type}. Please try again.`)
-      setTimeout(() => setError(null), 3000)
+      toast({
+        title: "Error",
+        description: `Failed to send verification code to your ${type}`,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
-  // Handle password change
-  const handlePasswordChange = () => {
-    // In a real app, you would redirect to password change page
-    window.location.href = "/change-password"
-  }
-
   // Loading state
-  if (loading) {
+  if (loading && !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -335,21 +369,6 @@ export default function DynamicProfile() {
         </Alert>
         <div className="mt-4">
           <Button onClick={() => window.location.reload()}>Retry</Button>
-        </div>
-      </div>
-    )
-  }
-
-  // If no user data is available
-  if (!user) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>No user data available. Please log in again.</AlertDescription>
-        </Alert>
-        <div className="mt-4">
-          <Button onClick={() => (window.location.href = "/login")}>Go to Login</Button>
         </div>
       </div>
     )
@@ -381,8 +400,8 @@ export default function DynamicProfile() {
               <div className="flex justify-center mb-4">
                 <div className="relative">
                   <Avatar className="w-24 h-24">
-                    <AvatarImage src={user.profilePicture || "/abstract-profile.png"} alt={user.name} />
-                    <AvatarFallback>{user.name?.charAt(0) || "U"}</AvatarFallback>
+                    <AvatarImage src={user?.profile_picture || "/abstract-profile.png"} alt={user?.name || "User"} />
+                    <AvatarFallback>{user?.name?.charAt(0) || "U"}</AvatarFallback>
                   </Avatar>
                   <label
                     htmlFor="profile-picture"
@@ -399,13 +418,18 @@ export default function DynamicProfile() {
                   </label>
                 </div>
               </div>
-              <CardTitle className="text-2xl">{user.name}</CardTitle>
-              <CardDescription>{user.email}</CardDescription>
+              <CardTitle className="text-2xl">{user?.name || "User"}</CardTitle>
+              <CardDescription>{user?.email || "No email provided"}</CardDescription>
               <div className="mt-2">
-                <Badge variant={user.accountType === "Premium" ? "default" : "outline"}>
-                  {user.accountType || "Standard"} Account
+                <Badge variant={profileData.accountType === "Premium" ? "default" : "outline"}>
+                  {profileData.accountType || "Standard"} Account
                 </Badge>
               </div>
+              {user?.id && (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  <span className="font-mono">ID: {user.id}</span>
+                </div>
+              )}
             </CardHeader>
           </Card>
         </div>
@@ -420,21 +444,25 @@ export default function DynamicProfile() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Member Since</p>
-                  <p className="font-medium">{user.memberSince || "N/A"}</p>
+                  <p className="font-medium">
+                    {profileData.memberSince ? format(new Date(profileData.memberSince), "MMMM d, yyyy") : "N/A"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Last Login</p>
-                  <p className="font-medium">{user.lastLogin || "N/A"}</p>
+                  <p className="font-medium">
+                    {user?.last_login ? formatDistanceToNow(new Date(user.last_login), { addSuffix: true }) : "N/A"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Subscription Status</p>
-                  <p className="font-medium">{user.subscriptionStatus || "N/A"}</p>
+                  <p className="font-medium">{profileData.accountType || "Standard"}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Heart Health Score</p>
                   <div className="flex items-center gap-2">
-                    <Progress value={user.recentAssessments?.[0]?.score || 0} className="h-2" />
-                    <span className="font-medium">{user.recentAssessments?.[0]?.score || "N/A"}</span>
+                    <Progress value={profileData.heartHealthScores?.[0] || 0} className="h-2" />
+                    <span className="font-medium">{profileData.heartHealthScores?.[0] || "N/A"}</span>
                   </div>
                 </div>
               </div>
@@ -470,8 +498,17 @@ export default function DynamicProfile() {
                   <Button variant="outline" onClick={() => setEditingPersonal(false)}>
                     <X className="h-4 w-4 mr-2" /> Cancel
                   </Button>
-                  <Button onClick={savePersonalInfo}>
-                    <Save className="h-4 w-4 mr-2" /> Save
+                  <Button onClick={savePersonalInfo} disabled={loading}>
+                    {loading ? (
+                      <>
+                        <span className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" /> Save
+                      </>
+                    )}
                   </Button>
                 </div>
               )}
@@ -480,46 +517,58 @@ export default function DynamicProfile() {
               <div className="grid gap-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="name">Full Name</Label>
+                    <Label htmlFor="name" className="flex items-center gap-2">
+                      <User className="h-4 w-4" /> Full Name
+                    </Label>
                     {editingPersonal ? (
                       <Input
                         id="name"
                         name="name"
-                        value={personalFormData.name || ""}
+                        value={personalFormData.name}
                         onChange={handlePersonalChange}
+                        placeholder="Enter your full name"
                       />
                     ) : (
-                      <p className="mt-1 p-2 bg-muted rounded-md">{user.name || "Not provided"}</p>
+                      <p className="mt-1 p-2 bg-muted rounded-md">{personalFormData.name || "Not provided"}</p>
                     )}
                   </div>
                   <div>
-                    <Label htmlFor="email">Email Address</Label>
+                    <Label htmlFor="email" className="flex items-center gap-2">
+                      <Mail className="h-4 w-4" /> Email Address
+                    </Label>
                     {editingPersonal ? (
                       <Input
                         id="email"
                         name="email"
                         type="email"
-                        value={personalFormData.email || ""}
-                        onChange={handlePersonalChange}
+                        value={personalFormData.email}
+                        disabled
+                        className="bg-muted"
                       />
                     ) : (
-                      <p className="mt-1 p-2 bg-muted rounded-md">{user.email || "Not provided"}</p>
+                      <p className="mt-1 p-2 bg-muted rounded-md">{personalFormData.email || "Not provided"}</p>
+                    )}
+                    {editingPersonal && (
+                      <p className="text-xs text-muted-foreground mt-1">Email address cannot be changed</p>
                     )}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="phone">Phone Number</Label>
+                    <Label htmlFor="phone" className="flex items-center gap-2">
+                      <Phone className="h-4 w-4" /> Phone Number
+                    </Label>
                     {editingPersonal ? (
                       <Input
                         id="phone"
                         name="phone"
-                        value={personalFormData.phone || ""}
+                        value={personalFormData.phone}
                         onChange={handlePersonalChange}
+                        placeholder="Enter your phone number"
                       />
                     ) : (
-                      <p className="mt-1 p-2 bg-muted rounded-md">{user.phone || "Not provided"}</p>
+                      <p className="mt-1 p-2 bg-muted rounded-md">{personalFormData.phone || "Not provided"}</p>
                     )}
                   </div>
                   <div>
@@ -529,11 +578,15 @@ export default function DynamicProfile() {
                         id="dateOfBirth"
                         name="dateOfBirth"
                         type="date"
-                        value={personalFormData.dateOfBirth || ""}
+                        value={personalFormData.dateOfBirth}
                         onChange={handlePersonalChange}
                       />
                     ) : (
-                      <p className="mt-1 p-2 bg-muted rounded-md">{user.dateOfBirth || "Not provided"}</p>
+                      <p className="mt-1 p-2 bg-muted rounded-md">
+                        {personalFormData.dateOfBirth
+                          ? format(new Date(personalFormData.dateOfBirth), "MMMM d, yyyy")
+                          : "Not provided"}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -544,7 +597,7 @@ export default function DynamicProfile() {
                     <select
                       id="gender"
                       name="gender"
-                      value={personalFormData.gender || ""}
+                      value={personalFormData.gender}
                       onChange={handlePersonalChange}
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
@@ -555,7 +608,7 @@ export default function DynamicProfile() {
                       <option value="Prefer not to say">Prefer not to say</option>
                     </select>
                   ) : (
-                    <p className="mt-1 p-2 bg-muted rounded-md">{user.gender || "Not provided"}</p>
+                    <p className="mt-1 p-2 bg-muted rounded-md">{personalFormData.gender || "Not provided"}</p>
                   )}
                 </div>
               </div>
@@ -580,8 +633,17 @@ export default function DynamicProfile() {
                   <Button variant="outline" onClick={() => setEditingHealth(false)}>
                     <X className="h-4 w-4 mr-2" /> Cancel
                   </Button>
-                  <Button onClick={saveHealthInfo}>
-                    <Save className="h-4 w-4 mr-2" /> Save
+                  <Button onClick={saveHealthInfo} disabled={loading}>
+                    {loading ? (
+                      <>
+                        <span className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" /> Save
+                      </>
+                    )}
                   </Button>
                 </div>
               )}
@@ -595,12 +657,12 @@ export default function DynamicProfile() {
                       <Input
                         id="height"
                         name="height"
-                        value={healthFormData.height || ""}
+                        value={healthFormData.height}
                         onChange={handleHealthChange}
                         placeholder="e.g., 175 cm"
                       />
                     ) : (
-                      <p className="mt-1 p-2 bg-muted rounded-md">{user.height || "Not provided"}</p>
+                      <p className="mt-1 p-2 bg-muted rounded-md">{healthFormData.height || "Not provided"}</p>
                     )}
                   </div>
                   <div>
@@ -609,12 +671,12 @@ export default function DynamicProfile() {
                       <Input
                         id="weight"
                         name="weight"
-                        value={healthFormData.weight || ""}
+                        value={healthFormData.weight}
                         onChange={handleHealthChange}
                         placeholder="e.g., 75 kg"
                       />
                     ) : (
-                      <p className="mt-1 p-2 bg-muted rounded-md">{user.weight || "Not provided"}</p>
+                      <p className="mt-1 p-2 bg-muted rounded-md">{healthFormData.weight || "Not provided"}</p>
                     )}
                   </div>
                   <div>
@@ -623,7 +685,7 @@ export default function DynamicProfile() {
                       <select
                         id="bloodType"
                         name="bloodType"
-                        value={healthFormData.bloodType || ""}
+                        value={healthFormData.bloodType}
                         onChange={handleHealthChange}
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       >
@@ -639,7 +701,7 @@ export default function DynamicProfile() {
                         <option value="Unknown">Unknown</option>
                       </select>
                     ) : (
-                      <p className="mt-1 p-2 bg-muted rounded-md">{user.bloodType || "Not provided"}</p>
+                      <p className="mt-1 p-2 bg-muted rounded-md">{healthFormData.bloodType || "Not provided"}</p>
                     )}
                   </div>
                 </div>
@@ -650,12 +712,12 @@ export default function DynamicProfile() {
                     <Textarea
                       id="allergies"
                       name="allergies"
-                      value={healthFormData.allergies || ""}
+                      value={healthFormData.allergies}
                       onChange={handleHealthChange}
                       placeholder="List any allergies you have"
                     />
                   ) : (
-                    <p className="mt-1 p-2 bg-muted rounded-md">{user.allergies || "None"}</p>
+                    <p className="mt-1 p-2 bg-muted rounded-md">{healthFormData.allergies || "None"}</p>
                   )}
                 </div>
 
@@ -665,12 +727,12 @@ export default function DynamicProfile() {
                     <Textarea
                       id="medicalConditions"
                       name="medicalConditions"
-                      value={healthFormData.medicalConditions || ""}
+                      value={healthFormData.medicalConditions}
                       onChange={handleHealthChange}
                       placeholder="List any medical conditions you have"
                     />
                   ) : (
-                    <p className="mt-1 p-2 bg-muted rounded-md">{user.medicalConditions || "None"}</p>
+                    <p className="mt-1 p-2 bg-muted rounded-md">{healthFormData.medicalConditions || "None"}</p>
                   )}
                 </div>
 
@@ -680,12 +742,12 @@ export default function DynamicProfile() {
                     <Textarea
                       id="medications"
                       name="medications"
-                      value={healthFormData.medications || ""}
+                      value={healthFormData.medications}
                       onChange={handleHealthChange}
                       placeholder="List any medications you are currently taking"
                     />
                   ) : (
-                    <p className="mt-1 p-2 bg-muted rounded-md">{user.medications || "None"}</p>
+                    <p className="mt-1 p-2 bg-muted rounded-md">{healthFormData.medications || "None"}</p>
                   )}
                 </div>
 
@@ -698,11 +760,13 @@ export default function DynamicProfile() {
                         <Input
                           id="emergencyContactName"
                           name="emergencyContactName"
-                          value={healthFormData.emergencyContactName || ""}
+                          value={healthFormData.emergencyContactName}
                           onChange={handleHealthChange}
                         />
                       ) : (
-                        <p className="mt-1 p-2 bg-muted rounded-md">{user.emergencyContactName || "Not provided"}</p>
+                        <p className="mt-1 p-2 bg-muted rounded-md">
+                          {healthFormData.emergencyContactName || "Not provided"}
+                        </p>
                       )}
                     </div>
                     <div>
@@ -711,11 +775,13 @@ export default function DynamicProfile() {
                         <Input
                           id="emergencyContactPhone"
                           name="emergencyContactPhone"
-                          value={healthFormData.emergencyContactPhone || ""}
+                          value={healthFormData.emergencyContactPhone}
                           onChange={handleHealthChange}
                         />
                       ) : (
-                        <p className="mt-1 p-2 bg-muted rounded-md">{user.emergencyContactPhone || "Not provided"}</p>
+                        <p className="mt-1 p-2 bg-muted rounded-md">
+                          {healthFormData.emergencyContactPhone || "Not provided"}
+                        </p>
                       )}
                     </div>
                     <div>
@@ -724,12 +790,12 @@ export default function DynamicProfile() {
                         <Input
                           id="emergencyContactRelationship"
                           name="emergencyContactRelationship"
-                          value={healthFormData.emergencyContactRelationship || ""}
+                          value={healthFormData.emergencyContactRelationship}
                           onChange={handleHealthChange}
                         />
                       ) : (
                         <p className="mt-1 p-2 bg-muted rounded-md">
-                          {user.emergencyContactRelationship || "Not provided"}
+                          {healthFormData.emergencyContactRelationship || "Not provided"}
                         </p>
                       )}
                     </div>
@@ -752,25 +818,13 @@ export default function DynamicProfile() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <h3 className="font-medium mb-2">Account Type</h3>
-                    <p className="p-2 bg-muted rounded-md">{user.accountType || "Standard"}</p>
+                    <p className="p-2 bg-muted rounded-md">{profileData.accountType || "Standard"}</p>
                   </div>
                   <div>
                     <h3 className="font-medium mb-2">Member Since</h3>
-                    <p className="p-2 bg-muted rounded-md">{user.memberSince || "N/A"}</p>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-2">Subscription</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Status</p>
-                      <p className="p-2 bg-muted rounded-md">{user.subscriptionStatus || "N/A"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Renewal Date</p>
-                      <p className="p-2 bg-muted rounded-md">{user.subscriptionRenewal || "N/A"}</p>
-                    </div>
+                    <p className="p-2 bg-muted rounded-md">
+                      {profileData.memberSince ? format(new Date(profileData.memberSince), "MMMM d, yyyy") : "N/A"}
+                    </p>
                   </div>
                 </div>
 
@@ -786,7 +840,7 @@ export default function DynamicProfile() {
                       </div>
                       <Switch
                         id="emailNotifications"
-                        checked={user.emailNotifications || false}
+                        checked={profileData.emailNotifications}
                         onCheckedChange={(checked) => handleToggleChange("emailNotifications", checked)}
                       />
                     </div>
@@ -800,7 +854,7 @@ export default function DynamicProfile() {
                       </div>
                       <Switch
                         id="smsNotifications"
-                        checked={user.smsNotifications || false}
+                        checked={profileData.smsNotifications}
                         onCheckedChange={(checked) => handleToggleChange("smsNotifications", checked)}
                       />
                     </div>
@@ -814,7 +868,7 @@ export default function DynamicProfile() {
                       </div>
                       <Switch
                         id="appNotifications"
-                        checked={user.appNotifications || false}
+                        checked={profileData.appNotifications}
                         onCheckedChange={(checked) => handleToggleChange("appNotifications", checked)}
                       />
                     </div>
@@ -824,7 +878,7 @@ export default function DynamicProfile() {
                 <div className="border-t pt-4">
                   <h3 className="font-medium mb-2">Account Actions</h3>
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={handlePasswordChange}>
+                    <Button variant="outline" onClick={() => (window.location.href = "/change-password")}>
                       Change Password
                     </Button>
                     <Button variant="outline" onClick={() => (window.location.href = "/reset-password-profile")}>
@@ -856,15 +910,15 @@ export default function DynamicProfile() {
                       <div>
                         <p className="font-medium">Email Verification</p>
                         <p className="text-sm text-muted-foreground">
-                          {user.emailVerified ? "Your email is verified" : "Your email is not verified"}
+                          {profileData.emailVerified ? "Your email is verified" : "Your email is not verified"}
                         </p>
                       </div>
-                      {!user.emailVerified && (
+                      {!profileData.emailVerified && (
                         <Button variant="outline" onClick={() => handleVerification("email")}>
                           Verify Email
                         </Button>
                       )}
-                      {user.emailVerified && (
+                      {profileData.emailVerified && (
                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                           Verified
                         </Badge>
@@ -875,15 +929,15 @@ export default function DynamicProfile() {
                       <div>
                         <p className="font-medium">Phone Verification</p>
                         <p className="text-sm text-muted-foreground">
-                          {user.phoneVerified ? "Your phone is verified" : "Your phone is not verified"}
+                          {profileData.phoneVerified ? "Your phone is verified" : "Your phone is not verified"}
                         </p>
                       </div>
-                      {!user.phoneVerified && (
+                      {!profileData.phoneVerified && (
                         <Button variant="outline" onClick={() => handleVerification("phone")}>
                           Verify Phone
                         </Button>
                       )}
-                      {user.phoneVerified && (
+                      {profileData.phoneVerified && (
                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                           Verified
                         </Badge>
@@ -900,7 +954,7 @@ export default function DynamicProfile() {
                     </div>
                     <Switch
                       id="twoFactorEnabled"
-                      checked={user.twoFactorEnabled || false}
+                      checked={profileData.twoFactorEnabled}
                       onCheckedChange={(checked) => handleToggleChange("twoFactorEnabled", checked)}
                     />
                   </div>
@@ -920,7 +974,7 @@ export default function DynamicProfile() {
                       </div>
                       <Switch
                         id="dataSharing"
-                        checked={user.dataSharing || false}
+                        checked={profileData.dataSharing}
                         onCheckedChange={(checked) => handleToggleChange("dataSharing", checked)}
                       />
                     </div>
@@ -936,22 +990,10 @@ export default function DynamicProfile() {
                       </div>
                       <Switch
                         id="anonymousDataCollection"
-                        checked={user.anonymousDataCollection || false}
+                        checked={profileData.anonymousDataCollection}
                         onCheckedChange={(checked) => handleToggleChange("anonymousDataCollection", checked)}
                       />
                     </div>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-2">Security Actions</h3>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={() => (window.location.href = "/login-activity")}>
-                      View Login Activity
-                    </Button>
-                    <Button variant="outline" onClick={() => (window.location.href = "/security-log")}>
-                      Security Log
-                    </Button>
                   </div>
                 </div>
               </div>
@@ -970,7 +1012,7 @@ export default function DynamicProfile() {
               <div className="grid gap-6">
                 <div>
                   <h3 className="font-medium mb-2">Recent Heart Health Assessments</h3>
-                  {user.recentAssessments && user.recentAssessments.length > 0 ? (
+                  {profileData.recentAssessments && profileData.recentAssessments.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full border-collapse">
                         <thead>
@@ -982,9 +1024,9 @@ export default function DynamicProfile() {
                           </tr>
                         </thead>
                         <tbody>
-                          {user.recentAssessments.map((assessment) => (
+                          {profileData.recentAssessments.map((assessment: any) => (
                             <tr key={assessment.id} className="border-b">
-                              <td className="py-2 px-4">{assessment.date}</td>
+                              <td className="py-2 px-4">{format(new Date(assessment.date), "MMM d, yyyy")}</td>
                               <td className="py-2 px-4">{assessment.score}</td>
                               <td className="py-2 px-4">
                                 <Badge
@@ -1000,7 +1042,11 @@ export default function DynamicProfile() {
                                 </Badge>
                               </td>
                               <td className="py-2 px-4">
-                                <Button variant="link" className="p-0 h-auto">
+                                <Button
+                                  variant="link"
+                                  className="p-0 h-auto"
+                                  onClick={() => (window.location.href = `/predict/results/${assessment.id}`)}
+                                >
                                   View Details
                                 </Button>
                               </td>
@@ -1010,83 +1056,12 @@ export default function DynamicProfile() {
                       </table>
                     </div>
                   ) : (
-                    <p className="text-muted-foreground">No recent assessments found.</p>
-                  )}
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-2">Upcoming Appointments</h3>
-                  {user.appointments && user.appointments.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-2 px-4">Date</th>
-                            <th className="text-left py-2 px-4">Doctor</th>
-                            <th className="text-left py-2 px-4">Purpose</th>
-                            <th className="text-left py-2 px-4">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {user.appointments.map((appointment) => (
-                            <tr key={appointment.id} className="border-b">
-                              <td className="py-2 px-4">{appointment.date}</td>
-                              <td className="py-2 px-4">{appointment.doctor}</td>
-                              <td className="py-2 px-4">{appointment.purpose}</td>
-                              <td className="py-2 px-4">
-                                <div className="flex gap-2">
-                                  <Button variant="link" className="p-0 h-auto">
-                                    Reschedule
-                                  </Button>
-                                  <Button variant="link" className="p-0 h-auto text-destructive">
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="text-center py-8 bg-gray-50 rounded-md border border-gray-200">
+                      <p className="text-muted-foreground">No recent assessments found.</p>
+                      <Button variant="link" className="mt-2" onClick={() => (window.location.href = "/predict")}>
+                        Take an assessment
+                      </Button>
                     </div>
-                  ) : (
-                    <p className="text-muted-foreground">No upcoming appointments.</p>
-                  )}
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-2">Recent Reports</h3>
-                  {user.reports && user.reports.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-2 px-4">Date</th>
-                            <th className="text-left py-2 px-4">Title</th>
-                            <th className="text-left py-2 px-4">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {user.reports.map((report) => (
-                            <tr key={report.id} className="border-b">
-                              <td className="py-2 px-4">{report.date}</td>
-                              <td className="py-2 px-4">{report.title}</td>
-                              <td className="py-2 px-4">
-                                <div className="flex gap-2">
-                                  <Button variant="link" className="p-0 h-auto">
-                                    View
-                                  </Button>
-                                  <Button variant="link" className="p-0 h-auto">
-                                    Download
-                                  </Button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">No recent reports.</p>
                   )}
                 </div>
 
