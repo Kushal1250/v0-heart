@@ -15,6 +15,8 @@ import { Progress } from "@/components/ui/progress"
 import { AlertCircle, CheckCircle, Edit, Save, Upload, X } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Switch } from "@/components/ui/switch"
+import { useAuth } from "@/lib/auth-context"
+import { useToast } from "@/components/ui/use-toast"
 
 interface UserData {
   id: string
@@ -67,128 +69,143 @@ interface UserData {
 }
 
 export default function DynamicProfile() {
-  const [user, setUser] = useState<UserData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { user, updateUserProfile } = useAuth()
+  const { toast } = useToast()
+
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [editingPersonal, setEditingPersonal] = useState(false)
   const [editingHealth, setEditingHealth] = useState(false)
-  const [personalFormData, setPersonalFormData] = useState<Partial<UserData>>({})
-  const [healthFormData, setHealthFormData] = useState<Partial<UserData>>({})
+  const [personalFormData, setPersonalFormData] = useState({
+    name: user?.name || "",
+    email: user?.email || "",
+    phone: user?.phone || "",
+    dateOfBirth: "",
+    gender: "",
+  })
+  const [healthFormData, setHealthFormData] = useState({
+    height: "",
+    weight: "",
+    bloodType: "",
+    allergies: "",
+    medicalConditions: "",
+    medications: "",
+    emergencyContactName: "",
+    emergencyContactPhone: "",
+    emergencyContactRelationship: "",
+  })
   const [activeTab, setActiveTab] = useState("personal")
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [profileData, setProfileData] = useState({
+    recentAssessments: [],
+    heartHealthScores: [],
+    accountType: "Standard",
+    memberSince: user?.created_at || new Date().toISOString(),
+    emailNotifications: true,
+    smsNotifications: false,
+    appNotifications: true,
+    twoFactorEnabled: false,
+    emailVerified: true,
+    phoneVerified: false,
+    dataSharing: true,
+    anonymousDataCollection: true,
+    appointments: [],
+    reports: [],
+  })
 
   // Fetch user data
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         setLoading(true)
-        // Fetch user data from API
-        const response = await fetch("/api/user/profile")
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch user data")
+        // Fetch user profile data
+        const profileResponse = await fetch("/api/user/profile", {
+          headers: {
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          },
+          cache: "no-store",
+        })
+
+        if (!profileResponse.ok) {
+          throw new Error("Failed to fetch profile data")
         }
 
-        const userData = await response.json()
+        const profileData = await profileResponse.json()
 
-        // Initialize form data with user data
-        setUser(userData)
-        setPersonalFormData({
-          name: userData.name,
-          email: userData.email,
-          phone: userData.phone,
-          dateOfBirth: userData.dateOfBirth,
-          gender: userData.gender,
-        })
+        // Update form data with fetched data
+        setPersonalFormData((prev) => ({
+          ...prev,
+          name: profileData.name || user?.name || "",
+          email: profileData.email || user?.email || "",
+          phone: profileData.phone || user?.phone || "",
+        }))
 
-        setHealthFormData({
-          height: userData.height,
-          weight: userData.weight,
-          bloodType: userData.bloodType,
-          allergies: userData.allergies,
-          medicalConditions: userData.medicalConditions,
-          medications: userData.medications,
-          emergencyContactName: userData.emergencyContactName,
-          emergencyContactPhone: userData.emergencyContactPhone,
-          emergencyContactRelationship: userData.emergencyContactRelationship,
-        })
+        // Fetch health metrics if available
+        try {
+          const healthResponse = await fetch("/api/user/health-metrics")
+          if (healthResponse.ok) {
+            const healthData = await healthResponse.json()
+            setHealthFormData((prev) => ({
+              ...prev,
+              height: healthData.height || "",
+              weight: healthData.weight || "",
+              bloodType: healthData.bloodType || "",
+              allergies: healthData.allergies || "",
+              medicalConditions: healthData.medicalConditions || "",
+              medications: healthData.medications || "",
+            }))
+          }
+        } catch (healthError) {
+          console.error("Error fetching health data:", healthError)
+        }
+
+        // Fetch predictions/assessments if available
+        try {
+          const predictionsResponse = await fetch("/api/user/predictions")
+          if (predictionsResponse.ok) {
+            const predictionsData = await predictionsResponse.json()
+
+            // Format the predictions data for the UI
+            const formattedAssessments = predictionsData.map((pred: any) => ({
+              id: pred.id,
+              date: pred.created_at,
+              score: Math.round(pred.result * 100),
+              riskLevel: getRiskLevel(pred.result * 100),
+            }))
+
+            // Extract scores for the chart
+            const scores = formattedAssessments.map((a: any) => a.score).reverse()
+
+            setProfileData((prev) => ({
+              ...prev,
+              recentAssessments: formattedAssessments,
+              heartHealthScores: scores,
+            }))
+          }
+        } catch (predictionsError) {
+          console.error("Error fetching predictions data:", predictionsError)
+        }
       } catch (err) {
         console.error("Error fetching user data:", err)
         setError("Failed to load profile data. Please try again later.")
-
-        // For demo purposes, load fallback data if API fails
-        const fallbackData: UserData = {
-          id: "123456",
-          name: "John Doe",
-          email: "john.doe@example.com",
-          phone: "+1 (555) 123-4567",
-          dateOfBirth: "1985-06-15",
-          gender: "Male",
-          profilePicture: "/abstract-profile.png",
-          height: "175 cm",
-          weight: "75 kg",
-          bloodType: "O+",
-          allergies: "None",
-          medicalConditions: "Hypertension",
-          medications: "Lisinopril 10mg daily",
-          emergencyContactName: "Jane Doe",
-          emergencyContactPhone: "+1 (555) 987-6543",
-          emergencyContactRelationship: "Spouse",
-          accountType: "Premium",
-          memberSince: "2023-01-15",
-          lastLogin: "2023-05-10",
-          subscriptionStatus: "Active",
-          subscriptionRenewal: "2024-01-15",
-          emailNotifications: true,
-          smsNotifications: false,
-          appNotifications: true,
-          twoFactorEnabled: false,
-          emailVerified: true,
-          phoneVerified: false,
-          dataSharing: true,
-          anonymousDataCollection: true,
-          recentAssessments: [
-            { id: "a1", date: "2023-05-01", score: 85, riskLevel: "Low" },
-            { id: "a2", date: "2023-04-01", score: 78, riskLevel: "Moderate" },
-            { id: "a3", date: "2023-03-01", score: 72, riskLevel: "Moderate" },
-          ],
-          appointments: [
-            { id: "apt1", date: "2023-05-20", doctor: "Dr. Smith", purpose: "Annual Checkup" },
-            { id: "apt2", date: "2023-06-15", doctor: "Dr. Johnson", purpose: "Cardiology Consultation" },
-          ],
-          reports: [
-            { id: "r1", date: "2023-05-01", title: "Heart Health Assessment", link: "#" },
-            { id: "r2", date: "2023-04-01", title: "Blood Work Results", link: "#" },
-          ],
-        }
-
-        setUser(fallbackData)
-        setPersonalFormData({
-          name: fallbackData.name,
-          email: fallbackData.email,
-          phone: fallbackData.phone,
-          dateOfBirth: fallbackData.dateOfBirth,
-          gender: fallbackData.gender,
-        })
-
-        setHealthFormData({
-          height: fallbackData.height,
-          weight: fallbackData.weight,
-          bloodType: fallbackData.bloodType,
-          allergies: fallbackData.allergies,
-          medicalConditions: fallbackData.medicalConditions,
-          medications: fallbackData.medications,
-          emergencyContactName: fallbackData.emergencyContactName,
-          emergencyContactPhone: fallbackData.emergencyContactPhone,
-          emergencyContactRelationship: fallbackData.emergencyContactRelationship,
-        })
       } finally {
         setLoading(false)
       }
     }
 
-    fetchUserData()
-  }, [])
+    if (user) {
+      fetchUserData()
+    }
+  }, [user])
+
+  // Helper function to determine risk level based on score
+  const getRiskLevel = (score: number) => {
+    if (score >= 80) return "Low"
+    if (score >= 60) return "Moderate"
+    return "High"
+  }
 
   // Handle personal info form changes
   const handlePersonalChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -213,7 +230,7 @@ export default function DynamicProfile() {
       // });
 
       // Update local state
-      setUser((prev) => (prev ? { ...prev, [name]: checked } : null))
+      setProfileData((prev) => ({ ...prev, [name]: checked }))
 
       setSuccessMessage("Setting updated successfully")
       setTimeout(() => setSuccessMessage(null), 3000)
@@ -226,28 +243,58 @@ export default function DynamicProfile() {
   // Save personal info
   const savePersonalInfo = async () => {
     try {
-      // In a real app, you would send this to the server
-      // await fetch('/api/user/profile', {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(personalFormData)
-      // });
+      setLoading(true)
 
-      // Update local state
-      setUser((prev) => (prev ? { ...prev, ...personalFormData } : null))
+      // Send update to the API
+      const response = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: personalFormData.name,
+          phone: personalFormData.phone,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to update profile")
+      }
+
+      const updatedProfile = await response.json()
+
+      // Update the auth context if available
+      if (updateUserProfile) {
+        updateUserProfile({
+          name: personalFormData.name,
+          phone: personalFormData.phone,
+        })
+      }
+
       setEditingPersonal(false)
-
       setSuccessMessage("Personal information updated successfully")
+      toast({
+        title: "Success",
+        description: "Your profile has been updated successfully!",
+      })
+
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err) {
-      setError("Failed to update personal information. Please try again.")
-      setTimeout(() => setError(null), 3000)
+    } catch (err: any) {
+      setError(err.message || "Failed to update personal information. Please try again.")
+      toast({
+        title: "Error",
+        description: err.message || "Failed to update profile",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
   // Save health info
   const saveHealthInfo = async () => {
     try {
+      setLoading(true)
+
       // In a real app, you would send this to the server
       // await fetch('/api/user/health', {
       //   method: 'PUT',
@@ -255,15 +302,23 @@ export default function DynamicProfile() {
       //   body: JSON.stringify(healthFormData)
       // });
 
-      // Update local state
-      setUser((prev) => (prev ? { ...prev, ...healthFormData } : null))
       setEditingHealth(false)
-
       setSuccessMessage("Health information updated successfully")
+      toast({
+        title: "Success",
+        description: "Your health information has been updated successfully!",
+      })
+
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err) {
       setError("Failed to update health information. Please try again.")
-      setTimeout(() => setError(null), 3000)
+      toast({
+        title: "Error",
+        description: "Failed to update health information",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -273,44 +328,79 @@ export default function DynamicProfile() {
     if (!file) return
 
     try {
-      // In a real app, you would upload the file to the server
-      // const formData = new FormData();
-      // formData.append('profilePicture', file);
-      // await fetch('/api/user/profile/upload-photo', {
-      //   method: 'POST',
-      //   body: formData
-      // });
+      setLoading(true)
 
-      // For demo, create a local URL
-      const localUrl = URL.createObjectURL(file)
-      setUser((prev) => (prev ? { ...prev, profilePicture: localUrl } : null))
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch("/api/user/profile/upload-photo", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to upload profile picture")
+      }
+
+      const data = await response.json()
+
+      // Update the auth context if available
+      if (updateUserProfile) {
+        updateUserProfile({
+          profile_picture: data.url,
+        })
+      }
 
       setSuccessMessage("Profile picture updated successfully")
+      toast({
+        title: "Success",
+        description: "Your profile picture has been updated successfully!",
+      })
+
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err) {
-      setError("Failed to upload profile picture. Please try again.")
-      setTimeout(() => setError(null), 3000)
+    } catch (err: any) {
+      setError(err.message || "Failed to upload profile picture. Please try again.")
+      toast({
+        title: "Error",
+        description: err.message || "Failed to upload profile picture",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
   // Handle verification
   const handleVerification = async (type: "email" | "phone") => {
     try {
+      setLoading(true)
+
       // In a real app, you would send a verification request
       // await fetch(`/api/user/verify-${type}`, { method: 'POST' });
 
       setSuccessMessage(`Verification code sent to your ${type}`)
+      toast({
+        title: "Verification Sent",
+        description: `A verification code has been sent to your ${type}`,
+      })
+
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err) {
       setError(`Failed to send verification code to your ${type}. Please try again.`)
-      setTimeout(() => setError(null), 3000)
+      toast({
+        title: "Error",
+        description: `Failed to send verification code to your ${type}`,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
-  // Handle password change
   const handlePasswordChange = () => {
-    // In a real app, you would redirect to password change page
-    window.location.href = "/change-password"
+    // Implement password change logic here
+    console.log("Password change initiated")
   }
 
   // Loading state
@@ -689,7 +779,7 @@ export default function DynamicProfile() {
                   )}
                 </div>
 
-                <div className="border-t pt-4 mt-2">
+                <div className="border-t pt-4">
                   <h3 className="font-medium mb-2">Emergency Contact</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -840,270 +930,246 @@ export default function DynamicProfile() {
           </Card>
         </TabsContent>
 
-        {/* Privacy & Security Tab */}
-        <TabsContent value="privacy">
-          <Card>
-            <CardHeader>
-              <CardTitle>Privacy & Security</CardTitle>
-              <CardDescription>Manage your privacy and security settings</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-6">
-                <div>
-                  <h3 className="font-medium mb-2">Account Verification</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Email Verification</p>
-                        <p className="text-sm text-muted-foreground">
-                          {user.emailVerified ? "Your email is verified" : "Your email is not verified"}
-                        </p>
-                      </div>
-                      {!user.emailVerified && (
-                        <Button variant="outline" onClick={() => handleVerification("email")}>
-                          Verify Email
-                        </Button>
-                      )}
-                      {user.emailVerified && (
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                          Verified
-                        </Badge>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Phone Verification</p>
-                        <p className="text-sm text-muted-foreground">
-                          {user.phoneVerified ? "Your phone is verified" : "Your phone is not verified"}
-                        </p>
-                      </div>
-                      {!user.phoneVerified && (
-                        <Button variant="outline" onClick={() => handleVerification("phone")}>
-                          Verify Phone
-                        </Button>
-                      )}
-                      {user.phoneVerified && (
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                          Verified
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-2">Two-Factor Authentication</h3>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Add an extra layer of security to your account</p>
-                    </div>
-                    <Switch
-                      id="twoFactorEnabled"
-                      checked={user.twoFactorEnabled || false}
-                      onCheckedChange={(checked) => handleToggleChange("twoFactorEnabled", checked)}
-                    />
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-2">Data Privacy</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label htmlFor="dataSharing" className="font-medium">
-                          Data Sharing
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Allow sharing your data with healthcare providers
-                        </p>
-                      </div>
-                      <Switch
-                        id="dataSharing"
-                        checked={user.dataSharing || false}
-                        onCheckedChange={(checked) => handleToggleChange("dataSharing", checked)}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label htmlFor="anonymousDataCollection" className="font-medium">
-                          Anonymous Data Collection
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Allow anonymous data collection for research purposes
-                        </p>
-                      </div>
-                      <Switch
-                        id="anonymousDataCollection"
-                        checked={user.anonymousDataCollection || false}
-                        onCheckedChange={(checked) => handleToggleChange("anonymousDataCollection", checked)}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-2">Security Actions</h3>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={() => (window.location.href = "/login-activity")}>
-                      View Login Activity
-                    </Button>
-                    <Button variant="outline" onClick={() => (window.location.href = "/security-log")}>
-                      Security Log
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         {/* Activity Tab */}
         <TabsContent value="activity">
-          <Card>
-            <CardHeader>
-              <CardTitle>Activity</CardTitle>
-              <CardDescription>View your recent activity and assessments</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-6">
-                <div>
-                  <h3 className="font-medium mb-2">Recent Heart Health Assessments</h3>
-                  {user.recentAssessments && user.recentAssessments.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-2 px-4">Date</th>
-                            <th className="text-left py-2 px-4">Score</th>
-                            <th className="text-left py-2 px-4">Risk Level</th>
-                            <th className="text-left py-2 px-4">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {user.recentAssessments.map((assessment) => (
-                            <tr key={assessment.id} className="border-b">
-                              <td className="py-2 px-4">{assessment.date}</td>
-                              <td className="py-2 px-4">{assessment.score}</td>
-                              <td className="py-2 px-4">
-                                <Badge
-                                  variant={
-                                    assessment.riskLevel === "Low"
-                                      ? "outline"
-                                      : assessment.riskLevel === "Moderate"
-                                        ? "secondary"
-                                        : "destructive"
-                                  }
-                                >
-                                  {assessment.riskLevel}
-                                </Badge>
-                              </td>
-                              <td className="py-2 px-4">
-                                <Button variant="link" className="p-0 h-auto">
-                                  View Details
-                                </Button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">No recent assessments found.</p>
-                  )}
+          <div className="space-y-6">
+            {/* Recent Health Assessments */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-5 h-5 mr-2"
+                  >
+                    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+                  </svg>
+                  <CardTitle>Recent Health Assessments</CardTitle>
                 </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-2">Upcoming Appointments</h3>
-                  {user.appointments && user.appointments.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-2 px-4">Date</th>
-                            <th className="text-left py-2 px-4">Doctor</th>
-                            <th className="text-left py-2 px-4">Purpose</th>
-                            <th className="text-left py-2 px-4">Actions</th>
+              </CardHeader>
+              <CardContent>
+                {profileData.recentAssessments && profileData.recentAssessments.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 px-4">Date</th>
+                          <th className="text-left py-2 px-4">Score</th>
+                          <th className="text-left py-2 px-4">Risk Level</th>
+                          <th className="text-left py-2 px-4">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {profileData.recentAssessments.map((assessment: any) => (
+                          <tr key={assessment.id} className="border-b">
+                            <td className="py-2 px-4">{new Date(assessment.date).toLocaleDateString()}</td>
+                            <td className="py-2 px-4">{assessment.score}</td>
+                            <td className="py-2 px-4">
+                              <Badge
+                                variant={
+                                  assessment.riskLevel === "Low"
+                                    ? "outline"
+                                    : assessment.riskLevel === "Moderate"
+                                      ? "secondary"
+                                      : "destructive"
+                                }
+                              >
+                                {assessment.riskLevel}
+                              </Badge>
+                            </td>
+                            <td className="py-2 px-4">
+                              <Button variant="link" className="p-0 h-auto">
+                                View Details
+                              </Button>
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {user.appointments.map((appointment) => (
-                            <tr key={appointment.id} className="border-b">
-                              <td className="py-2 px-4">{appointment.date}</td>
-                              <td className="py-2 px-4">{appointment.doctor}</td>
-                              <td className="py-2 px-4">{appointment.purpose}</td>
-                              <td className="py-2 px-4">
-                                <div className="flex gap-2">
-                                  <Button variant="link" className="p-0 h-auto">
-                                    Reschedule
-                                  </Button>
-                                  <Button variant="link" className="p-0 h-auto text-destructive">
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">No upcoming appointments.</p>
-                  )}
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-2">Recent Reports</h3>
-                  {user.reports && user.reports.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-2 px-4">Date</th>
-                            <th className="text-left py-2 px-4">Title</th>
-                            <th className="text-left py-2 px-4">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {user.reports.map((report) => (
-                            <tr key={report.id} className="border-b">
-                              <td className="py-2 px-4">{report.date}</td>
-                              <td className="py-2 px-4">{report.title}</td>
-                              <td className="py-2 px-4">
-                                <div className="flex gap-2">
-                                  <Button variant="link" className="p-0 h-auto">
-                                    View
-                                  </Button>
-                                  <Button variant="link" className="p-0 h-auto">
-                                    Download
-                                  </Button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">No recent reports.</p>
-                  )}
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-2">Activity Actions</h3>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={() => (window.location.href = "/history")}>
-                      View Full History
-                    </Button>
-                    <Button variant="outline" onClick={() => (window.location.href = "/predict")}>
-                      New Assessment
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-10 bg-gray-50 rounded-md">
+                    <p className="text-muted-foreground mb-4">No health assessments found</p>
+                    <Button
+                      variant="link"
+                      className="text-blue-500 hover:text-blue-700"
+                      onClick={() => (window.location.href = "/predict")}
+                    >
+                      Take an assessment
                     </Button>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Heart Health Score Trend */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-5 h-5 mr-2"
+                  >
+                    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                  </svg>
+                  <CardTitle>Heart Health Score Trend</CardTitle>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardHeader>
+              <CardContent>
+                {profileData.heartHealthScores && profileData.heartHealthScores.length > 0 ? (
+                  <div className="h-60">
+                    {/* Chart would go here */}
+                    <p>Score trend visualization would appear here</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-10 bg-gray-50 rounded-md">
+                    <p className="text-muted-foreground mb-2">No heart health scores available</p>
+                    <p className="text-sm text-muted-foreground">Score trend visualization would appear here</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Upcoming Appointments */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-5 h-5 mr-2"
+                  >
+                    <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                    <line x1="16" x2="16" y1="2" y2="6" />
+                    <line x1="8" x2="8" y1="2" y2="6" />
+                    <line x1="3" x2="21" y1="10" y2="10" />
+                  </svg>
+                  <CardTitle>Upcoming Appointments</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {profileData.appointments && profileData.appointments.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 px-4">Date</th>
+                          <th className="text-left py-2 px-4">Doctor</th>
+                          <th className="text-left py-2 px-4">Purpose</th>
+                          <th className="text-left py-2 px-4">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {profileData.appointments.map((appointment: any) => (
+                          <tr key={appointment.id} className="border-b">
+                            <td className="py-2 px-4">{appointment.date}</td>
+                            <td className="py-2 px-4">{appointment.doctor}</td>
+                            <td className="py-2 px-4">{appointment.purpose}</td>
+                            <td className="py-2 px-4">
+                              <div className="flex gap-2">
+                                <Button variant="link" className="p-0 h-auto">
+                                  Reschedule
+                                </Button>
+                                <Button variant="link" className="p-0 h-auto text-destructive">
+                                  Cancel
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-10 bg-gray-50 rounded-md">
+                    <p className="text-muted-foreground mb-4">No upcoming appointments</p>
+                    <Button variant="link" className="text-blue-500 hover:text-blue-700">
+                      Schedule an appointment
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Recent Reports */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-5 h-5 mr-2"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <path d="M14 2v6h6" />
+                    <path d="M16 13H8" />
+                    <path d="M16 17H8" />
+                    <path d="M10 9H8" />
+                  </svg>
+                  <CardTitle>Recent Reports</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {profileData.reports && profileData.reports.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 px-4">Date</th>
+                          <th className="text-left py-2 px-4">Title</th>
+                          <th className="text-left py-2 px-4">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {profileData.reports.map((report: any) => (
+                          <tr key={report.id} className="border-b">
+                            <td className="py-2 px-4">{report.date}</td>
+                            <td className="py-2 px-4">{report.title}</td>
+                            <td className="py-2 px-4">
+                              <div className="flex gap-2">
+                                <Button variant="link" className="p-0 h-auto">
+                                  View
+                                </Button>
+                                <Button variant="link" className="p-0 h-auto">
+                                  Download
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-10 bg-gray-50 rounded-md">
+                    <p className="text-muted-foreground">No reports available</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
