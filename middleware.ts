@@ -24,6 +24,16 @@ const authExemptPaths = ["/admin-login", "/login", "/signup", "/forgot-password"
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // Skip middleware for static files and API routes
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.includes(".") ||
+    pathname.startsWith("/favicon")
+  ) {
+    return NextResponse.next()
+  }
+
   // Skip middleware for auth exempt paths
   if (authExemptPaths.some((path) => pathname.startsWith(path))) {
     return NextResponse.next()
@@ -58,6 +68,10 @@ export async function middleware(request: NextRequest) {
       console.log("No session token, redirecting to login")
       const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
       url.searchParams.set("redirect", pathname)
+
+      // Add a cache-busting parameter to prevent redirect loops
+      url.searchParams.set("t", Date.now().toString())
+
       return NextResponse.redirect(url)
     }
 
@@ -70,6 +84,11 @@ export async function middleware(request: NextRequest) {
         console.log("Invalid session, redirecting to login")
         const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
         url.searchParams.set("redirect", pathname)
+        url.searchParams.set("expired", "true")
+
+        // Add a cache-busting parameter to prevent redirect loops
+        url.searchParams.set("t", Date.now().toString())
+
         return NextResponse.redirect(url)
       }
 
@@ -80,6 +99,10 @@ export async function middleware(request: NextRequest) {
         const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
         url.searchParams.set("redirect", pathname)
         url.searchParams.set("expired", "true")
+
+        // Add a cache-busting parameter to prevent redirect loops
+        url.searchParams.set("t", Date.now().toString())
+
         return NextResponse.redirect(url)
       }
 
@@ -88,10 +111,22 @@ export async function middleware(request: NextRequest) {
         const user = await getUserById(session.user_id)
 
         if (!user || user.role !== "admin") {
-          // User is not an admin, redirect to unauthorized page
+          // User is not an admin, redirecting to unauthorized page
           console.log("User is not an admin, redirecting to unauthorized")
           return NextResponse.redirect(new URL("/unauthorized", request.url))
         }
+
+        // Set the is_admin cookie to avoid repeated DB lookups
+        const response = NextResponse.next()
+        response.cookies.set("is_admin", "true", {
+          httpOnly: false,
+          path: "/",
+          maxAge: 24 * 60 * 60, // 1 day
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+        })
+
+        return response
       }
 
       // Session is valid, continue
@@ -101,6 +136,10 @@ export async function middleware(request: NextRequest) {
       // Error occurred, redirect to login
       const url = new URL(isAdminRequired ? "/admin-login" : "/login", request.url)
       url.searchParams.set("redirect", pathname)
+
+      // Add a cache-busting parameter to prevent redirect loops
+      url.searchParams.set("t", Date.now().toString())
+
       return NextResponse.redirect(url)
     }
   }
@@ -111,18 +150,5 @@ export async function middleware(request: NextRequest) {
 
 // Configure the middleware to run only on specific paths
 export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/profile/:path*",
-    "/settings/:path*",
-    "/admin/:path*",
-    "/predict/results/:path*",
-    // "/history/:path*" - Removed from matcher
-    // Include the public access paths in the matcher
-    "/home/:path*",
-    "/predict/:path*",
-    "/history/:path*",
-    "/about/:path*",
-    "/how-it-works/:path*",
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 }

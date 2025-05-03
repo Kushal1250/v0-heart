@@ -1,5 +1,6 @@
 import crypto from "crypto"
 import { db } from "./db"
+import jwt from "jsonwebtoken"
 
 /**
  * Generate a random token
@@ -98,3 +99,32 @@ export async function verifyPasswordResetToken(token: string): Promise<string | 
     return null
   }
 }
+
+/**
+ * Verify a JWT token
+ * @param token The JWT token to verify
+ * @returns The decoded token payload or null if invalid
+ */
+export function verifyJwtToken(token: string): any {
+  try {
+    const secret = process.env.JWT_SECRET_KEY || "default_jwt_secret_key"
+    const decoded = jwt.verify(token, secret)
+    return decoded
+  } catch (error) {
+    console.error("Error verifying JWT token:", error)
+    return null
+  }
+}
+
+/**
+ * Generate a JWT token
+ * @param payload The data to encode in the token
+ * @param expiresIn Expiration time (e.g., '1h', '7d')
+ * @returns The generated JWT token
+ */
+export function generateJwtToken(payload: any, expiresIn = "24h"): string {
+  const secret = process.env.JWT_SECRET_KEY || "default_jwt_secret_key"
+  return jwt.sign(payload, secret, { expiresIn })
+}
+
+export * from "./token-utils"
