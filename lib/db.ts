@@ -167,54 +167,6 @@ export async function getUserById(id: string) {
   }
 }
 
-/**
- * Get user profile data by user ID
- * @param userId User ID
- * @returns User profile data or null if not found
- */
-export async function getUserProfile(userId: string) {
-  try {
-    if (!userId) {
-      console.error("getUserProfile called with empty ID")
-      throw new Error("User ID is required")
-    }
-
-    console.log(`getUserProfile - Fetching profile for user ID: ${userId}`)
-
-    const users = await sql`
-      SELECT id, email, name, phone, role, created_at, profile_picture
-      FROM users
-      WHERE id = ${userId}
-    `
-
-    if (users.length === 0) {
-      console.log(`getUserProfile - No profile found for user ID: ${userId}`)
-      return null
-    }
-
-    // Get the user's predictions count
-    const predictionsCountResult = await sql`
-      SELECT COUNT(*) as count
-      FROM predictions
-      WHERE user_id = ${userId}
-    `
-
-    const predictionsCount = predictionsCountResult[0]?.count || 0
-
-    // Combine user data with predictions count
-    const userProfile = {
-      ...users[0],
-      predictionsCount,
-    }
-
-    console.log(`getUserProfile - Successfully retrieved profile for user ID: ${userId}`)
-    return userProfile
-  } catch (error) {
-    console.error(`Database error in getUserProfile for ID ${userId}:`, error)
-    throw new Error(`Failed to get user profile: ${error instanceof Error ? error.message : "Unknown error"}`)
-  }
-}
-
 export async function createUser(email: string, password: string, name: string, phone = "") {
   try {
     const hashedPassword = await hash(password, 10)
@@ -559,74 +511,6 @@ export async function updateUserProfile(
 }
 
 /**
- * Updates a user's phone number
- * @param userId User ID
- * @param phone New phone number
- * @returns Success status
- */
-export async function updateUserPhone(userId: string, phone: string) {
-  try {
-    if (!userId || !phone) {
-      throw new Error("User ID and phone number are required to update phone number")
-    }
-
-    console.log(`Updating phone number for user ID: ${userId} to: ${phone}`)
-
-    const result = await sql`
-      UPDATE users 
-      SET phone = ${phone} 
-      WHERE id = ${userId}
-      RETURNING id, name, email, phone, role
-    `
-
-    if (result.length === 0) {
-      console.log(`No user found with ID: ${userId}`)
-      return false
-    }
-
-    console.log(`Successfully updated phone number for user ID: ${userId}`)
-    return true
-  } catch (error) {
-    console.error("Database error in updateUserPhone:", error)
-    throw new Error(`Failed to update phone number: ${error instanceof Error ? error.message : "Unknown error"}`)
-  }
-}
-
-/**
- * Update a user's profile picture
- * @param userId User ID
- * @param profilePicture Profile picture URL
- * @returns Updated user object or null
- */
-export async function updateUserProfilePicture(userId: string, profilePicture: string) {
-  try {
-    if (!userId || !profilePicture) {
-      throw new Error("User ID and profile picture are required to update profile picture")
-    }
-
-    console.log(`Updating profile picture for user ID: ${userId}`)
-
-    const users = await sql`
-      UPDATE users
-      SET profile_picture = ${profilePicture}
-      WHERE id = ${userId}
-      RETURNING id, name, email, phone, role, profile_picture
-    `
-
-    if (users.length === 0) {
-      console.log(`No user found with ID: ${userId}`)
-      return null
-    }
-
-    console.log(`Successfully updated profile picture for user ID: ${userId}`)
-    return users[0]
-  } catch (error) {
-    console.error("Error updating user profile picture:", error)
-    return null
-  }
-}
-
-/**
  * Verify an OTP code for a user
  * @param userId User ID or email
  * @param otp Verification code
@@ -802,7 +686,7 @@ export async function createVerificationCode(identifier: string, code: string) {
 
     // Delete any existing codes for this identifier
     try {
-      await deleteVerificationCodes(identifier)
+      await sql`DELETE FROM verification_codes WHERE user_id = ${identifier}`
       console.log(`Deleted existing verification codes for ${identifier}`)
     } catch (deleteError) {
       console.error("Error deleting existing verification codes:", deleteError)
@@ -882,17 +766,43 @@ export async function getVerificationCode(identifier: string) {
 }
 
 /**
- * Delete a verification code by ID
- * @param id Verification code ID
- * @returns Success status
+ * Verify a code for a user
+ * @param userId User ID
+ * @param code Verification code
+ * @returns Boolean indicating if the code is valid
  */
-export async function deleteVerificationCode(id: string): Promise<boolean> {
+export async function verifyCode(userId: string, code: string) {
   try {
-    if (!id) {
-      throw new Error("Verification code ID is required to delete verification code")
+    if (!userId || !code) {
+      throw new Error("User ID and code are required to verify code")
     }
 
-    await sql`DELETE FROM verification_codes WHERE id = ${id}`
+    const result = await sql`
+     SELECT * FROM verification_codes
+     WHERE user_id = ${userId}
+     AND code = ${code}
+     AND expires_at > NOW()
+   `
+
+    return result.length > 0
+  } catch (error) {
+    console.error("Database error in verifyCode:", error)
+    throw new Error(`Failed to verify code: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
+ * Deletes a verification code
+ * @param identifier User ID, email, or phone
+ */
+export async function deleteVerificationCode(identifier: string) {
+  try {
+    if (!identifier) {
+      throw new Error("Identifier is required to delete verification code")
+    }
+
+    await sql`DELETE FROM verification_codes WHERE user_id = ${identifier}`
+    console.log(`Deleted verification code for identifier: ${identifier}`)
     return true
   } catch (error) {
     console.error("Database error in deleteVerificationCode:", error)
@@ -901,22 +811,46 @@ export async function deleteVerificationCode(id: string): Promise<boolean> {
 }
 
 /**
- * Delete all verification codes for a user
+ * Updates a user's phone number
  * @param userId User ID
- * @returns Success status
+ * @param phone New phone number
  */
-export async function deleteVerificationCodes(userId: string): Promise<boolean> {
+export async function updateUserPhone(userId: string, phone: string) {
   try {
-    if (!userId) {
-      throw new Error("User ID is required to delete verification codes")
+    if (!userId || !phone) {
+      throw new Error("User ID and phone number are required to update phone number")
     }
 
-    await sql`DELETE FROM verification_codes WHERE user_id = ${userId}`
+    await sql`UPDATE users SET phone = ${phone} WHERE id = ${userId}`
     return true
   } catch (error) {
-    console.error("Database error in deleteVerificationCodes:", error)
-    throw new Error(`Failed to delete verification codes: ${error instanceof Error ? error.message : "Unknown error"}`)
+    console.error("Database error in updateUserPhone:", error)
+    throw new Error(`Failed to update phone number: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
 
-export * from "./db-utils"
+/**
+ * Update a user's profile picture
+ * @param userId User ID
+ * @param profilePicture Profile picture URL
+ * @returns Updated user object or null
+ */
+export async function updateUserProfilePicture(userId: string, profilePicture: string) {
+  try {
+    if (!userId || !profilePicture) {
+      throw new Error("User ID and profile picture are required to update profile picture")
+    }
+
+    const users = await sql`
+     UPDATE users
+     SET profile_picture = ${profilePicture}
+     WHERE id = ${userId}
+     RETURNING id, name, email, phone, role, profile_picture
+   `
+
+    return users[0]
+  } catch (error) {
+    console.error("Error updating user profile picture:", error)
+    return null
+  }
+}

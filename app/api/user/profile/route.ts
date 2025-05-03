@@ -1,73 +1,66 @@
-import { NextResponse } from "next/server"
-import { getUserFromRequest } from "@/lib/auth-utils"
-import { getUserProfile, updateUserProfile } from "@/lib/db"
+import { type NextRequest, NextResponse } from "next/server"
+import { getCurrentUser } from "@/lib/auth-utils"
+import { getUserById, updateUserProfile } from "@/lib/db"
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    console.log("GET /api/user/profile - Fetching user profile")
+    console.log("GET /api/user/profile - Starting request")
+    const currentUser = await getCurrentUser()
 
-    // Get the user from the request
-    const user = await getUserFromRequest(request)
-
-    if (!user) {
-      console.log("GET /api/user/profile - No authenticated user found")
+    if (!currentUser) {
+      console.log("GET /api/user/profile - No current user found")
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    console.log(`GET /api/user/profile - Found user: ${user.email}`)
+    console.log(`GET /api/user/profile - Fetching user with ID: ${currentUser.id}`)
+    const user = await getUserById(currentUser.id)
 
-    // Get the user profile
-    const profile = await getUserProfile(user.id)
-
-    if (!profile) {
-      console.log(`GET /api/user/profile - No profile found for user: ${user.id}`)
-      // Return the basic user info if no profile exists
-      return NextResponse.json({
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        created_at: new Date().toISOString(), // Fallback
-        profile_picture: null,
-        phone: null,
-      })
+    if (!user) {
+      console.log(`GET /api/user/profile - User with ID ${currentUser.id} not found`)
+      return NextResponse.json({ message: "User not found" }, { status: 404 })
     }
 
-    console.log(`GET /api/user/profile - Successfully retrieved profile for user: ${user.id}`)
+    console.log(`GET /api/user/profile - Successfully retrieved user data for ID: ${currentUser.id}`)
 
-    // Return the user profile
-    return NextResponse.json({
-      id: user.id,
-      email: user.email,
-      name: user.name || profile.name,
-      role: user.role,
-      created_at: profile.created_at || new Date().toISOString(),
-      profile_picture: profile.profile_picture || null,
-      phone: profile.phone || null,
-    })
+    // Return user data without sensitive information
+    return NextResponse.json(
+      {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        created_at: user.created_at,
+        profile_picture: user.profile_picture,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
+    )
   } catch (error) {
-    console.error("Error in GET /api/user/profile:", error)
-    return NextResponse.json({ message: "An error occurred while fetching the user profile" }, { status: 500 })
+    console.error("Error fetching user profile:", error)
+    return NextResponse.json({ message: "Failed to fetch user profile" }, { status: 500 })
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
-    console.log("PUT /api/user/profile - Updating user profile")
+    console.log("PUT /api/user/profile - Starting request")
+    const currentUser = await getCurrentUser()
 
-    // Get the user from the request
-    const user = await getUserFromRequest(request)
-
-    if (!user) {
-      console.log("PUT /api/user/profile - No authenticated user found")
+    if (!currentUser) {
+      console.log("PUT /api/user/profile - No current user found")
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    // Parse the request body
     const data = await request.json()
-    console.log(`PUT /api/user/profile - Received data for user ${user.id}:`, data)
+    console.log(`PUT /api/user/profile - Received data:`, data)
 
-    // Validate the data
+    // Validate input data
     if (data.name && typeof data.name !== "string") {
       return NextResponse.json({ message: "Invalid name format" }, { status: 400 })
     }
@@ -76,20 +69,21 @@ export async function PUT(request: Request) {
       return NextResponse.json({ message: "Invalid phone format" }, { status: 400 })
     }
 
-    // Update the user profile
-    const updatedUser = await updateUserProfile(user.id, {
+    // Update user profile
+    console.log(`PUT /api/user/profile - Updating user with ID: ${currentUser.id}`)
+    const updatedUser = await updateUserProfile(currentUser.id, {
       name: data.name,
       phone: data.phone,
     })
 
     if (!updatedUser) {
-      console.log(`PUT /api/user/profile - Failed to update profile for user: ${user.id}`)
+      console.log(`PUT /api/user/profile - Failed to update user with ID: ${currentUser.id}`)
       return NextResponse.json({ message: "Failed to update profile" }, { status: 500 })
     }
 
-    console.log(`PUT /api/user/profile - Successfully updated profile for user: ${user.id}`)
+    console.log(`PUT /api/user/profile - Successfully updated user with ID: ${currentUser.id}`)
 
-    // Return the updated user data
+    // Return updated user data
     return NextResponse.json({
       id: updatedUser.id,
       name: updatedUser.name,
@@ -97,7 +91,7 @@ export async function PUT(request: Request) {
       phone: updatedUser.phone,
     })
   } catch (error) {
-    console.error("Error in PUT /api/user/profile:", error)
-    return NextResponse.json({ message: "An error occurred while updating the user profile" }, { status: 500 })
+    console.error("Error updating user profile:", error)
+    return NextResponse.json({ message: "Failed to update user profile" }, { status: 500 })
   }
 }
