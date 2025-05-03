@@ -50,9 +50,22 @@ export default function LoginPage() {
     e.preventDefault()
     setError("")
 
-    // Validate phone number is provided
-    if (!phone.trim()) {
+    // Validate phone number is provided and in correct format
+    if (!phone || phone.trim() === "") {
       setError("Phone number is required")
+      return
+    }
+
+    // Make sure the phone number starts with a plus sign for international format
+    if (!phone.startsWith("+")) {
+      setError("Phone number must include country code (e.g., +1)")
+      return
+    }
+
+    // Ensure the phone number contains only valid characters
+    const phoneDigits = phone.replace(/\D/g, "")
+    if (phoneDigits.length < 10) {
+      setError("Phone number must have at least 10 digits")
       return
     }
 
