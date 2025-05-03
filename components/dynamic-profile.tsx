@@ -12,7 +12,21 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { AlertCircle, CheckCircle, Edit, Save, Upload, X, User, Mail, Phone } from "lucide-react"
+import {
+  AlertCircle,
+  CheckCircle,
+  Edit,
+  Save,
+  Upload,
+  X,
+  User,
+  Mail,
+  Phone,
+  Heart,
+  TrendingUp,
+  CalendarIcon,
+  FileText,
+} from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Switch } from "@/components/ui/switch"
 import { useAuth } from "@/lib/auth-context"
@@ -60,6 +74,8 @@ export function DynamicProfile() {
     phoneVerified: false,
     dataSharing: true,
     anonymousDataCollection: true,
+    appointments: [],
+    reports: [],
   })
 
   // Fetch user data
@@ -136,6 +152,41 @@ export function DynamicProfile() {
         } catch (predictionsError) {
           console.error("Error fetching predictions data:", predictionsError)
         }
+
+        // Mock data for appointments and reports
+        const mockAppointments = [
+          {
+            id: 1,
+            date: new Date(),
+            doctor: "Dr. Smith",
+            purpose: "Checkup",
+          },
+          {
+            id: 2,
+            date: new Date(Date.now() + 86400000), // Tomorrow
+            doctor: "Dr. Jones",
+            purpose: "Follow-up",
+          },
+        ]
+
+        const mockReports = [
+          {
+            id: 1,
+            date: new Date(),
+            title: "Blood Test Results",
+          },
+          {
+            id: 2,
+            date: new Date(Date.now() - 86400000), // Yesterday
+            title: "Cardiologist Report",
+          },
+        ]
+
+        setProfileData((prev) => ({
+          ...prev,
+          appointments: mockAppointments,
+          reports: mockReports,
+        }))
       } catch (err) {
         console.error("Error fetching user data:", err)
         setError("Failed to load profile data. Please try again later.")
@@ -1011,68 +1062,184 @@ export function DynamicProfile() {
             <CardContent>
               <div className="grid gap-6">
                 <div>
-                  <h3 className="font-medium mb-2">Recent Heart Health Assessments</h3>
-                  {profileData.recentAssessments && profileData.recentAssessments.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-2 px-4">Date</th>
-                            <th className="text-left py-2 px-4">Score</th>
-                            <th className="text-left py-2 px-4">Risk Level</th>
-                            <th className="text-left py-2 px-4">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {profileData.recentAssessments.map((assessment: any) => (
-                            <tr key={assessment.id} className="border-b">
-                              <td className="py-2 px-4">{format(new Date(assessment.date), "MMM d, yyyy")}</td>
-                              <td className="py-2 px-4">{assessment.score}</td>
-                              <td className="py-2 px-4">
-                                <Badge
-                                  variant={
-                                    assessment.riskLevel === "Low"
-                                      ? "outline"
-                                      : assessment.riskLevel === "Moderate"
-                                        ? "secondary"
-                                        : "destructive"
-                                  }
-                                >
-                                  {assessment.riskLevel}
-                                </Badge>
-                              </td>
-                              <td className="py-2 px-4">
-                                <Button
-                                  variant="link"
-                                  className="p-0 h-auto"
-                                  onClick={() => (window.location.href = `/predict/results/${assessment.id}`)}
-                                >
-                                  View Details
-                                </Button>
-                              </td>
+                  <h3 className="text-lg font-medium flex items-center gap-2 mb-4">
+                    <Heart className="h-5 w-5" /> Recent Health Assessments
+                  </h3>
+
+                  <div className="bg-gray-50 border border-gray-100 rounded-md p-8">
+                    {profileData.recentAssessments && profileData.recentAssessments.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 px-4">Date</th>
+                              <th className="text-left py-2 px-4">Score</th>
+                              <th className="text-left py-2 px-4">Risk Level</th>
+                              <th className="text-left py-2 px-4">Actions</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 bg-gray-50 rounded-md border border-gray-200">
-                      <p className="text-muted-foreground">No recent assessments found.</p>
-                      <Button variant="link" className="mt-2" onClick={() => (window.location.href = "/predict")}>
-                        Take an assessment
-                      </Button>
-                    </div>
-                  )}
+                          </thead>
+                          <tbody>
+                            {profileData.recentAssessments.map((assessment: any) => (
+                              <tr key={assessment.id} className="border-b">
+                                <td className="py-2 px-4">{format(new Date(assessment.date), "MMM d, yyyy")}</td>
+                                <td className="py-2 px-4">{assessment.score}</td>
+                                <td className="py-2 px-4">
+                                  <Badge
+                                    variant={
+                                      assessment.riskLevel === "Low"
+                                        ? "outline"
+                                        : assessment.riskLevel === "Moderate"
+                                          ? "secondary"
+                                          : "destructive"
+                                    }
+                                  >
+                                    {assessment.riskLevel}
+                                  </Badge>
+                                </td>
+                                <td className="py-2 px-4">
+                                  <Button
+                                    variant="link"
+                                    className="p-0 h-auto"
+                                    onClick={() => (window.location.href = `/predict/results/${assessment.id}`)}
+                                  >
+                                    View Details
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-muted-foreground mb-4">No health assessments found</p>
+                        <Button
+                          variant="link"
+                          className="text-primary"
+                          onClick={() => (window.location.href = "/predict")}
+                        >
+                          Take an assessment
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="border-t pt-4">
-                  <h3 className="font-medium mb-2">Activity Actions</h3>
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-medium flex items-center gap-2 mb-4">
+                    <TrendingUp className="h-5 w-5" /> Heart Health Score Trend
+                  </h3>
+
+                  <div className="bg-gray-50 border border-gray-100 rounded-md p-8">
+                    {profileData.heartHealthScores && profileData.heartHealthScores.length > 0 ? (
+                      <div className="h-48">
+                        {/* Here you would add a chart component */}
+                        <p>Chart would be displayed here</p>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-muted-foreground">No heart health scores available</p>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Score trend visualization would appear here
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-medium flex items-center gap-2 mb-4">
+                    <CalendarIcon className="h-5 w-5" /> Upcoming Appointments
+                  </h3>
+
+                  <div className="bg-gray-50 border border-gray-100 rounded-md p-8">
+                    {profileData.appointments && profileData.appointments.length > 0 ? (
+                      <div className="space-y-4">
+                        {profileData.appointments.map((appointment: any) => (
+                          <div key={appointment.id} className="bg-white p-4 rounded-md border border-gray-200">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-medium">{appointment.purpose}</p>
+                                <p className="text-sm text-muted-foreground">With {appointment.doctor}</p>
+                                <p className="text-sm font-medium mt-2">
+                                  {format(new Date(appointment.date), "MMMM d, yyyy")} at{" "}
+                                  {format(new Date(appointment.date), "h:mm a")}
+                                </p>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="sm">
+                                  Reschedule
+                                </Button>
+                                <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-muted-foreground mb-4">No upcoming appointments</p>
+                        <Button
+                          variant="link"
+                          className="text-primary"
+                          onClick={() => (window.location.href = "/appointments/schedule")}
+                        >
+                          Schedule an appointment
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-medium flex items-center gap-2 mb-4">
+                    <FileText className="h-5 w-5" /> Recent Reports
+                  </h3>
+
+                  <div className="bg-gray-50 border border-gray-100 rounded-md p-8">
+                    {profileData.reports && profileData.reports.length > 0 ? (
+                      <div className="space-y-3">
+                        {profileData.reports.map((report: any) => (
+                          <div
+                            key={report.id}
+                            className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200"
+                          >
+                            <div className="flex items-center gap-3">
+                              <FileText className="h-5 w-5 text-blue-600" />
+                              <div>
+                                <p className="font-medium">{report.title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(new Date(report.date), "MMMM d, yyyy")}
+                                </p>
+                              </div>
+                            </div>
+                            <Button variant="outline" size="sm">
+                              Download
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-muted-foreground">No reports available</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-medium mb-4">Activity Actions</h3>
                   <div className="flex flex-wrap gap-2">
                     <Button variant="outline" onClick={() => (window.location.href = "/history")}>
                       View Full History
                     </Button>
                     <Button variant="outline" onClick={() => (window.location.href = "/predict")}>
                       New Assessment
+                    </Button>
+                    <Button variant="outline" onClick={() => (window.location.href = "/appointments/schedule")}>
+                      Schedule Appointment
                     </Button>
                   </div>
                 </div>
