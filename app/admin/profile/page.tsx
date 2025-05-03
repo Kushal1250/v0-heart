@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/components/ui/use-toast"
 import { User, Mail, Shield, Key, Clock, AlertCircle, CheckCircle2, Save, X, Edit, Phone } from "lucide-react"
+import DebugSession from "@/components/debug-session"
 
 export default function AdminProfilePage() {
   const { user, isLoading } = useAuth()
@@ -39,29 +40,56 @@ export default function AdminProfilePage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/admin-login")
-    } else if (user) {
-      fetchAdminProfile()
+  // Add this function before the fetchAdminProfile function
+  const refreshAuthToken = async () => {
+    try {
+      const response = await fetch("/api/auth/refresh-session", {
+        method: "POST",
+        credentials: "include",
+      })
+
+      if (response.ok) {
+        console.log("Session refreshed successfully")
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error("Error refreshing session:", error)
+      return false
     }
-  }, [user, isLoading, router])
+  }
 
   const fetchAdminProfile = async () => {
     try {
+      setError("")
+      console.log("Fetching admin profile data...")
+
       const response = await fetch("/api/user/profile", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
+        // Add cache: 'no-store' to prevent caching issues
+        cache: "no-store",
       })
 
+      console.log("Profile fetch response status:", response.status)
+
+      if (response.status === 401) {
+        console.log("Unauthorized - redirecting to login")
+        router.push("/admin-login?redirect=/admin/profile")
+        return
+      }
+
       if (!response.ok) {
-        throw new Error("Failed to fetch profile data")
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Error response:", errorData)
+        throw new Error(errorData.message || "Failed to fetch profile data")
       }
 
       const data = await response.json()
+      console.log("Profile data retrieved successfully")
       setProfileData(data)
       setFormData({
         name: data.name || "",
@@ -70,9 +98,24 @@ export default function AdminProfilePage() {
       })
     } catch (error) {
       console.error("Error fetching profile:", error)
-      setError("Failed to load profile data. Please try again later.")
+      setError(`Failed to load profile data. ${error instanceof Error ? error.message : "Please try again later."}`)
     }
   }
+
+  // Modify the useEffect to first try refreshing the token
+  useEffect(() => {
+    if (!isLoading && !user) {
+      refreshAuthToken().then((refreshed) => {
+        if (refreshed) {
+          fetchAdminProfile()
+        } else {
+          router.push("/admin-login?redirect=/admin/profile")
+        }
+      })
+    } else if (user) {
+      fetchAdminProfile()
+    }
+  }, [user, isLoading, router])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -174,7 +217,12 @@ export default function AdminProfilePage() {
             <Alert variant="destructive" className="mb-6">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription className="flex items-center justify-between">
+                <span>{error}</span>
+                <Button variant="outline" size="sm" onClick={fetchAdminProfile} className="ml-2">
+                  Try Again
+                </Button>
+              </AlertDescription>
             </Alert>
           )}
 
@@ -407,6 +455,7 @@ export default function AdminProfilePage() {
           </Button>
         </CardFooter>
       </Card>
+      {process.env.NODE_ENV !== "production" && <DebugSession />}
     </div>
   )
 }

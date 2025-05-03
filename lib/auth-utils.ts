@@ -77,6 +77,7 @@ export async function getCurrentUser(): Promise<{
       return null
     }
 
+    console.log("Found session token, retrieving session")
     const session = await getSessionByToken(token)
 
     if (!session) {
@@ -84,17 +85,60 @@ export async function getCurrentUser(): Promise<{
       return null
     }
 
+    console.log(`Session found for user ID: ${session.user_id}`)
     const user = await getUserById(session.user_id)
 
     if (!user) {
-      console.log("No user found for session user_id")
+      console.log(`No user found for session user_id: ${session.user_id}`)
       return null
     }
 
+    console.log(`Successfully retrieved user: ${user.email}`)
     return user
   } catch (error) {
     console.error("Error getting current user:", error)
     return null
+  }
+}
+
+/**
+ * Debug function to check session token status
+ */
+export async function debugSessionToken(): Promise<{
+  hasToken: boolean
+  isValidToken: boolean
+  userFound: boolean
+  userId?: string
+  userEmail?: string
+}> {
+  try {
+    const token = getSessionToken()
+    const hasToken = !!token
+
+    if (!token) {
+      return { hasToken: false, isValidToken: false, userFound: false }
+    }
+
+    const session = await getSessionByToken(token)
+    const isValidToken = !!session
+
+    if (!session) {
+      return { hasToken: true, isValidToken: false, userFound: false }
+    }
+
+    const user = await getUserById(session.user_id)
+    const userFound = !!user
+
+    return {
+      hasToken,
+      isValidToken,
+      userFound,
+      userId: session.user_id,
+      userEmail: user?.email,
+    }
+  } catch (error) {
+    console.error("Error in debugSessionToken:", error)
+    return { hasToken: false, isValidToken: false, userFound: false }
   }
 }
 
