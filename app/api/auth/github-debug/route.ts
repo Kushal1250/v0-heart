@@ -1,29 +1,49 @@
-import { NextResponse } from "next/server"
-import { getProviderConfig } from "@/lib/social-auth"
-import { getBaseUrl } from "@/lib/oauth-config"
+import { type NextRequest, NextResponse } from "next/server"
+import { getProviderConfig, getBaseUrl } from "@/lib/social-auth"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const config = getProviderConfig("github")
     const baseUrl = getBaseUrl()
 
+    // Get environment information
+    const envInfo = {
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL_URL: process.env.VERCEL_URL,
+      NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+      baseUrl,
+    }
+
+    // Get GitHub configuration (redact secrets)
+    const githubConfig = {
+      clientId: config.clientId ? `${config.clientId.substring(0, 4)}...` : "Missing",
+      clientSecret: config.clientSecret ? "Present (redacted)" : "Missing",
+      redirectUri: config.redirectUri,
+      authUrl: config.authUrl,
+      tokenUrl: config.tokenUrl,
+      userUrl: config.userUrl,
+      emailUrl: config.emailUrl,
+      scope: config.scope,
+    }
+
     // Return debug information
     return NextResponse.json({
-      baseUrl,
-      redirectUri: config.redirectUri,
-      clientIdConfigured: Boolean(config.clientId),
-      clientSecretConfigured: Boolean(config.clientSecret),
-      environment: process.env.NODE_ENV,
-      vercelUrl: process.env.VERCEL_URL || null,
-      appUrl: process.env.NEXT_PUBLIC_APP_URL || null,
-      possibleRedirectUris: [
-        `${baseUrl}/api/auth/github/callback`,
-        "https://heartgudie3.vercel.app/api/auth/github/callback",
-        "http://localhost:3000/api/auth/github/callback",
-      ],
+      timestamp: new Date().toISOString(),
+      environment: envInfo,
+      githubConfig,
+      cookies: {
+        hasGithubState: !!request.cookies.get("github_oauth_state"),
+        hasAuthToken: !!request.cookies.get("auth_token"),
+      },
     })
-  } catch (error) {
-    console.error("Error getting GitHub debug info:", error)
-    return NextResponse.json({ error: "Failed to get GitHub debug info" }, { status: 500 })
+  } catch (error: any) {
+    return NextResponse.json(
+      {
+        error: "Debug error",
+        message: error.message,
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      },
+      { status: 500 },
+    )
   }
 }
