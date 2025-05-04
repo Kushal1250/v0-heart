@@ -58,3 +58,19 @@ export function getGoogleOAuthConfig() {
     isConfigured: Boolean(clientId && clientSecret),
   }
 }
+
+/**
+ * Gets the GitHub OAuth configuration
+ * Used for initializing the GitHub OAuth client
+ */
+export function getGitHubOAuthConfig() {
+  const clientId = process.env.GITHUB_CLIENT_ID || ""
+  const clientSecret = process.env.GITHUB_CLIENT_SECRET || ""
+
+  return {
+    clientId,
+    clientSecret,
+    redirectUri: getRedirectUri("github"),
+    isConfigured: Boolean(clientId && clientSecret),
+  }
+}
