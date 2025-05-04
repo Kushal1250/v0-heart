@@ -5,6 +5,7 @@ export async function GET() {
   try {
     const baseUrl = getBaseUrl()
     const redirectUri = `${baseUrl}/api/auth/facebook/callback`
+    const dataDeletionUrl = `${baseUrl}/api/auth/facebook-data-deletion`
 
     // Extract domain from baseUrl
     const url = new URL(baseUrl)
@@ -16,6 +17,7 @@ export async function GET() {
       redirectUri,
       baseUrl,
       domain,
+      dataDeletionUrl,
     })
   } catch (error) {
     console.error("Error checking Facebook OAuth status:", error)
@@ -25,6 +27,7 @@ export async function GET() {
         clientSecret: false,
         redirectUri: "",
         baseUrl: "",
+        dataDeletionUrl: "",
         error: error.message || "Failed to check Facebook OAuth status",
       },
       { status: 500 },

@@ -12,6 +12,7 @@ export default function FacebookOAuthStatusPage() {
     clientSecret: boolean
     redirectUri: string
     baseUrl: string
+    dataDeletionUrl: string
     error?: string
   } | null>(null)
   const [loading, setLoading] = useState(true)
@@ -29,6 +30,7 @@ export default function FacebookOAuthStatusPage() {
           clientSecret: false,
           redirectUri: "",
           baseUrl: "",
+          dataDeletionUrl: "",
           error: error.message || "Failed to check Facebook OAuth status",
         })
       } finally {
@@ -97,6 +99,14 @@ export default function FacebookOAuthStatusPage() {
                 <p className="text-sm text-gray-500 mt-1">Add this domain to your Facebook App's App Domains</p>
               </div>
 
+              <div className="mt-4">
+                <h3 className="font-medium mb-2">Data Deletion Request URL</h3>
+                <div className="bg-gray-100 p-3 rounded-md break-all">{status?.dataDeletionUrl || "Not available"}</div>
+                <p className="text-sm text-gray-500 mt-1">
+                  Add this URL to your Facebook App's Data Deletion Request URL
+                </p>
+              </div>
+
               <div className="mt-6">
                 <h3 className="font-medium mb-2">Setup Instructions</h3>
                 <ol className="list-decimal list-inside space-y-2 text-sm">
@@ -116,6 +126,7 @@ export default function FacebookOAuthStatusPage() {
                   <li>
                     Add your domain to "App Domains" (e.g., <code>vercel.app</code> or your custom domain)
                   </li>
+                  <li>Add the Data Deletion Request URL shown above to the "Data Deletion Request URL" field</li>
                   <li>Go to "Products" &gt; "Facebook Login" &gt; "Settings"</li>
                   <li>Add the exact Redirect URI shown above to "Valid OAuth Redirect URIs"</li>
                   <li>Save changes</li>
