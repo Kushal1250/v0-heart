@@ -55,3 +55,6 @@ export function SessionKeeper() {
   // This component doesn't render anything
   return null
 }
+
+// Add default export
+export default SessionKeeper

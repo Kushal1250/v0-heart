@@ -15,3 +15,6 @@ export function NavigationTracker() {
 
   return null // This component doesn't render anything
 }
+
+// Add default export
+export default NavigationTracker

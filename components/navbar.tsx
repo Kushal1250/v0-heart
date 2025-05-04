@@ -1,9 +1,11 @@
 "use client"
 
+import type React from "react"
+
 import Link from "next/link"
 import { User, UserPlus, LogOut, Menu, X, Bell, LayoutDashboard, Heart, Settings, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useEffect, useState } from "react"
 import { useToast } from "@/components/ui/use-toast"
@@ -19,6 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function Navbar() {
   const pathname = usePathname()
+  const router = useRouter()
   const { user, logout, isLoading } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -82,6 +85,12 @@ export default function Navbar() {
     ]
   }
 
+  // Handle navigation with client-side routing
+  const handleNavigation = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    e.preventDefault()
+    router.push(href)
+  }
+
   return (
     <>
       {showLoginSuccess && (
@@ -95,7 +104,11 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center">
-              <Link href={user ? "/home" : "/"} className="flex items-center">
+              <Link
+                href={user ? "/home" : "/"}
+                className="flex items-center"
+                onClick={(e) => handleNavigation(e, user ? "/home" : "/")}
+              >
                 <Heart className="h-6 w-6 text-red-500 fill-red-500 mr-2" />
                 <span className="font-bold text-xl text-gray-900">HeartPredict</span>
               </Link>
@@ -104,6 +117,7 @@ export default function Navbar() {
                   <Link
                     key={item.name}
                     href={item.href}
+                    onClick={(e) => handleNavigation(e, item.href)}
                     className={`inline-flex items-center px-3 py-2 text-sm font-medium ${
                       pathname === item.href ? "text-blue-600" : "text-gray-500 hover:text-gray-700"
                     }`}
@@ -161,12 +175,15 @@ export default function Navbar() {
                             </div>
                           </DropdownMenuLabel>
                           <div className="px-2 py-2">
-                            {/* Removed Profile Link */}
                             <DropdownMenuItem
                               asChild
                               className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
                             >
-                              <Link href="/dashboard" className="flex items-center">
+                              <Link
+                                href="/dashboard"
+                                onClick={(e) => handleNavigation(e, "/dashboard")}
+                                className="flex items-center"
+                              >
                                 <LayoutDashboard className="mr-2 h-4 w-4" />
                                 <span>Dashboard</span>
                               </Link>
@@ -176,7 +193,11 @@ export default function Navbar() {
                                 asChild
                                 className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
                               >
-                                <Link href="/admin" className="flex items-center">
+                                <Link
+                                  href="/admin"
+                                  onClick={(e) => handleNavigation(e, "/admin")}
+                                  className="flex items-center"
+                                >
                                   <Shield className="mr-2 h-4 w-4" />
                                   <span>Admin</span>
                                 </Link>
@@ -186,7 +207,11 @@ export default function Navbar() {
                               asChild
                               className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
                             >
-                              <Link href="/settings" className="flex items-center">
+                              <Link
+                                href="/settings"
+                                onClick={(e) => handleNavigation(e, "/settings")}
+                                className="flex items-center"
+                              >
                                 <Settings className="mr-2 h-4 w-4" />
                                 <span>Settings</span>
                               </Link>
@@ -223,7 +248,7 @@ export default function Navbar() {
                 ) : (
                   // Non-authenticated user navigation - updated to match the design
                   <div className="flex items-center gap-3">
-                    <Link href="/login">
+                    <Link href="/login" onClick={(e) => handleNavigation(e, "/login")}>
                       <Button
                         variant="outline"
                         size="sm"
@@ -232,7 +257,7 @@ export default function Navbar() {
                         <User className="h-4 w-4 mr-2" /> Login
                       </Button>
                     </Link>
-                    <Link href="/signup">
+                    <Link href="/signup" onClick={(e) => handleNavigation(e, "/signup")}>
                       <Button
                         variant="default"
                         size="sm"
@@ -241,7 +266,7 @@ export default function Navbar() {
                         <UserPlus className="h-4 w-4 mr-2" /> Sign Up
                       </Button>
                     </Link>
-                    <Link href="/admin-login">
+                    <Link href="/admin-login" onClick={(e) => handleNavigation(e, "/admin-login")}>
                       <Button
                         variant="outline"
                         size="sm"
@@ -265,38 +290,49 @@ export default function Navbar() {
                 <Link
                   key={item.name}
                   href={item.href}
+                  onClick={(e) => {
+                    handleNavigation(e, item.href)
+                    setMobileMenuOpen(false)
+                  }}
                   className={`block pl-3 pr-4 py-2 border-l-4 ${
                     pathname === item.href
                       ? "border-primary text-primary bg-primary/5"
                       : "border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
                   } text-base font-medium custom-link`}
-                  onClick={() => setMobileMenuOpen(false)}
                 >
                   {item.name}
                 </Link>
               ))}
               {user && (
                 <>
-                  {/* Removed Profile Link */}
                   <Link
                     href="/dashboard"
+                    onClick={(e) => {
+                      handleNavigation(e, "/dashboard")
+                      setMobileMenuOpen(false)
+                    }}
                     className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"
-                    onClick={() => setMobileMenuOpen(false)}
                   >
                     <LayoutDashboard className="inline h-4 w-4 mr-2" /> Dashboard
                   </Link>
                   <Link
                     href="/settings"
+                    onClick={(e) => {
+                      handleNavigation(e, "/settings")
+                      setMobileMenuOpen(false)
+                    }}
                     className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"
-                    onClick={() => setMobileMenuOpen(false)}
                   >
                     <Settings className="inline h-4 w-4 mr-2" /> Settings
                   </Link>
                   {isAdmin && (
                     <Link
                       href="/admin"
+                      onClick={(e) => {
+                        handleNavigation(e, "/admin")
+                        setMobileMenuOpen(false)
+                      }}
                       className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"
-                      onClick={() => setMobileMenuOpen(false)}
                     >
                       <Shield className="inline h-4 w-4 mr-2" /> Admin
                     </Link>

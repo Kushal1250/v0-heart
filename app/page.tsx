@@ -23,13 +23,16 @@ export default function HomePage() {
                 it's too late.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link href="/signup">
-                  <Button size="lg" className="bg-primary hover:bg-primary/90 text-white btn-hover-effect nav-link">
+                <Link href="/signup" passHref>
+                  <Button
+                    size="lg"
+                    className="bg-primary hover:bg-primary/90 text-white btn-hover-effect nav-link w-full sm:w-auto"
+                  >
                     Get Started <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
-                <Link href="/about">
-                  <Button size="lg" variant="outline" className="btn-hover-effect nav-link">
+                <Link href="/about" passHref>
+                  <Button size="lg" variant="outline" className="btn-hover-effect nav-link w-full sm:w-auto">
                     Learn More
                   </Button>
                 </Link>
@@ -159,13 +162,16 @@ export default function HomePage() {
               Join thousands of users who have already taken the first step towards a healthier heart.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/signup">
-                <Button size="lg" className="bg-primary hover:bg-primary/90 text-white btn-hover-effect">
+              <Link href="/signup" passHref>
+                <Button
+                  size="lg"
+                  className="bg-primary hover:bg-primary/90 text-white btn-hover-effect w-full sm:w-auto"
+                >
                   Create Free Account
                 </Button>
               </Link>
-              <Link href="/login">
-                <Button size="lg" variant="outline" className="btn-hover-effect">
+              <Link href="/login" passHref>
+                <Button size="lg" variant="outline" className="btn-hover-effect w-full sm:w-auto">
                   Sign In
                 </Button>
               </Link>
