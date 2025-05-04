@@ -31,7 +31,6 @@ interface AuthContextType {
     phone: string,
   ) => Promise<{ success: boolean; message: string }>
   logout: () => Promise<void>
-  updateUserProfile: (data: Partial<User>) => void
   updateUserDetails: (details: { name?: string; email?: string }) => void
 }
 
@@ -344,17 +343,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Function to update user profile data in context
-  const updateUserProfile = (data: Partial<User>) => {
-    if (user) {
-      const updatedUser = { ...user, ...data }
-      setUser(updatedUser)
-
-      // Update in localStorage too
-      localStorage.setItem("user", JSON.stringify(updatedUser))
-    }
-  }
-
   const updateUserDetails = (details: { name?: string; email?: string }) => {
     if (user) {
       const updatedUser = { ...user }
@@ -378,7 +366,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         adminLogin,
         signup,
         logout,
-        updateUserProfile,
         updateUserDetails,
       }}
     >
