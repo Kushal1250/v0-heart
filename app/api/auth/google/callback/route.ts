@@ -5,6 +5,8 @@ import { getRedirectUri } from "@/lib/oauth-config"
 
 export async function GET(request: NextRequest) {
   try {
+    console.log("[OAuth] Callback received:", request.url)
+
     const { searchParams } = new URL(request.url)
     const code = searchParams.get("code")
     const state = searchParams.get("state")
@@ -31,13 +33,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/login?error=no_code`)
     }
 
-    // Use the environment-based redirect URI
+    // Use the hardcoded redirect URI
     const redirectUri = getRedirectUri("google")
     console.log("[OAuth] Callback using redirect URI:", redirectUri)
 
     // Exchange code for token
     const clientId = process.env.GOOGLE_CLIENT_ID
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+
+    console.log("[OAuth] Exchanging code for token...")
 
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -58,6 +62,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/login?error=token_exchange`)
     }
 
+    console.log("[OAuth] Token exchange successful")
+
     // Get user info
     const userResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
@@ -70,22 +76,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/login?error=user_data`)
     }
 
+    console.log("[OAuth] User data retrieved successfully")
+
     // Check if user exists
     let user = await getUserByEmail(userData.email)
 
     // Create user if they don't exist
     if (!user) {
+      console.log("[OAuth] Creating new user:", userData.email)
       user = await createUser(
         userData.email,
         generateToken(), // Generate random password for OAuth users
         userData.name,
       )
+    } else {
+      console.log("[OAuth] User already exists:", userData.email)
     }
 
     // Create session
     const token = generateToken()
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
     await createSession(user.id, token, expiresAt)
+
+    console.log("[OAuth] Session created successfully")
 
     // Create response with session cookie
     const response = NextResponse.redirect(`${baseUrl}/dashboard`)

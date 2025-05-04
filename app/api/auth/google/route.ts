@@ -8,11 +8,11 @@ export async function GET(request: NextRequest) {
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      console.error("Missing OAuth credentials")
+      console.error("[OAuth] Missing OAuth credentials")
       return NextResponse.json({ error: "OAuth configuration missing" }, { status: 500 })
     }
 
-    // Use the environment-based redirect URI
+    // Use the hardcoded redirect URI
     const redirectUri = getRedirectUri("google")
     console.log("[OAuth] Using redirect URI:", redirectUri)
 
@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
     authUrl.searchParams.append("scope", "email profile")
     authUrl.searchParams.append("state", state)
     authUrl.searchParams.append("prompt", "select_account")
+
+    console.log("[OAuth] Authorization URL:", authUrl.toString())
 
     // Store state in cookie for validation
     const response = NextResponse.redirect(authUrl.toString())
