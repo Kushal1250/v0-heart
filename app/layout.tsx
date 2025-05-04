@@ -8,9 +8,9 @@ import Navbar from "@/components/navbar"
 import { NavigationTracker } from "@/components/navigation-tracker"
 import { Toaster } from "@/components/ui/toaster"
 import GlobalFooter from "@/components/global-footer"
-// Import the SessionKeeper component
 import { SessionKeeper } from "@/components/session-keeper"
 import { GlobalErrorBoundary } from "@/components/global-error-boundary"
+import { ErrorTrackerInitializer } from "@/components/error-tracker-initializer"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -31,7 +31,34 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        {/* Add fallback script for error detection */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.__HEARTPREDICT_ERRORS = window.__HEARTPREDICT_ERRORS || [];
+              window.addEventListener('error', function(e) {
+                window.__HEARTPREDICT_ERRORS.push({
+                  message: e.message,
+                  filename: e.filename,
+                  lineno: e.lineno,
+                  colno: e.colno,
+                  timestamp: new Date().toISOString()
+                });
+              });
+              window.addEventListener('unhandledrejection', function(e) {
+                window.__HEARTPREDICT_ERRORS.push({
+                  message: e.reason,
+                  type: 'unhandledrejection',
+                  timestamp: new Date().toISOString()
+                });
+              });
+            `,
+          }}
+        />
+      </head>
       <body className={inter.className}>
+        <ErrorTrackerInitializer />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
             <GlobalErrorBoundary>
@@ -46,25 +73,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </GlobalErrorBoundary>
           </AuthProvider>
         </ThemeProvider>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-      // Detect hydration errors
-      window.addEventListener('error', function(event) {
-        if (event.message && event.message.includes('Hydration')) {
-          console.error('Hydration error detected:', event);
-          // You could send this to your analytics or error tracking service
-          
-          // Optional: Force a hard reload if it's a hydration error
-          // if (sessionStorage.getItem('hydrationErrorReload') !== 'true') {
-          //   sessionStorage.setItem('hydrationErrorReload', 'true');
-          //   window.location.reload(true);
-          // }
-        }
-      });
-    `,
-          }}
-        />
       </body>
     </html>
   )
