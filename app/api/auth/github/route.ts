@@ -1,40 +1,21 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getProviderConfig } from "@/lib/social-auth"
+import { getProviderAuthUrl } from "@/lib/social-auth"
 
 export async function GET(request: NextRequest) {
   try {
-    // Get GitHub OAuth configuration
-    const config = getProviderConfig("github")
+    // Log the request URL for debugging
+    console.log("GitHub OAuth request URL:", request.url)
 
-    // Verify configuration
-    if (!config.clientId || !config.clientSecret) {
-      console.error("GitHub OAuth credentials missing")
-      return NextResponse.redirect(new URL("/signup?error=github_config_missing", request.url))
-    }
+    // Get the authorization URL
+    const authUrl = getProviderAuthUrl("github")
 
-    // Generate a state parameter for CSRF protection
-    const state = Math.random().toString(36).substring(2, 15)
+    // Log the authorization URL for debugging
+    console.log("GitHub authorization URL:", authUrl)
 
-    // Store state in a cookie for verification
-    const response = NextResponse.redirect(
-      `${config.authUrl}?client_id=${config.clientId}&redirect_uri=${encodeURIComponent(config.redirectUri)}&scope=${encodeURIComponent(config.scope)}&state=${state}`,
-    )
-
-    // Set state cookie
-    response.cookies.set("github_oauth_state", state, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 10, // 10 minutes
-      path: "/",
-      sameSite: "lax",
-    })
-
-    // Log the redirect for debugging
-    console.log("GitHub OAuth redirect:", config.redirectUri)
-
-    return response
+    // Redirect to GitHub for authorization
+    return NextResponse.redirect(authUrl)
   } catch (error) {
     console.error("GitHub auth error:", error)
-    return NextResponse.redirect(new URL("/signup?error=github_auth_error", request.url))
+    return NextResponse.redirect(new URL("/signup?error=auth_failed", request.url))
   }
 }
