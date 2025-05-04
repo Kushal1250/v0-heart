@@ -1,20 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { v4 as uuidv4 } from "uuid"
-import { getRedirectUri } from "@/lib/oauth-config"
+import { getGoogleOAuthConfig } from "@/lib/oauth-config"
 
 export async function GET(request: NextRequest) {
   try {
-    const clientId = process.env.GOOGLE_CLIENT_ID
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+    // Get Google OAuth configuration
+    const { clientId, clientSecret, redirectUri, isConfigured } = getGoogleOAuthConfig()
 
-    if (!clientId || !clientSecret) {
-      console.error("[OAuth] Missing OAuth credentials")
-      return NextResponse.json({ error: "OAuth configuration missing" }, { status: 500 })
+    // Check if Google OAuth is configured
+    if (!isConfigured) {
+      console.error("[OAuth] Google OAuth is not configured")
+      return NextResponse.redirect(new URL("/login?error=oauth_not_configured", request.url))
     }
-
-    // Use the hardcoded redirect URI
-    const redirectUri = getRedirectUri("google")
-    console.log("[OAuth] Using redirect URI:", redirectUri)
 
     // Generate state for CSRF protection
     const state = uuidv4()
@@ -28,7 +25,8 @@ export async function GET(request: NextRequest) {
     authUrl.searchParams.append("state", state)
     authUrl.searchParams.append("prompt", "select_account")
 
-    console.log("[OAuth] Authorization URL:", authUrl.toString())
+    console.log("[OAuth] Initiating Google OAuth flow")
+    console.log("[OAuth] Redirect URI:", redirectUri)
 
     // Store state in cookie for validation
     const response = NextResponse.redirect(authUrl.toString())
@@ -37,7 +35,7 @@ export async function GET(request: NextRequest) {
       name: "oauth_state",
       value: state,
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 60 * 10, // 10 minutes
       path: "/",
@@ -46,6 +44,6 @@ export async function GET(request: NextRequest) {
     return response
   } catch (error) {
     console.error("[OAuth] Google auth error:", error)
-    return NextResponse.redirect(new URL("/signup?error=auth_failed", request.url))
+    return NextResponse.redirect(new URL("/login?error=oauth_error", request.url))
   }
 }
