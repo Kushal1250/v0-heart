@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createUser, getUserByEmail, createSession } from "@/lib/db"
 import { generateToken } from "@/lib/auth-utils"
+import { getRedirectUri } from "@/lib/oauth-config"
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,12 +25,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=no_code`)
     }
 
-    // Get the base URL from the request
-    const baseUrl = request.headers.get("host") || process.env.NEXT_PUBLIC_APP_URL || "localhost:3000"
-    const protocol = baseUrl.includes("localhost") ? "http" : "https"
-
-    // Construct the redirect URI using the actual host
-    const redirectUri = `${protocol}://${baseUrl}/api/auth/google/callback`
+    // Get the redirect URI using our helper
+    const redirectUri = getRedirectUri("google", request)
 
     // Exchange code for token
     const clientId = process.env.GOOGLE_CLIENT_ID
@@ -81,7 +78,12 @@ export async function GET(request: NextRequest) {
     // Create session
     const token = generateToken()
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+
     await createSession(user.id, token, expiresAt)
+
+    // Get base URL for redirect
+    const baseUrl = request.headers.get("host") || process.env.NEXT_PUBLIC_APP_URL || "localhost:3000"
+    const protocol = baseUrl.includes("localhost") ? "http" : "https"
 
     // Create response with session cookie
     const response = NextResponse.redirect(`${protocol}://${baseUrl}/dashboard`)

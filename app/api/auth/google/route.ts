@@ -1,17 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { v4 as uuidv4 } from "uuid"
+import { getRedirectUri } from "@/lib/oauth-config"
 
 export async function GET(request: NextRequest) {
   try {
     const clientId = process.env.GOOGLE_CLIENT_ID
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET
 
-    // Get the base URL from the request
-    const baseUrl = request.headers.get("host") || process.env.NEXT_PUBLIC_APP_URL || "localhost:3000"
-    const protocol = baseUrl.includes("localhost") ? "http" : "https"
-
-    // Construct the redirect URI using the actual host
-    const redirectUri = `${protocol}://${baseUrl}/api/auth/google/callback`
+    // Get the redirect URI using our helper
+    const redirectUri = getRedirectUri("google", request)
 
     if (!clientId || !clientSecret) {
       return NextResponse.json({ message: "OAuth configuration missing" }, { status: 500 })
