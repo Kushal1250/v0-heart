@@ -5,7 +5,7 @@ import { Heart, Activity, BarChart2, Shield, Users, ArrowRight } from "lucide-re
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-background relative">
-      <div className="home-bg-animation" suppressHydrationWarning>
+      <div className="home-bg-animation">
         <div className="cloud cloud-1"></div>
         <div className="cloud cloud-2"></div>
         <div className="cloud cloud-3"></div>
