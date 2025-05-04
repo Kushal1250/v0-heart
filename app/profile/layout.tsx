@@ -1,14 +1,11 @@
-"use client"
+import type { Metadata } from "next"
+import type { ReactNode } from "react"
 
-import type React from "react"
+export const metadata: Metadata = {
+  title: "User Profile | Heart Disease Predictor",
+  description: "View and manage your profile information",
+}
 
-import { ErrorBoundary } from "react-error-boundary"
-import ProfileErrorFallback from "@/components/profile-error-fallback"
-
-export default function ProfileLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  return <ErrorBoundary FallbackComponent={ProfileErrorFallback}>{children}</ErrorBoundary>
+export default function ProfileLayout({ children }: { children: ReactNode }) {
+  return <div className="min-h-screen bg-background">{children}</div>
 }
