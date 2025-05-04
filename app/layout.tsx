@@ -10,6 +10,8 @@ import { Toaster } from "@/components/ui/toaster"
 import GlobalFooter from "@/components/global-footer"
 // Import the SessionKeeper component
 import { SessionKeeper } from "@/components/session-keeper"
+import { DebugInfo } from "@/components/debug-info"
+import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -41,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
             <NavigationTracker />
             <Toaster />
+            <DebugInfo />
           </AuthProvider>
         </ThemeProvider>
       </body>

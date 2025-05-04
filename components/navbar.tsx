@@ -54,9 +54,19 @@ export default function Navbar() {
     }
   }, [user, toast])
 
-  const handleLogout = async () => {
-    await logout()
-    window.location.href = "/"
+  const handleLogout = async (e) => {
+    e.preventDefault()
+    try {
+      await logout()
+      window.location.href = "/"
+    } catch (error) {
+      console.error("Logout failed:", error)
+      toast({
+        title: "Logout Failed",
+        description: "Please try again later.",
+        variant: "destructive",
+      })
+    }
   }
 
   // Navigation items based on current page and authentication status
@@ -120,7 +130,15 @@ export default function Navbar() {
                   // Authenticated user navigation
                   <>
                     <div className="hidden md:flex items-center gap-4">
-                      <button className="p-1 rounded-full text-gray-400 hover:text-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors btn-hover-effect">
+                      <button
+                        className="p-1 rounded-full text-gray-400 hover:text-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors btn-hover-effect"
+                        onClick={() => {
+                          toast({
+                            title: "Notifications",
+                            description: "You have no new notifications",
+                          })
+                        }}
+                      >
                         <span className="sr-only">View notifications</span>
                         <Bell className="h-6 w-6" />
                       </button>
@@ -165,7 +183,7 @@ export default function Navbar() {
                               asChild
                               className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
                             >
-                              <Link href={isAdmin ? "/admin/profile" : "/profile"} className="flex items-center">
+                              <Link href={isAdmin ? "/admin/profile" : "/profile"} className="flex items-center w-full">
                                 <User className="mr-2 h-4 w-4" />
                                 <span>Profile</span>
                               </Link>
@@ -174,7 +192,7 @@ export default function Navbar() {
                               asChild
                               className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
                             >
-                              <Link href="/dashboard" className="flex items-center">
+                              <Link href="/dashboard" className="flex items-center w-full">
                                 <LayoutDashboard className="mr-2 h-4 w-4" />
                                 <span>Dashboard</span>
                               </Link>
@@ -184,7 +202,7 @@ export default function Navbar() {
                                 asChild
                                 className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
                               >
-                                <Link href="/admin" className="flex items-center">
+                                <Link href="/admin" className="flex items-center w-full">
                                   <Shield className="mr-2 h-4 w-4" />
                                   <span>Admin</span>
                                 </Link>
@@ -194,7 +212,7 @@ export default function Navbar() {
                               asChild
                               className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
                             >
-                              <Link href="/settings" className="flex items-center">
+                              <Link href="/settings" className="flex items-center w-full">
                                 <Settings className="mr-2 h-4 w-4" />
                                 <span>Settings</span>
                               </Link>
@@ -231,32 +249,38 @@ export default function Navbar() {
                 ) : (
                   // Non-authenticated user navigation - updated to match the design
                   <div className="flex items-center gap-3">
-                    <Link href="/login">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-md bg-gray-50 text-gray-700 hover:bg-gray-100"
-                      >
-                        <User className="h-4 w-4 mr-2" /> Login
-                      </Button>
+                    <Link href="/login" passHref legacyBehavior>
+                      <a>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-md bg-gray-50 text-gray-700 hover:bg-gray-100"
+                        >
+                          <User className="h-4 w-4 mr-2" /> Login
+                        </Button>
+                      </a>
                     </Link>
-                    <Link href="/signup">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="rounded-md bg-blue-500 text-white hover:bg-blue-600"
-                      >
-                        <UserPlus className="h-4 w-4 mr-2" /> Sign Up
-                      </Button>
+                    <Link href="/signup" passHref legacyBehavior>
+                      <a>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="rounded-md bg-blue-500 text-white hover:bg-blue-600"
+                        >
+                          <UserPlus className="h-4 w-4 mr-2" /> Sign Up
+                        </Button>
+                      </a>
                     </Link>
-                    <Link href="/admin-login">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-md bg-gray-50 text-gray-700 hover:bg-gray-100"
-                      >
-                        <Shield className="h-4 w-4 mr-2" /> Admin
-                      </Button>
+                    <Link href="/admin-login" passHref legacyBehavior>
+                      <a>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-md bg-gray-50 text-gray-700 hover:bg-gray-100"
+                        >
+                          <Shield className="h-4 w-4 mr-2" /> Admin
+                        </Button>
+                      </a>
                     </Link>
                   </div>
                 )}
