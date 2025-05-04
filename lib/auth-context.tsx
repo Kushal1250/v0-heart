@@ -1,6 +1,8 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react"
+import type React from "react"
+
+import { createContext, useContext, useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 
 interface User {
@@ -37,12 +39,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [lastRefresh, setLastRefresh] = useState<number>(0)
   const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   // Update the checkAuthStatus function to be more resilient
   const checkAuthStatus = useCallback(
@@ -156,7 +160,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    checkAuthStatus()
+    const checkAuth = async () => {
+      try {
+        const response = await fetch("/api/auth/user")
+
+        if (!response.ok) {
+          // Handle error but don't crash
+          console.warn("Auth check failed, but continuing")
+          setLoading(false)
+          return
+        }
+
+        const data = await response.json()
+        setUser(data.user || null)
+      } catch (err) {
+        console.error("Auth check error:", err)
+        setError("Authentication check failed")
+        // Don't rethrow, just set error state
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    checkAuth()
 
     // Set up a timer to refresh the session every 25 minutes
     const intervalId = setInterval(

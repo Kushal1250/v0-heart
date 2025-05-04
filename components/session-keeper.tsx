@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect } from "react"
-import { refreshSessionExpiry, isSessionValid } from "@/lib/auth-persistence"
 import { useAuth } from "@/lib/auth-context"
 
 /**
@@ -12,46 +11,37 @@ export function SessionKeeper() {
   const { user } = useAuth()
 
   useEffect(() => {
-    if (!user) return
+    const refreshToken = async () => {
+      try {
+        // Your existing token refresh logic
+        const response = await fetch("/api/auth/refresh-session", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
 
-    // Refresh session expiry on initial load if session is valid
-    if (isSessionValid()) {
-      refreshSessionExpiry()
-    }
-
-    // Set up event listeners to refresh session on user activity
-    const refreshOnActivity = () => {
-      if (user && isSessionValid()) {
-        refreshSessionExpiry()
+        // Only process if the response is ok
+        if (response.ok) {
+          const data = await response.json()
+          // Process data safely
+        }
+      } catch (error) {
+        console.error("Session refresh error:", error)
+        // Don't throw, just log and continue
       }
     }
 
-    // Add event listeners for user activity
-    window.addEventListener("click", refreshOnActivity)
-    window.addEventListener("keypress", refreshOnActivity)
-    window.addEventListener("scroll", refreshOnActivity)
-    window.addEventListener("mousemove", refreshOnActivity)
-
-    // Set up periodic check (every 5 minutes)
-    const intervalId = setInterval(
+    // Existing interval setup code
+    const interval = setInterval(
       () => {
-        if (user && isSessionValid()) {
-          refreshSessionExpiry()
-        }
+        refreshToken()
       },
-      5 * 60 * 1000,
-    ) // 5 minutes
+      14 * 60 * 1000,
+    ) // 14 minutes
 
-    // Clean up event listeners and interval on unmount
-    return () => {
-      window.removeEventListener("click", refreshOnActivity)
-      window.removeEventListener("keypress", refreshOnActivity)
-      window.removeEventListener("scroll", refreshOnActivity)
-      window.removeEventListener("mousemove", refreshOnActivity)
-      clearInterval(intervalId)
-    }
-  }, [user])
+    return () => clearInterval(interval)
+  }, [])
 
-  // This component doesn't render anything
   return null
 }

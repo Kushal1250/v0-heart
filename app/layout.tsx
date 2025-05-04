@@ -10,6 +10,8 @@ import { Toaster } from "@/components/ui/toaster"
 import GlobalFooter from "@/components/global-footer"
 // Import the SessionKeeper component
 import { SessionKeeper } from "@/components/session-keeper"
+import { EnhancedErrorBoundary } from "@/components/enhanced-error-boundary"
+import { BrowserCompatibilityCheck } from "@/components/browser-compatibility-check"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -33,14 +35,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
-            <SessionKeeper />
-            <div className="flex flex-col min-h-screen">
-              <Navbar />
-              <main className="flex-grow">{children}</main>
-              <GlobalFooter />
-            </div>
-            <NavigationTracker />
-            <Toaster />
+            <EnhancedErrorBoundary>
+              <SessionKeeper />
+              <BrowserCompatibilityCheck />
+              <div className="flex flex-col min-h-screen">
+                <Navbar />
+                <main className="flex-grow">{children}</main>
+                <GlobalFooter />
+              </div>
+              <NavigationTracker />
+              <Toaster />
+            </EnhancedErrorBoundary>
           </AuthProvider>
         </ThemeProvider>
       </body>
