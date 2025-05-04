@@ -98,9 +98,9 @@
     "twilio": "latest",
     "uuid": "latest",
     "util": "latest",
-    "jsonwebtoken": "latest",
     "drizzle-orm": "latest",
-    "bcrypt-ts": "latest"
+    "bcrypt-ts": "latest",
+    "jsonwebtoken": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

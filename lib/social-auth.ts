@@ -88,10 +88,30 @@ export async function handleSocialLogin(userData: {
   }
 }
 
+// Helper function to get base URL
+export function getBaseUrl() {
+  if (typeof window !== "undefined") {
+    return window.location.origin
+  }
+
+  // Server-side: use environment variables
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL
+  }
+
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+
+  return "http://localhost:3000"
+}
+
 // Helper function to get provider-specific URLs
 export function getProviderAuthUrl(provider: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  const baseUrl = getBaseUrl()
   const redirectUri = `${baseUrl}/api/auth/${provider}/callback`
+
+  console.log(`Generated redirect URI for ${provider}:`, redirectUri)
 
   switch (provider) {
     case "google":
@@ -102,8 +122,11 @@ export function getProviderAuthUrl(provider: string) {
 
     case "facebook":
       const facebookClientId = process.env.FACEBOOK_CLIENT_ID
+      if (!facebookClientId) {
+        throw new Error("FACEBOOK_CLIENT_ID environment variable is not set")
+      }
       const facebookScope = "email,public_profile"
-      return `https://www.facebook.com/v12.0/dialog/oauth?client_id=${facebookClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${facebookScope}`
+      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${facebookClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${facebookScope}`
 
     case "github":
       const githubClientId = process.env.GITHUB_CLIENT_ID
@@ -117,7 +140,7 @@ export function getProviderAuthUrl(provider: string) {
 
 // Helper function to exchange auth code for tokens
 export async function exchangeCodeForToken(provider: string, code: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  const baseUrl = getBaseUrl()
   const redirectUri = `${baseUrl}/api/auth/${provider}/callback`
 
   try {
@@ -139,10 +162,11 @@ export async function exchangeCodeForToken(provider: string, code: string) {
         break
 
       case "facebook":
-        tokenResponse = await fetch("https://graph.facebook.com/v12.0/oauth/access_token", {
+        tokenResponse = await fetch(`https://graph.facebook.com/v18.0/oauth/access_token`, {
           method: "GET",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           cache: "no-store",
+          next: { revalidate: 0 },
         })
         break
 
@@ -167,7 +191,8 @@ export async function exchangeCodeForToken(provider: string, code: string) {
     }
 
     if (!tokenResponse.ok) {
-      throw new Error(`Failed to exchange code: ${tokenResponse.statusText}`)
+      const errorText = await tokenResponse.text()
+      throw new Error(`Failed to exchange code: ${tokenResponse.statusText}. Details: ${errorText}`)
     }
 
     return await tokenResponse.json()
@@ -192,6 +217,9 @@ export async function getUserProfile(provider: string, accessToken: string) {
       case "facebook":
         userResponse = await fetch(
           `https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`,
+          {
+            next: { revalidate: 0 },
+          },
         )
         break
 
@@ -206,7 +234,8 @@ export async function getUserProfile(provider: string, accessToken: string) {
     }
 
     if (!userResponse.ok) {
-      throw new Error(`Failed to get user profile: ${userResponse.statusText}`)
+      const errorText = await userResponse.text()
+      throw new Error(`Failed to get user profile: ${userResponse.statusText}. Details: ${errorText}`)
     }
 
     const userData = await userResponse.json()
