@@ -9,8 +9,9 @@
  * @returns The properly formatted redirect URI
  */
 export function getRedirectUri(provider: string) {
-  // For heartgudie3.vercel.app (note the spelling)
-  return `https://heartgudie3.vercel.app/api/auth/${provider}/callback`
+  // Get the base URL from environment variable or use a default
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  return `${baseUrl}/api/auth/${provider}/callback`
 }
 
 /**
@@ -18,8 +19,8 @@ export function getRedirectUri(provider: string) {
  */
 export function getAuthRedirectUris() {
   return [
-    "https://heartgudie3.vercel.app/api/auth/google/callback",
-    "https://heartguide3.vercel.app/api/auth/google/callback", // alternate spelling
+    "https://heartguide3.vercel.app/api/auth/google/callback",
+    "https://heart-disease-predictor.vercel.app/api/auth/google/callback",
     "http://localhost:3000/api/auth/google/callback",
   ]
 }

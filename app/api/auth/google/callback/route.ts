@@ -10,25 +10,28 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get("state")
     const error = searchParams.get("error")
 
+    // Get base URL from environment
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+
     // Check for errors from Google
     if (error) {
       console.error("[OAuth] Error from Google:", error)
-      return NextResponse.redirect(`https://heartgudie3.vercel.app/login?error=oauth_error`)
+      return NextResponse.redirect(`${baseUrl}/login?error=oauth_error`)
     }
 
     // Validate state to prevent CSRF
     const storedState = request.cookies.get("oauth_state")?.value
     if (!state || !storedState || state !== storedState) {
       console.error("[OAuth] Invalid state - possible CSRF attempt")
-      return NextResponse.redirect(`https://heartgudie3.vercel.app/login?error=invalid_state`)
+      return NextResponse.redirect(`${baseUrl}/login?error=invalid_state`)
     }
 
     if (!code) {
       console.error("[OAuth] No authorization code provided")
-      return NextResponse.redirect(`https://heartgudie3.vercel.app/login?error=no_code`)
+      return NextResponse.redirect(`${baseUrl}/login?error=no_code`)
     }
 
-    // Use the fixed redirect URI - must match exactly what we sent initially
+    // Use the environment-based redirect URI
     const redirectUri = getRedirectUri("google")
     console.log("[OAuth] Callback using redirect URI:", redirectUri)
 
@@ -52,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       console.error("[OAuth] Token exchange failed:", tokenData)
-      return NextResponse.redirect(`https://heartgudie3.vercel.app/login?error=token_exchange`)
+      return NextResponse.redirect(`${baseUrl}/login?error=token_exchange`)
     }
 
     // Get user info
@@ -64,7 +67,7 @@ export async function GET(request: NextRequest) {
 
     if (!userResponse.ok) {
       console.error("[OAuth] Failed to get user data:", userData)
-      return NextResponse.redirect(`https://heartgudie3.vercel.app/login?error=user_data`)
+      return NextResponse.redirect(`${baseUrl}/login?error=user_data`)
     }
 
     // Check if user exists
@@ -85,7 +88,7 @@ export async function GET(request: NextRequest) {
     await createSession(user.id, token, expiresAt)
 
     // Create response with session cookie
-    const response = NextResponse.redirect(`https://heartgudie3.vercel.app/dashboard`)
+    const response = NextResponse.redirect(`${baseUrl}/dashboard`)
     response.cookies.set({
       name: "session",
       value: token,
@@ -99,6 +102,7 @@ export async function GET(request: NextRequest) {
     return response
   } catch (error) {
     console.error("[OAuth] Callback error:", error)
-    return NextResponse.redirect(`https://heartgudie3.vercel.app/login?error=server_error`)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    return NextResponse.redirect(`${baseUrl}/login?error=server_error`)
   }
 }

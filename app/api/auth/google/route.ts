@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "OAuth configuration missing" }, { status: 500 })
     }
 
-    // Use the fixed redirect URI
+    // Use the environment-based redirect URI
     const redirectUri = getRedirectUri("google")
     console.log("[OAuth] Using redirect URI:", redirectUri)
 
