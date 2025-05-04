@@ -1,87 +1,47 @@
 # Google OAuth Setup Guide
 
-This guide will help you set up Google OAuth for your deployed application.
+## Fixing "Error 400: redirect_uri_mismatch"
 
-## Step 1: Create a Google Cloud Project
+This error occurs when the redirect URI used by your application doesn't match any of the authorized redirect URIs configured in your Google Cloud Console.
+
+## Step 1: Check Your Environment Variables
+
+Make sure you have these environment variables set correctly:
+
+\`\`\`
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+NEXT_PUBLIC_APP_URL=https://your-deployed-app-url.vercel.app
+\`\`\`
+
+## Step 2: Configure Google Cloud Console
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
-2. Click on the project dropdown at the top of the page
-3. Click "New Project"
-4. Enter a name for your project and click "Create"
-5. Select your new project from the project dropdown
+2. Select your project
+3. Navigate to "APIs & Services" > "Credentials"
+4. Find and edit your OAuth 2.0 Client ID
+5. Under "Authorized redirect URIs", add ALL of these URIs:
+   - `https://your-deployed-app-url.vercel.app/api/auth/google/callback`
+   - `http://localhost:3000/api/auth/google/callback` (for local development)
+6. Click "Save"
 
-## Step 2: Configure OAuth Consent Screen
+## Step 3: Verify Configuration
 
-1. In the Google Cloud Console, go to "APIs & Services" > "OAuth consent screen"
-2. Select "External" as the user type (unless you have a Google Workspace organization)
-3. Click "Create"
-4. Fill in the required information:
-   - App name: Your application name
-   - User support email: Your email address
-   - Developer contact information: Your email address
-5. Click "Save and Continue"
-6. Under "Scopes", click "Add or Remove Scopes"
-7. Add the following scopes:
-   - `https://www.googleapis.com/auth/userinfo.email`
-   - `https://www.googleapis.com/auth/userinfo.profile`
-8. Click "Save and Continue"
-9. Under "Test users", you can add test users if you want to restrict access during testing
-10. Click "Save and Continue"
-11. Review your settings and click "Back to Dashboard"
+1. Visit `/api/auth/oauth-debug` on your deployed app to see the current configuration
+2. Make sure ALL the recommended redirect URIs from that endpoint are added to Google Cloud Console
+3. The redirect URIs must match EXACTLY (including http vs https, trailing slashes, etc.)
 
-## Step 3: Create OAuth Client ID
+## Step 4: Common Issues
 
-1. In the Google Cloud Console, go to "APIs & Services" > "Credentials"
-2. Click "Create Credentials" > "OAuth client ID"
-3. Select "Web application" as the application type
-4. Enter a name for your OAuth client
-5. Under "Authorized JavaScript origins", add your application's domain:
-   - For production: `https://your-app-domain.com`
-   - For local development: `http://localhost:3000`
-6. Under "Authorized redirect URIs", add:
-   - For production: `https://your-app-domain.com/api/auth/google/callback`
-   - For local development: `http://localhost:3000/api/auth/google/callback`
-7. Click "Create"
-8. A popup will show your client ID and client secret. Copy these values.
+- **Case sensitivity**: URIs are case-sensitive
+- **Protocol mismatch**: http vs https must match exactly
+- **Trailing slashes**: Must match exactly
+- **Subdomain differences**: `www.example.com` is different from `example.com`
+- **Changes take time**: After updating Google Cloud Console, changes may take a few minutes to propagate
 
-## Step 4: Add Environment Variables
+## Step 5: Testing
 
-Add the following environment variables to your application:
-
-\`\`\`
-GOOGLE_CLIENT_ID=your_client_id
-GOOGLE_CLIENT_SECRET=your_client_secret
-NEXT_PUBLIC_APP_URL=https://your-app-domain.com
-\`\`\`
-
-For Vercel deployment:
-1. Go to your project in the Vercel dashboard
-2. Go to "Settings" > "Environment Variables"
-3. Add the environment variables listed above
-4. Click "Save"
-5. Redeploy your application
-
-## Step 5: Verify Configuration
-
-1. Visit `/admin/oauth-status` on your deployed application
-2. Verify that the client ID and client secret are configured
-3. Check that the redirect URI matches what you configured in the Google Cloud Console
-4. Click "Test Google Sign In" to test the authentication flow
-
-## Troubleshooting
-
-If you encounter the "Error 400: redirect_uri_mismatch" error:
-
-1. Check that the redirect URI in your Google Cloud Console **exactly** matches the one shown in the OAuth status page
-2. Make sure there are no typos, extra slashes, or other differences
-3. If you've made changes to the Google Cloud Console, wait a few minutes for them to propagate
-4. Clear your browser cookies and try again
-
-## Moving to Production
-
-When your application is ready for production:
-
-1. In the Google Cloud Console, go to "APIs & Services" > "OAuth consent screen"
-2. Click "Publish App" to make it available to all users
-3. Update your environment variables with the production URLs
-4. Make sure your production redirect URI is added to the Google Cloud Console
+After making these changes:
+1. Clear your browser cookies
+2. Try signing in again
+3. Check server logs for any additional errors

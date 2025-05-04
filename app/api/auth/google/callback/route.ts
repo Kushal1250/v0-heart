@@ -1,23 +1,24 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createUser, getUserByEmail, createSession } from "@/lib/db"
 import { generateToken } from "@/lib/auth-utils"
-import { getGoogleOAuthConfig, getBaseUrl } from "@/lib/oauth-config"
+import { getRedirectUri } from "@/lib/oauth-config"
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("[OAuth] Callback received")
+    console.log("[OAuth] Callback received:", request.url)
 
     const { searchParams } = new URL(request.url)
     const code = searchParams.get("code")
     const state = searchParams.get("state")
     const error = searchParams.get("error")
 
-    const baseUrl = getBaseUrl()
+    // Get base URL from environment
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
 
     // Check for errors from Google
     if (error) {
       console.error("[OAuth] Error from Google:", error)
-      return NextResponse.redirect(`${baseUrl}/login?error=google_${error}`)
+      return NextResponse.redirect(`${baseUrl}/login?error=oauth_error`)
     }
 
     // Validate state to prevent CSRF
@@ -32,18 +33,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/login?error=no_code`)
     }
 
-    // Get Google OAuth configuration
-    const { clientId, clientSecret, redirectUri, isConfigured } = getGoogleOAuthConfig()
-
-    if (!isConfigured) {
-      console.error("[OAuth] Google OAuth is not configured")
-      return NextResponse.redirect(`${baseUrl}/login?error=oauth_not_configured`)
-    }
-
-    console.log("[OAuth] Exchanging code for token")
-    console.log("[OAuth] Using redirect URI:", redirectUri)
+    // Use the hardcoded redirect URI
+    const redirectUri = getRedirectUri("google")
+    console.log("[OAuth] Callback using redirect URI:", redirectUri)
 
     // Exchange code for token
+    const clientId = process.env.GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+
+    console.log("[OAuth] Exchanging code for token...")
+
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -63,6 +62,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/login?error=token_exchange`)
     }
 
+    console.log("[OAuth] Token exchange successful")
+
     // Get user info
     const userResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/login?error=user_data`)
     }
 
-    console.log("[OAuth] User data retrieved:", userData.email)
+    console.log("[OAuth] User data retrieved successfully")
 
     // Check if user exists
     let user = await getUserByEmail(userData.email)
@@ -97,13 +98,15 @@ export async function GET(request: NextRequest) {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
     await createSession(user.id, token, expiresAt)
 
+    console.log("[OAuth] Session created successfully")
+
     // Create response with session cookie
     const response = NextResponse.redirect(`${baseUrl}/dashboard`)
     response.cookies.set({
       name: "session",
       value: token,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true,
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60, // 7 days
       path: "/",
@@ -112,7 +115,7 @@ export async function GET(request: NextRequest) {
     return response
   } catch (error) {
     console.error("[OAuth] Callback error:", error)
-    const baseUrl = getBaseUrl()
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
     return NextResponse.redirect(`${baseUrl}/login?error=server_error`)
   }
 }
