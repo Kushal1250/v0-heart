@@ -1,104 +1,97 @@
-import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
+import { type NextRequest, NextResponse } from "next/server"
+import { getCurrentUser } from "@/lib/auth-utils"
 import { getUserById, updateUserProfile } from "@/lib/db"
-
-// Mock function to get user ID from token - replace with your actual implementation
-function getUserIdFromToken(token: string): string | null {
-  try {
-    // This is a simplified example - in production, properly verify the token
-    return "user-123" // Return a mock user ID for testing
-  } catch (error) {
-    console.error("Error extracting user ID from token:", error)
-    return null
-  }
-}
 
 export async function GET() {
   try {
-    // Get token from cookies
-    const cookieStore = cookies()
-    const token = cookieStore.get("token")?.value
+    console.log("GET /api/user/profile - Starting request")
+    const currentUser = await getCurrentUser()
 
-    // For testing purposes, return mock data if no token
-    if (!token) {
-      return NextResponse.json({
-        id: "user-123",
-        name: "Test User",
-        email: "test@example.com",
-        phone: "555-123-4567",
-        profilePicture: null,
-        role: "user",
-        createdAt: new Date().toISOString(),
-      })
+    if (!currentUser) {
+      console.log("GET /api/user/profile - No current user found")
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    const userId = getUserIdFromToken(token)
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    console.log(`GET /api/user/profile - Fetching user with ID: ${currentUser.id}`)
+    const user = await getUserById(currentUser.id)
 
-    // Get user from database
-    const user = await getUserById(userId)
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      console.log(`GET /api/user/profile - User with ID ${currentUser.id} not found`)
+      return NextResponse.json({ message: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      profilePicture: user.profile_picture,
-      role: user.role,
-      createdAt: user.created_at,
-    })
+    console.log(`GET /api/user/profile - Successfully retrieved user data for ID: ${currentUser.id}`)
+
+    // Return user data without sensitive information
+    return NextResponse.json(
+      {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        created_at: user.created_at,
+        profile_picture: user.profile_picture,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
+    )
   } catch (error) {
     console.error("Error fetching user profile:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ message: "Failed to fetch user profile" }, { status: 500 })
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
-    const cookieStore = cookies()
-    const token = cookieStore.get("token")?.value
+    console.log("PUT /api/user/profile - Starting request")
+    const currentUser = await getCurrentUser()
 
-    // For testing purposes, accept updates without a token
-    const userId = token ? getUserIdFromToken(token) : "user-123"
-
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!currentUser) {
+      console.log("PUT /api/user/profile - No current user found")
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
     const data = await request.json()
+    console.log(`PUT /api/user/profile - Received data:`, data)
 
-    // Validate input
-    if (!data.name || !data.email) {
-      return NextResponse.json({ error: "Name and email are required" }, { status: 400 })
+    // Validate input data
+    if (data.name && typeof data.name !== "string") {
+      return NextResponse.json({ message: "Invalid name format" }, { status: 400 })
     }
 
-    // Update user in database
-    const updatedUser = await updateUserProfile(userId, {
+    if (data.phone && typeof data.phone !== "string") {
+      return NextResponse.json({ message: "Invalid phone format" }, { status: 400 })
+    }
+
+    // Update user profile
+    console.log(`PUT /api/user/profile - Updating user with ID: ${currentUser.id}`)
+    const updatedUser = await updateUserProfile(currentUser.id, {
       name: data.name,
-      email: data.email,
       phone: data.phone,
     })
 
     if (!updatedUser) {
-      return NextResponse.json({ error: "Failed to update user" }, { status: 500 })
+      console.log(`PUT /api/user/profile - Failed to update user with ID: ${currentUser.id}`)
+      return NextResponse.json({ message: "Failed to update profile" }, { status: 500 })
     }
 
+    console.log(`PUT /api/user/profile - Successfully updated user with ID: ${currentUser.id}`)
+
+    // Return updated user data
     return NextResponse.json({
       id: updatedUser.id,
       name: updatedUser.name,
       email: updatedUser.email,
       phone: updatedUser.phone,
-      profilePicture: updatedUser.profile_picture,
-      role: updatedUser.role,
-      createdAt: updatedUser.created_at,
     })
   } catch (error) {
     console.error("Error updating user profile:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ message: "Failed to update user profile" }, { status: 500 })
   }
 }
