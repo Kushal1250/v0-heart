@@ -20,6 +20,7 @@ export function getRedirectUri(provider: string, req?: Request) {
 
   // Fallback to environment variables if no host in request
   if (!host) {
+    // Check for Vercel environment first
     if (process.env.VERCEL_URL) {
       host = process.env.VERCEL_URL
     } else if (process.env.NEXT_PUBLIC_APP_URL) {
@@ -30,7 +31,12 @@ export function getRedirectUri(provider: string, req?: Request) {
     }
   }
 
-  // Determine protocol
+  // Special case for heartgudie3.vercel.app (note the "gudie" spelling)
+  if (host.includes("heartgudie3")) {
+    host = "heartgudie3.vercel.app"
+  }
+
+  // Determine protocol - always use HTTPS for production
   const protocol = host.includes("localhost") ? "http" : "https"
 
   // Return the full redirect URI
@@ -39,14 +45,16 @@ export function getRedirectUri(provider: string, req?: Request) {
 
 /**
  * Gets all possible redirect URIs that should be configured in OAuth provider dashboards
+ * This helps developers ensure all necessary URIs are configured
+ *
  * @param provider The OAuth provider (google, facebook, github)
  * @returns Array of possible redirect URIs
  */
 export function getPossibleRedirectUris(provider: string) {
   return [
-    `http://localhost:3000/api/auth/${provider}/callback`,
+    `https://heartgudie3.vercel.app/api/auth/${provider}/callback`, // Note the spelling
     `https://heartguide3.vercel.app/api/auth/${provider}/callback`,
-    `https://heartguide2.vercel.app/api/auth/${provider}/callback`,
-    `https://heartguide.vercel.app/api/auth/${provider}/callback`,
+    `https://heart-disease-predictor.vercel.app/api/auth/${provider}/callback`,
+    `http://localhost:3000/api/auth/${provider}/callback`,
   ]
 }

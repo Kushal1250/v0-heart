@@ -12,21 +12,25 @@ export async function GET(request: NextRequest) {
 
     // Check for errors
     if (error) {
+      console.error("OAuth error from Google:", error)
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=oauth_error`)
     }
 
     // Validate state to prevent CSRF
     const storedState = request.cookies.get("oauth_state")?.value
     if (!state || !storedState || state !== storedState) {
+      console.error("Invalid state - possible CSRF attempt")
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=invalid_state`)
     }
 
     if (!code) {
+      console.error("No authorization code provided")
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=no_code`)
     }
 
-    // Get the redirect URI using our helper
+    // Get the redirect URI using our helper - ensuring it matches exactly what we sent initially
     const redirectUri = getRedirectUri("google", request)
+    console.log("Callback using redirect URI:", redirectUri)
 
     // Exchange code for token
     const clientId = process.env.GOOGLE_CLIENT_ID
@@ -78,10 +82,9 @@ export async function GET(request: NextRequest) {
     // Create session
     const token = generateToken()
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
-
     await createSession(user.id, token, expiresAt)
 
-    // Get base URL for redirect
+    // Get base URL for redirect after successful login
     const baseUrl = request.headers.get("host") || process.env.NEXT_PUBLIC_APP_URL || "localhost:3000"
     const protocol = baseUrl.includes("localhost") ? "http" : "https"
 
