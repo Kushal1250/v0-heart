@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { RefreshCw, Home, AlertTriangle, Bug } from "lucide-react"
+import { RefreshCw, Home, AlertTriangle } from "lucide-react"
 
 export default function ErrorPage({
   error,
@@ -14,9 +14,8 @@ export default function ErrorPage({
   reset: () => void
 }) {
   useEffect(() => {
-    // Log the error to console with more details
+    // Log the error to console
     console.error("Application error:", error)
-    console.error("Error stack:", error.stack)
 
     // You could also send this to your error tracking service
     // sendToErrorTracking(error);
@@ -34,9 +33,7 @@ export default function ErrorPage({
         </CardHeader>
         <CardContent>
           <Alert variant="destructive" className="mb-4">
-            <AlertTitle className="flex items-center">
-              <Bug className="mr-2 h-4 w-4" /> Error Details
-            </AlertTitle>
+            <AlertTitle>Error Details</AlertTitle>
             <AlertDescription className="font-mono text-sm">
               {error.message || "An unknown error occurred"}
               {error.digest && <div className="mt-2 text-xs">Error ID: {error.digest}</div>}
@@ -46,11 +43,10 @@ export default function ErrorPage({
           <div className="space-y-4">
             <p className="text-sm text-gray-600">Try the following:</p>
             <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
-              <li>Clear your browser cache and cookies</li>
+              <li>Refresh the page</li>
+              <li>Clear your browser cache</li>
               <li>Check your internet connection</li>
-              <li>Disable browser extensions that might interfere</li>
-              <li>Try a different browser</li>
-              <li>If the problem persists, contact support</li>
+              <li>Try again later</li>
             </ul>
           </div>
         </CardContent>
