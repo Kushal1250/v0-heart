@@ -10,27 +10,27 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get("state")
     const error = searchParams.get("error")
 
-    // Check for errors
+    // Check for errors from Google
     if (error) {
-      console.error("OAuth error from Google:", error)
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=oauth_error`)
+      console.error("[OAuth] Error from Google:", error)
+      return NextResponse.redirect(`https://heartgudie3.vercel.app/login?error=oauth_error`)
     }
 
     // Validate state to prevent CSRF
     const storedState = request.cookies.get("oauth_state")?.value
     if (!state || !storedState || state !== storedState) {
-      console.error("Invalid state - possible CSRF attempt")
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=invalid_state`)
+      console.error("[OAuth] Invalid state - possible CSRF attempt")
+      return NextResponse.redirect(`https://heartgudie3.vercel.app/login?error=invalid_state`)
     }
 
     if (!code) {
-      console.error("No authorization code provided")
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=no_code`)
+      console.error("[OAuth] No authorization code provided")
+      return NextResponse.redirect(`https://heartgudie3.vercel.app/login?error=no_code`)
     }
 
-    // Get the redirect URI using our helper - ensuring it matches exactly what we sent initially
-    const redirectUri = getRedirectUri("google", request)
-    console.log("Callback using redirect URI:", redirectUri)
+    // Use the fixed redirect URI - must match exactly what we sent initially
+    const redirectUri = getRedirectUri("google")
+    console.log("[OAuth] Callback using redirect URI:", redirectUri)
 
     // Exchange code for token
     const clientId = process.env.GOOGLE_CLIENT_ID
@@ -51,8 +51,8 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
 
     if (!tokenResponse.ok) {
-      console.error("Token exchange failed:", tokenData)
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=token_exchange`)
+      console.error("[OAuth] Token exchange failed:", tokenData)
+      return NextResponse.redirect(`https://heartgudie3.vercel.app/login?error=token_exchange`)
     }
 
     // Get user info
@@ -63,8 +63,8 @@ export async function GET(request: NextRequest) {
     const userData = await userResponse.json()
 
     if (!userResponse.ok) {
-      console.error("Failed to get user data:", userData)
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=user_data`)
+      console.error("[OAuth] Failed to get user data:", userData)
+      return NextResponse.redirect(`https://heartgudie3.vercel.app/login?error=user_data`)
     }
 
     // Check if user exists
@@ -84,17 +84,13 @@ export async function GET(request: NextRequest) {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
     await createSession(user.id, token, expiresAt)
 
-    // Get base URL for redirect after successful login
-    const baseUrl = request.headers.get("host") || process.env.NEXT_PUBLIC_APP_URL || "localhost:3000"
-    const protocol = baseUrl.includes("localhost") ? "http" : "https"
-
     // Create response with session cookie
-    const response = NextResponse.redirect(`${protocol}://${baseUrl}/dashboard`)
+    const response = NextResponse.redirect(`https://heartgudie3.vercel.app/dashboard`)
     response.cookies.set({
       name: "session",
       value: token,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true,
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60, // 7 days
       path: "/",
@@ -102,7 +98,7 @@ export async function GET(request: NextRequest) {
 
     return response
   } catch (error) {
-    console.error("OAuth callback error:", error)
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=server_error`)
+    console.error("[OAuth] Callback error:", error)
+    return NextResponse.redirect(`https://heartgudie3.vercel.app/login?error=server_error`)
   }
 }
