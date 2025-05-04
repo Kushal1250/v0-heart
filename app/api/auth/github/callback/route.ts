@@ -1,8 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getGitHubOAuthConfig } from "@/lib/oauth-config"
+import { exchangeCodeForToken, getUserProfile, normalizeUserData, handleSocialLogin } from "@/lib/social-auth"
+import { getBaseUrl } from "@/lib/oauth-config"
 
 export async function GET(request: NextRequest) {
   try {
+    // Log the callback URL for debugging
+    console.log("GitHub callback URL:", request.url)
+
     // Get the authorization code from the URL
     const searchParams = request.nextUrl.searchParams
     const code = searchParams.get("code")
@@ -12,70 +16,40 @@ export async function GET(request: NextRequest) {
       throw new Error("No authorization code provided")
     }
 
-    const config = getGitHubOAuthConfig()
+    // Log the code for debugging (redacted for security)
+    console.log("GitHub auth code received:", code.substring(0, 5) + "...")
 
-    // Exchange the code for access token
-    const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        client_id: config.clientId,
-        client_secret: config.clientSecret,
-        code,
-        redirect_uri: config.redirectUri,
-      }),
-    })
-
-    const tokenData = await tokenResponse.json()
+    // Exchange the code for an access token
+    const tokenData = await exchangeCodeForToken("github", code)
 
     if (!tokenData.access_token) {
       console.error("GitHub token error:", tokenData)
       throw new Error("Failed to get access token")
     }
 
+    // Log token received (redacted for security)
+    console.log("GitHub access token received:", tokenData.access_token.substring(0, 5) + "...")
+
     // Get user profile using the access token
-    const userResponse = await fetch("https://api.github.com/user", {
-      headers: {
-        Authorization: `token ${tokenData.access_token}`,
-      },
-    })
-
-    const userData = await userResponse.json()
-
-    // Get user email if not provided in profile
-    let userEmail = userData.email
-
-    if (!userEmail) {
-      const emailsResponse = await fetch("https://api.github.com/user/emails", {
-        headers: {
-          Authorization: `token ${tokenData.access_token}`,
-        },
-      })
-
-      const emails = await emailsResponse.json()
-      const primaryEmail = emails.find((email: any) => email.primary)
-      userEmail = primaryEmail ? primaryEmail.email : emails[0]?.email
-    }
+    const userData = await getUserProfile("github", tokenData.access_token)
 
     // Normalize the user data
-    const normalizedUserData = {
-      provider: "github",
-      providerId: userData.id.toString(),
-      name: userData.name || userData.login,
-      email: userEmail,
-      avatar: userData.avatar_url,
-    }
+    const normalizedUserData = normalizeUserData("github", userData)
 
     // Handle the login/registration process
-    // This is a placeholder - you'll need to implement your actual login logic
-    // For now, we'll just redirect to dashboard with the user data
-    const userDataParam = encodeURIComponent(JSON.stringify(normalizedUserData))
-    return NextResponse.redirect(new URL(`/dashboard?userData=${userDataParam}`, request.url))
+    const result = await handleSocialLogin(normalizedUserData)
+
+    if (result.success) {
+      // Create a JWT token or session
+      // This is a placeholder - implement your actual session creation
+
+      // Redirect to dashboard after successful login
+      return NextResponse.redirect(new URL("/dashboard", getBaseUrl()))
+    } else {
+      throw new Error(result.error || "Authentication failed")
+    }
   } catch (error) {
     console.error("GitHub callback error:", error)
-    return NextResponse.redirect(new URL("/signup?error=github_auth_failed", request.url))
+    return NextResponse.redirect(new URL("/signup?error=github_auth_failed", getBaseUrl()))
   }
 }

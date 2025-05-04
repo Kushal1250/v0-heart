@@ -1,28 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getGitHubOAuthConfig } from "@/lib/oauth-config"
+import { getProviderAuthUrl } from "@/lib/social-auth"
 
 export async function GET(request: NextRequest) {
   try {
-    const config = getGitHubOAuthConfig()
+    // Log the request URL for debugging
+    console.log("GitHub OAuth request URL:", request.url)
 
-    if (!config.isConfigured) {
-      console.error("GitHub OAuth is not configured properly")
-      return NextResponse.redirect(new URL("/signup?error=github_not_configured", request.url))
-    }
+    // Get the authorization URL
+    const authUrl = getProviderAuthUrl("github")
 
-    // GitHub OAuth parameters
-    const params = new URLSearchParams({
-      client_id: config.clientId,
-      redirect_uri: config.redirectUri,
-      scope: "read:user user:email",
-      state: Math.random().toString(36).substring(2, 15),
-    })
+    // Log the authorization URL for debugging
+    console.log("GitHub authorization URL:", authUrl)
 
-    // Log the exact redirect URI being used
-    console.log("GitHub OAuth redirect URI:", config.redirectUri)
-
-    // Redirect to GitHub authorization URL
-    const authUrl = `https://github.com/login/oauth/authorize?${params.toString()}`
+    // Redirect to GitHub for authorization
     return NextResponse.redirect(authUrl)
   } catch (error) {
     console.error("GitHub auth error:", error)
