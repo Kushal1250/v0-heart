@@ -1,184 +1,136 @@
-import Link from "next/link"
+import { GetStartedButton } from "@/components/get-started-button"
 import { Button } from "@/components/ui/button"
-import { Heart, Activity, BarChart2, Shield, Users, ArrowRight } from "lucide-react"
+import { Card } from "@/components/ui/card"
+import Image from "next/image"
+import Link from "next/link"
 
-export default function HomePage() {
+export default function Home() {
   return (
-    <div className="min-h-screen bg-background relative">
-      <div className="home-bg-animation">
-        <div className="cloud cloud-1"></div>
-        <div className="cloud cloud-2"></div>
-        <div className="cloud cloud-3"></div>
+    <div className="container mx-auto px-4 py-12">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+            <span className="text-slate-900">Predict Your </span>
+            <span className="text-blue-500">Heart Disease Risk</span>
+          </h1>
+
+          <p className="mt-6 text-lg text-slate-700">
+            Our advanced AI-powered platform helps you assess your heart health and take preventive measures before it's
+            too late.
+          </p>
+
+          <div className="mt-8 flex flex-wrap gap-4">
+            <GetStartedButton />
+
+            <Link href="/how-it-works" passHref>
+              <Button size="lg" variant="outline" className="border-slate-300">
+                Learn More
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        <div className="relative">
+          <Card className="overflow-hidden shadow-xl rounded-xl">
+            <Image
+              src="/heart-health-dashboard.png"
+              alt="Heart Health Dashboard"
+              width={600}
+              height={400}
+              className="w-full h-auto"
+              priority
+            />
+          </Card>
+        </div>
       </div>
-      {/* Hero Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 animate-fade-in">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8 animate-slide-up">
-              <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-foreground">
-                Predict Your <span className="text-primary">Heart Disease</span> Risk
-              </h1>
-              <p className="text-xl text-gray-600 max-w-2xl">
-                Our advanced AI-powered platform helps you assess your heart health and take preventive measures before
-                it's too late.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Link href="/signup" passHref>
-                  <Button
-                    size="lg"
-                    className="bg-primary hover:bg-primary/90 text-white btn-hover-effect nav-link w-full sm:w-auto"
-                  >
-                    Get Started <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-                <Link href="/about" passHref>
-                  <Button size="lg" variant="outline" className="btn-hover-effect nav-link w-full sm:w-auto">
-                    Learn More
-                  </Button>
-                </Link>
-              </div>
-            </div>
-            <div className="relative animate-slide-up" style={{ animationDelay: "0.2s" }}>
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-blue-600 rounded-lg blur opacity-30 animate-pulse"></div>
-              <div className="relative bg-white p-6 rounded-lg shadow-xl">
-                <div className="aspect-video rounded-md overflow-hidden bg-gray-100 flex items-center justify-center">
-                  <img
-                    src="/heart-health-dashboard.png"
-                    alt="Heart Health Dashboard"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+
+      <div className="mt-24 text-center">
+        <h2 className="text-3xl font-bold">Key Features</h2>
+        <p className="mt-4 text-lg text-slate-600 max-w-3xl mx-auto">
+          Our platform offers a comprehensive set of tools to help you monitor and improve your heart health.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12">
+          <FeatureCard
+            icon="heart"
+            title="Risk Prediction"
+            description="Advanced algorithms analyze your health data to predict potential heart disease risks with high accuracy."
+          />
+
+          <FeatureCard
+            icon="activity"
+            title="Health Monitoring"
+            description="Track your vital statistics over time and receive personalized insights about your heart health."
+          />
+
+          <FeatureCard
+            icon="bar-chart"
+            title="Data Visualization"
+            description="Intuitive charts and graphs help you understand your health data and track improvements over time."
+          />
         </div>
-      </section>
+      </div>
+    </div>
+  )
+}
 
-      {/* Features Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16 animate-slide-up">
-            <h2 className="text-3xl font-bold text-foreground">Key Features</h2>
-            <p className="mt-4 text-xl text-gray-600 max-w-3xl mx-auto">
-              Our platform offers a comprehensive set of tools to help you monitor and improve your heart health.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Feature 1 */}
-            <div
-              className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover animate-slide-up"
-              style={{ animationDelay: "0.1s" }}
-            >
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                <Heart className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">Risk Prediction</h3>
-              <p className="text-gray-600">
-                Advanced algorithms analyze your health data to predict potential heart disease risks with high
-                accuracy.
-              </p>
-            </div>
-
-            {/* Feature 2 */}
-            <div
-              className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover animate-slide-up"
-              style={{ animationDelay: "0.2s" }}
-            >
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                <Activity className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">Health Monitoring</h3>
-              <p className="text-gray-600">
-                Track your vital statistics over time and receive personalized insights about your heart health.
-              </p>
-            </div>
-
-            {/* Feature 3 */}
-            <div
-              className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover animate-slide-up"
-              style={{ animationDelay: "0.3s" }}
-            >
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                <BarChart2 className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">Data Visualization</h3>
-              <p className="text-gray-600">
-                Intuitive charts and graphs help you understand your health data and track improvements over time.
-              </p>
-            </div>
-
-            {/* Feature 4 */}
-            <div
-              className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover animate-slide-up"
-              style={{ animationDelay: "0.4s" }}
-            >
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                <Shield className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">Secure & Private</h3>
-              <p className="text-gray-600">
-                Your health data is encrypted and securely stored, ensuring your privacy is always protected.
-              </p>
-            </div>
-
-            {/* Feature 5 */}
-            <div
-              className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover animate-slide-up"
-              style={{ animationDelay: "0.5s" }}
-            >
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                <Users className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">Expert Support</h3>
-              <p className="text-gray-600">
-                Connect with healthcare professionals who can provide guidance based on your prediction results.
-              </p>
-            </div>
-
-            {/* Feature 6 */}
-            <div
-              className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover animate-slide-up"
-              style={{ animationDelay: "0.6s" }}
-            >
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                <ArrowRight className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">Actionable Insights</h3>
-              <p className="text-gray-600">
-                Receive personalized recommendations to improve your heart health based on your unique profile.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-primary/5">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="animate-slide-up">
-            <h2 className="text-3xl font-bold text-foreground mb-6">Ready to Take Control of Your Heart Health?</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
-              Join thousands of users who have already taken the first step towards a healthier heart.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/signup" passHref>
-                <Button
-                  size="lg"
-                  className="bg-primary hover:bg-primary/90 text-white btn-hover-effect w-full sm:w-auto"
-                >
-                  Create Free Account
-                </Button>
-              </Link>
-              <Link href="/login" passHref>
-                <Button size="lg" variant="outline" className="btn-hover-effect w-full sm:w-auto">
-                  Sign In
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+function FeatureCard({ icon, title, description }) {
+  return (
+    <div className="p-6 rounded-lg bg-white shadow-md">
+      <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-4">
+        {icon === "heart" && (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-blue-500"
+          >
+            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+          </svg>
+        )}
+        {icon === "activity" && (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-blue-500"
+          >
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+        )}
+        {icon === "bar-chart" && (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-blue-500"
+          >
+            <line x1="12" x2="12" y1="20" y2="10" />
+            <line x1="18" x2="18" y1="20" y2="4" />
+            <line x1="6" x2="6" y1="20" y2="16" />
+          </svg>
+        )}
+      </div>
+      <h3 className="text-xl font-semibold mb-2">{title}</h3>
+      <p className="text-slate-600">{description}</p>
     </div>
   )
 }
