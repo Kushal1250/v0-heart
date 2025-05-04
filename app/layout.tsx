@@ -10,8 +10,7 @@ import { Toaster } from "@/components/ui/toaster"
 import GlobalFooter from "@/components/global-footer"
 // Import the SessionKeeper component
 import { SessionKeeper } from "@/components/session-keeper"
-import { DebugInfo } from "@/components/debug-info"
-import "./globals.css"
+import { GlobalErrorBoundary } from "@/components/global-error-boundary"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -35,17 +34,37 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
-            <SessionKeeper />
-            <div className="flex flex-col min-h-screen">
-              <Navbar />
-              <main className="flex-grow">{children}</main>
-              <GlobalFooter />
-            </div>
-            <NavigationTracker />
-            <Toaster />
-            <DebugInfo />
+            <GlobalErrorBoundary>
+              <SessionKeeper />
+              <div className="flex flex-col min-h-screen">
+                <Navbar />
+                <main className="flex-grow">{children}</main>
+                <GlobalFooter />
+              </div>
+              <NavigationTracker />
+              <Toaster />
+            </GlobalErrorBoundary>
           </AuthProvider>
         </ThemeProvider>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+      // Detect hydration errors
+      window.addEventListener('error', function(event) {
+        if (event.message && event.message.includes('Hydration')) {
+          console.error('Hydration error detected:', event);
+          // You could send this to your analytics or error tracking service
+          
+          // Optional: Force a hard reload if it's a hydration error
+          // if (sessionStorage.getItem('hydrationErrorReload') !== 'true') {
+          //   sessionStorage.setItem('hydrationErrorReload', 'true');
+          //   window.location.reload(true);
+          // }
+        }
+      });
+    `,
+          }}
+        />
       </body>
     </html>
   )

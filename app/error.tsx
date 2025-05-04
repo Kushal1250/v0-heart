@@ -2,10 +2,11 @@
 
 import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, Home, RefreshCw } from "lucide-react"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { RefreshCw, Home, AlertTriangle, Bug } from "lucide-react"
 
-export default function Error({
+export default function ErrorPage({
   error,
   reset,
 }: {
@@ -13,36 +14,50 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    // Log the error to an error reporting service
+    // Log the error to console with more details
     console.error("Application error:", error)
+    console.error("Error stack:", error.stack)
+
+    // You could also send this to your error tracking service
+    // sendToErrorTracking(error);
   }, [error])
 
   return (
-    <div className="container mx-auto py-10 flex items-center justify-center min-h-screen">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-destructive" />
-            Application Error
+          <CardTitle className="flex items-center text-red-600">
+            <AlertTriangle className="mr-2 h-6 w-6" />
+            Something went wrong
           </CardTitle>
+          <CardDescription>We apologize for the inconvenience. An unexpected error has occurred.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="bg-destructive/10 text-destructive p-4 rounded-md mb-4">
-            <p className="font-medium">Something went wrong!</p>
-            <p className="text-sm mt-1">
-              {error.message || "An unexpected error occurred while loading the application."}
-            </p>
-            {error.digest && <p className="text-xs mt-2 font-mono">Error ID: {error.digest}</p>}
+          <Alert variant="destructive" className="mb-4">
+            <AlertTitle className="flex items-center">
+              <Bug className="mr-2 h-4 w-4" /> Error Details
+            </AlertTitle>
+            <AlertDescription className="font-mono text-sm">
+              {error.message || "An unknown error occurred"}
+              {error.digest && <div className="mt-2 text-xs">Error ID: {error.digest}</div>}
+            </AlertDescription>
+          </Alert>
+
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">Try the following:</p>
+            <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
+              <li>Clear your browser cache and cookies</li>
+              <li>Check your internet connection</li>
+              <li>Disable browser extensions that might interfere</li>
+              <li>Try a different browser</li>
+              <li>If the problem persists, contact support</li>
+            </ul>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Please try refreshing the page or returning to the home page. If the problem persists, please contact
-            support.
-          </p>
         </CardContent>
         <CardFooter className="flex justify-between">
           <Button variant="outline" onClick={() => (window.location.href = "/")}>
             <Home className="mr-2 h-4 w-4" />
-            Home
+            Go Home
           </Button>
           <Button onClick={() => reset()}>
             <RefreshCw className="mr-2 h-4 w-4" />
