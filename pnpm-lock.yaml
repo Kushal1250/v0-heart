@@ -31,7 +31,7 @@ importers:
         version: 1.0.0
       '@op-engineering/op-sqlite':
         specifier: latest
-        version: 12.0.3(react-native@0.79.2(@babel/core@7.27.1)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+        version: 13.0.0(react-native@0.79.2(@babel/core@7.27.1)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
       '@opentelemetry/api':
         specifier: latest
         version: 1.9.0
@@ -175,7 +175,7 @@ importers:
         version: 4.1.0
       drizzle-orm:
         specifier: latest
-        version: 0.43.1(8d8047499aeb018d04d0104103eae866)
+        version: 0.43.1(7f763aed50e16ba68c2d7bd9b827652c)
       embla-carousel-react:
         specifier: 8.5.1
         version: 8.5.1(react@19.0.0)
@@ -271,7 +271,7 @@ importers:
         version: 1.0.7(tailwindcss@3.4.17)
       twilio:
         specifier: latest
-        version: 5.5.2
+        version: 5.6.0
       util:
         specifier: latest
         version: 0.12.5
@@ -1325,8 +1325,8 @@ packages:
     engines: {node: '>=10'}
     deprecated: This functionality has been moved to @npmcli/fs
 
-  '@op-engineering/op-sqlite@12.0.3':
-    resolution: {integrity: sha512-SlO6vEJ5RuaA9sWtaP2JfE7zIOZruKoznpk3Ihw/Gcl8Z+XjSYHR03AJkMOlZsz0Qfo0VZh/9K6tsHELob69qA==}
+  '@op-engineering/op-sqlite@13.0.0':
+    resolution: {integrity: sha512-9dEml4/YLtImq/Dld5/bafAfppxLx3HBRG6oN3y+WHPYk8iCVG+NLXUgTRwE8BSZrGl6xH6u3OaY/T1xnXXDmw==}
     peerDependencies:
       react: '*'
       react-native: '*'
@@ -5582,8 +5582,8 @@ packages:
   tunnel-agent@0.6.0:
     resolution: {integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==}
 
-  twilio@5.5.2:
-    resolution: {integrity: sha512-yrRh6immcL5xEVX7VmHsl3vU01x/fmqxf38kvxMrrtvEtAkYARYOPor9lt5T7964zC7l31k5sTrnLJmd2jjeOA==}
+  twilio@5.6.0:
+    resolution: {integrity: sha512-Md4ZFZrkZoNbriK/jU1yxKXs/HcgrI6LgFUmTATCOcJTAzDfritA03tol28KReDc4fAvshovxw+iDI6ADHSpPg==}
     engines: {node: '>=14.0'}
 
   type-detect@4.0.8:
@@ -7391,7 +7391,7 @@ snapshots:
       rimraf: 3.0.2
     optional: true
 
-  '@op-engineering/op-sqlite@12.0.3(react-native@0.79.2(@babel/core@7.27.1)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)':
+  '@op-engineering/op-sqlite@13.0.0(react-native@0.79.2(@babel/core@7.27.1)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)':
     dependencies:
       react: 19.0.0
       react-native: 0.79.2(@babel/core@7.27.1)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
@@ -9603,7 +9603,7 @@ snapshots:
 
   dotenv@16.4.7: {}
 
-  drizzle-orm@0.43.1(8d8047499aeb018d04d0104103eae866):
+  drizzle-orm@0.43.1(7f763aed50e16ba68c2d7bd9b827652c):
     optionalDependencies:
       '@aws-sdk/client-rds-data': 3.799.0
       '@cloudflare/workers-types': 4.20250505.0
@@ -9611,7 +9611,7 @@ snapshots:
       '@libsql/client': 0.15.4(bufferutil@4.0.9)
       '@libsql/client-wasm': 0.15.4
       '@neondatabase/serverless': 1.0.0
-      '@op-engineering/op-sqlite': 12.0.3(react-native@0.79.2(@babel/core@7.27.1)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+      '@op-engineering/op-sqlite': 13.0.0(react-native@0.79.2(@babel/core@7.27.1)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
       '@opentelemetry/api': 1.9.0
       '@planetscale/database': 1.19.0
       '@prisma/client': 6.7.0(typescript@5.0.2)
@@ -12050,7 +12050,7 @@ snapshots:
     dependencies:
       safe-buffer: 5.2.1
 
-  twilio@5.5.2:
+  twilio@5.6.0:
     dependencies:
       axios: 1.9.0
       dayjs: 1.11.13
