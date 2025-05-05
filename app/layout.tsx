@@ -30,9 +30,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/favicon.ico" />
+        {/* Explicit favicon links in addition to metadata */}
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/heart-favicon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/heart-favicon.png" />
-        <link rel="manifest" href="/site.webmanifest" />
+        <link rel="manifest" href="/manifest.json" />
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

@@ -7,7 +7,6 @@ import { usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useEffect, useState } from "react"
 import { useToast } from "@/components/ui/use-toast"
-import UserProfileDropdown from "./user-profile-dropdown"
 
 export default function Navbar() {
   const pathname = usePathname()
@@ -119,8 +118,15 @@ export default function Navbar() {
             {!isLoading && (
               <div className="flex items-center gap-4">
                 {user ? (
-                  // User profile dropdown for authenticated users
-                  <UserProfileDropdown />
+                  // Simplified authenticated user navigation - just a logout button
+                  <Button
+                    onClick={handleLogout}
+                    variant="outline"
+                    size="sm"
+                    className="rounded-md bg-gray-50 text-gray-700 hover:bg-gray-100"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" /> Logout
+                  </Button>
                 ) : (
                   // Non-authenticated user navigation
                   <div className="flex items-center gap-3">
@@ -191,31 +197,12 @@ export default function Navbar() {
                 </Link>
               ))}
               {user && (
-                <>
-                  <Link
-                    href="/profile"
-                    className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Profile
-                  </Link>
-                  <Link
-                    href="/settings"
-                    className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Settings
-                  </Link>
-                  <button
-                    onClick={(e) => {
-                      setMobileMenuOpen(false)
-                      handleLogout(e)
-                    }}
-                    className="w-full text-left block pl-3 pr-4 py-2 border-l-4 border-transparent text-red-600 hover:bg-gray-50 hover:border-red-300 hover:text-red-800 text-base font-medium"
-                  >
-                    <LogOut className="inline h-4 w-4 mr-2" /> Log out
-                  </button>
-                </>
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left block pl-3 pr-4 py-2 border-l-4 border-transparent text-red-600 hover:bg-gray-50 hover:border-red-300 hover:text-red-800 text-base font-medium"
+                >
+                  <LogOut className="inline h-4 w-4 mr-2" /> Log out
+                </button>
               )}
             </div>
           </div>
