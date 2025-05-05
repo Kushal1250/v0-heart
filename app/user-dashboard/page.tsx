@@ -163,15 +163,15 @@ export default function UserDashboard() {
               </Card>
             </Link>
 
-            <Link href="/profile" className="block">
+            <Link href="/settings" className="block">
               <Card className="p-6 hover:bg-gray-800 transition-colors duration-200 border border-gray-800 bg-gray-900">
                 <div className="flex items-center">
                   <div className="flex-shrink-0 bg-gray-800 rounded-lg p-3">
                     <FileText className="h-6 w-6 text-white" />
                   </div>
                   <div className="ml-4">
-                    <h3 className="text-lg font-medium text-white">My Profile</h3>
-                    <p className="text-sm text-gray-400">Update your information</p>
+                    <h3 className="text-lg font-medium text-white">Settings</h3>
+                    <p className="text-sm text-gray-400">Configure your preferences</p>
                   </div>
                   <ChevronRight className="ml-auto h-5 w-5 text-gray-400" />
                 </div>
