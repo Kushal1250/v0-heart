@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
+import "./background-animations.css"
 import { AuthProvider } from "@/lib/auth-context"
 import { ThemeProvider } from "@/lib/theme-context"
 import Navbar from "@/components/navbar"
@@ -49,6 +50,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Toaster />
           </AuthProvider>
         </ThemeProvider>
+        {/* Background animation script */}
+        <script src="/background-animation.js" defer></script>
       </body>
     </html>
   )
