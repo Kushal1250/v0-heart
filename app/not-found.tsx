@@ -1,8 +1,6 @@
 import Link from "next/link"
 import ServerFooter from "@/components/server-footer"
 import { Heart } from "lucide-react"
-import { Suspense } from "react"
-import { ReturnHomeButton } from "@/components/return-home-button"
 
 export default function NotFound() {
   return (
@@ -21,9 +19,16 @@ export default function NotFound() {
           <p className="text-gray-400">
             Sorry, we couldn't find the page you're looking for. It might have been moved or deleted.
           </p>
-          <Suspense fallback={<div className="h-10 w-32 bg-gray-700 animate-pulse rounded-md mx-auto"></div>}>
-            <ReturnHomeButton />
-          </Suspense>
+
+          {/* Use a simple server-side link instead of a client component */}
+          <div className="mt-6">
+            <Link
+              href="/"
+              className="inline-flex items-center justify-center rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+            >
+              Return to Home
+            </Link>
+          </div>
         </div>
       </main>
 
