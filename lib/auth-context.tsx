@@ -44,8 +44,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [lastRefresh, setLastRefresh] = useState<number>(0)
   const router = useRouter()
 
-  // Add a timeout to the checkAuthStatus function to prevent it from blocking too long
-
   // Update the checkAuthStatus function to be more resilient
   const checkAuthStatus = useCallback(
     async (force = false) => {
@@ -57,98 +55,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setIsLoading(true)
-
-      // Add a timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Auth check timed out")), 5000)
-      })
-
       try {
-        // Race the auth check with a timeout
-        await Promise.race([
-          (async () => {
-            // Check for admin cookie first
-            const isAdminCookie = document.cookie.includes("is_admin=true")
+        // Check for admin cookie first
+        const isAdminCookie = document.cookie.includes("is_admin=true")
 
-            if (isAdminCookie) {
-              console.log("Admin cookie found, setting admin status")
-              setIsAdmin(true)
+        if (isAdminCookie) {
+          console.log("Admin cookie found, setting admin status")
+          setIsAdmin(true)
 
-              // If we don't have user data yet, set default admin user
-              if (!user || user.role !== "admin") {
-                const adminUser = {
-                  id: "admin",
-                  name: "Admin",
-                  email: "admin@example.com",
-                  role: "admin",
-                }
-                setUser(adminUser)
-                localStorage.setItem("user", JSON.stringify(adminUser))
-                localStorage.setItem("userExpiry", (new Date().getTime() + 8 * 60 * 60 * 1000).toString())
-              }
-              return
+          // If we don't have user data yet, set default admin user
+          if (!user || user.role !== "admin") {
+            const adminUser = {
+              id: "admin",
+              name: "Admin",
+              email: "admin@example.com",
+              role: "admin",
             }
+            setUser(adminUser)
+            localStorage.setItem("user", JSON.stringify(adminUser))
+            localStorage.setItem("userExpiry", (new Date().getTime() + 8 * 60 * 60 * 1000).toString())
+          }
 
-            // First check localStorage for cached user data
-            const cachedUser = localStorage.getItem("user")
-            if (cachedUser && !force) {
-              const userData = JSON.parse(cachedUser)
-              const expiryTime = localStorage.getItem("userExpiry")
+          setIsLoading(false)
+          return
+        }
 
-              // If we have valid cached data that hasn't expired
-              if (expiryTime && new Date().getTime() < Number.parseInt(expiryTime)) {
-                setUser(userData)
-                setIsAdmin(userData.role === "admin")
-                return
-              }
-            }
-
-            // If no valid cached data or forced refresh, check with the server
-            const response = await fetch("/api/auth/user", {
-              credentials: "include",
-              headers: {
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-                Pragma: "no-cache",
-                Expires: "0",
-              },
-            })
-
-            if (response.ok) {
-              const userData = await response.json()
-              setUser(userData)
-              setIsAdmin(userData.role === "admin")
-              setLastRefresh(now)
-
-              // Cache the user data with a 4-hour expiry (increased from 2 hours)
-              localStorage.setItem("user", JSON.stringify(userData))
-              localStorage.setItem("userExpiry", (new Date().getTime() + 4 * 60 * 60 * 1000).toString())
-            } else {
-              setUser(null)
-              setIsAdmin(false)
-              // Clear any stale data
-              localStorage.removeItem("user")
-              localStorage.removeItem("userExpiry")
-            }
-          })(),
-          timeoutPromise,
-        ])
-      } catch (error) {
-        console.error("Error checking auth status:", error)
-        // Fall back to cached user data if available
+        // First check localStorage for cached user data
         const cachedUser = localStorage.getItem("user")
-        if (cachedUser) {
-          try {
-            const userData = JSON.parse(cachedUser)
+        if (cachedUser && !force) {
+          const userData = JSON.parse(cachedUser)
+          const expiryTime = localStorage.getItem("userExpiry")
+
+          // If we have valid cached data that hasn't expired
+          if (expiryTime && new Date().getTime() < Number.parseInt(expiryTime)) {
             setUser(userData)
             setIsAdmin(userData.role === "admin")
-          } catch (e) {
-            setUser(null)
-            setIsAdmin(false)
+            setIsLoading(false)
+            return
           }
+        }
+
+        // If no valid cached data or forced refresh, check with the server
+        const response = await fetch("/api/auth/user", {
+          credentials: "include",
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+        })
+
+        if (response.ok) {
+          const userData = await response.json()
+          setUser(userData)
+          setIsAdmin(userData.role === "admin")
+          setLastRefresh(now)
+
+          // Cache the user data with a 4-hour expiry (increased from 2 hours)
+          localStorage.setItem("user", JSON.stringify(userData))
+          localStorage.setItem("userExpiry", (new Date().getTime() + 4 * 60 * 60 * 1000).toString())
         } else {
           setUser(null)
           setIsAdmin(false)
+          // Clear any stale data
+          localStorage.removeItem("user")
+          localStorage.removeItem("userExpiry")
         }
+      } catch (error) {
+        console.error("Error checking auth status:", error)
+        setUser(null)
+        setIsAdmin(false)
       } finally {
         setIsLoading(false)
       }

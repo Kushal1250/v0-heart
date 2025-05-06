@@ -22,30 +22,21 @@ export function SessionKeeper() {
     // Set up event listeners to refresh session on user activity
     const refreshOnActivity = () => {
       if (user && isSessionValid()) {
-        try {
-          refreshSessionExpiry()
-        } catch (error) {
-          console.error("Error refreshing session:", error)
-          // Continue execution even if refresh fails
-        }
+        refreshSessionExpiry()
       }
     }
 
-    // Add event listeners for user activity with passive option for better performance
-    window.addEventListener("click", refreshOnActivity, { passive: true })
-    window.addEventListener("keypress", refreshOnActivity, { passive: true })
-    window.addEventListener("scroll", refreshOnActivity, { passive: true })
-    window.addEventListener("mousemove", refreshOnActivity, { passive: true })
+    // Add event listeners for user activity
+    window.addEventListener("click", refreshOnActivity)
+    window.addEventListener("keypress", refreshOnActivity)
+    window.addEventListener("scroll", refreshOnActivity)
+    window.addEventListener("mousemove", refreshOnActivity)
 
     // Set up periodic check (every 5 minutes)
     const intervalId = setInterval(
       () => {
         if (user && isSessionValid()) {
-          try {
-            refreshSessionExpiry()
-          } catch (error) {
-            console.error("Error in periodic session refresh:", error)
-          }
+          refreshSessionExpiry()
         }
       },
       5 * 60 * 1000,
