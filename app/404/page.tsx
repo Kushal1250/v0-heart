@@ -1,10 +1,9 @@
-import Link from "next/link"
-import ServerFooter from "@/components/server-footer"
-import { Heart } from "lucide-react"
 import { Suspense } from "react"
-import { ReturnHomeButton } from "@/components/return-home-button"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Heart } from "lucide-react"
 
-export default function NotFound() {
+export default function Custom404Page() {
   return (
     <div className="flex flex-col min-h-screen bg-black text-white">
       <div className="border-b border-gray-800 py-4 px-4 flex justify-between items-center">
@@ -22,12 +21,12 @@ export default function NotFound() {
             Sorry, we couldn't find the page you're looking for. It might have been moved or deleted.
           </p>
           <Suspense fallback={<div className="h-10 w-32 bg-gray-700 animate-pulse rounded-md mx-auto"></div>}>
-            <ReturnHomeButton />
+            <Button asChild className="bg-red-600 hover:bg-red-700">
+              <Link href="/">Return to Home</Link>
+            </Button>
           </Suspense>
         </div>
       </main>
-
-      <ServerFooter />
     </div>
   )
 }
