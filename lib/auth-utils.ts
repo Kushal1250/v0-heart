@@ -1,4 +1,3 @@
-import { cookies } from "next/headers"
 import { v4 as uuidv4 } from "uuid"
 import {
   getSessionByToken,
@@ -7,11 +6,82 @@ import {
   getVerificationCode,
   deleteVerificationCode,
 } from "@/lib/db"
-import type { NextRequest } from "next/server"
 import { sendSMS } from "@/lib/sms-utils"
 import { logError } from "@/lib/error-logger"
 import { compare, hash } from "bcrypt-ts"
 import { sendVerificationCodeEmail } from "@/lib/email-utils"
+import { cookies as nextCookies } from "next/headers"
+
+// Check if we're in a browser environment
+const isBrowser = typeof window !== "undefined"
+
+/**
+ * Get session token from cookies - works in both App Router and Pages Router
+ */
+export function getSessionToken(req?: any): string | undefined {
+  // If we're in a browser environment, use document.cookie
+  if (isBrowser) {
+    const cookies = document.cookie.split(";")
+    const sessionCookie = cookies.find((cookie) => cookie.trim().startsWith("session="))
+    return sessionCookie ? sessionCookie.split("=")[1] : undefined
+  }
+
+  // If request object is provided (Pages API)
+  if (req?.cookies) {
+    return req.cookies.session
+  }
+
+  // Use App Router cookies() (this will throw an error if used in Pages Router)
+  try {
+    return nextCookies().get("session")?.value
+  } catch (error) {
+    console.error("Error accessing cookies with next/headers:", error)
+    return undefined
+  }
+}
+
+/**
+ * Clear session cookie - works in both App Router and Pages Router
+ */
+export function clearSessionCookie(res?: any): void {
+  // If response object is provided (Pages API)
+  if (res?.setHeader) {
+    res.setHeader("Set-Cookie", `session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`)
+    return
+  }
+
+  // Use App Router cookies() (this will throw an error if used in Pages Router)
+  try {
+    nextCookies().delete("session")
+  } catch (error) {
+    console.error("Error deleting cookie with next/headers:", error)
+  }
+}
+
+/**
+ * Create response with cookie - works in both App Router and Pages Router
+ */
+export function createResponseWithCookie(data: any, token: string, res?: any): any {
+  // If response object is provided (Pages API)
+  if (res?.setHeader) {
+    res.setHeader("Set-Cookie", `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`)
+    return res.status(200).json(data)
+  }
+
+  // Use App Router Response
+  const response = new Response(JSON.stringify(data), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  })
+
+  // Set cookie with proper configuration
+  response.headers.set(
+    "Set-Cookie",
+    `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`, // 24 hours
+  )
+
+  return response
+}
 
 export async function hashPassword(password: string): Promise<string> {
   try {
@@ -31,10 +101,6 @@ export async function comparePasswords(password: string, hashedPassword: string)
     console.error("Password comparison error:", error)
     throw new Error("Password comparison failed")
   }
-}
-
-export function getSessionToken(): string | undefined {
-  return cookies().get("session")?.value
 }
 
 export async function getUserIdFromToken(token: string): Promise<string | null> {
@@ -63,33 +129,14 @@ export function isStrongPassword(password: string): boolean {
   return password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password)
 }
 
-export function createResponseWithCookie(data: any, token: string): any {
-  const response = new Response(JSON.stringify(data), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  })
-
-  // Set cookie with proper configuration
-  response.headers.set(
-    "Set-Cookie",
-    `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`, // 24 hours
-  )
-
-  return response
-}
-
-export function clearSessionCookie(): void {
-  cookies().delete("session")
-}
-
-export async function getCurrentUser(): Promise<{
+export async function getCurrentUser(req?: any): Promise<{
   id: string
   email: string
   name: string | null
   role: string
 } | null> {
   try {
-    const token = getSessionToken()
+    const token = getSessionToken(req)
 
     if (!token) {
       console.log("No session token found")
@@ -117,13 +164,13 @@ export async function getCurrentUser(): Promise<{
   }
 }
 
-export async function verifyAdminSession(request: Request): Promise<{
+export async function verifyAdminSession(req?: any): Promise<{
   id: string
   email: string
   name: string | null
   role: string
 } | null> {
-  const sessionToken = getSessionToken()
+  const sessionToken = getSessionToken(req)
   if (!sessionToken) {
     return null
   }
@@ -144,11 +191,10 @@ export async function verifyAdminSession(request: Request): Promise<{
 /**
  * Extracts user information from an incoming request
  */
-export async function getUserFromRequest(request: Request | NextRequest) {
+export async function getUserFromRequest(req: any) {
   try {
     // Get the session token from the cookie
-    const cookieStore = cookies()
-    const sessionToken = cookieStore.get("session")?.value
+    const sessionToken = getSessionToken(req)
 
     if (!sessionToken) {
       console.log("No session token found in request")
