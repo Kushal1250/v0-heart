@@ -84,7 +84,7 @@ export function LiveChatWidget() {
     return (
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 rounded-full h-14 w-14 p-0 shadow-lg bg-red-600 hover:bg-red-700"
+        className="fixed bottom-6 right-6 rounded-full h-14 w-14 p-0 shadow-lg bg-red-600 hover:bg-red-700 z-50"
         aria-label="Open chat"
       >
         <MessageSquare className="h-6 w-6" />
@@ -94,18 +94,18 @@ export function LiveChatWidget() {
 
   return (
     <Card
-      className={`fixed bottom-6 right-6 w-80 md:w-96 shadow-lg border-gray-700 bg-gray-900 z-50 transition-all duration-300 ${
+      className={`fixed bottom-6 right-6 w-80 md:w-96 shadow-lg border-gray-200 bg-white z-50 transition-all duration-300 ${
         isMinimized ? "h-14" : "h-[500px] max-h-[80vh]"
       }`}
     >
-      <CardHeader className="p-3 border-b border-gray-800 bg-gray-800 flex flex-row items-center justify-between">
+      <CardHeader className="p-3 border-b border-gray-200 bg-gray-50 flex flex-row items-center justify-between">
         <div className="flex items-center">
           <Avatar className="h-8 w-8 mr-2 bg-red-600">
             <User className="h-4 w-4 text-white" />
           </Avatar>
           <div>
             <h3 className="text-sm font-medium">HeartPredict Support</h3>
-            <p className="text-xs text-gray-400">Online</p>
+            <p className="text-xs text-gray-500">Online</p>
           </div>
         </div>
         <div className="flex gap-1">
@@ -126,18 +126,24 @@ export function LiveChatWidget() {
                 <div key={message.id} className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}>
                   <div
                     className={`max-w-[80%] rounded-lg p-3 ${
-                      message.sender === "user" ? "bg-red-600 text-white" : "bg-gray-800 text-gray-100"
+                      message.sender === "user" ? "bg-red-600 text-white" : "bg-gray-100 text-gray-800"
                     }`}
                   >
                     <p className="text-sm">{message.text}</p>
-                    <p className="text-xs mt-1 opacity-70 text-right">{formatTime(message.timestamp)}</p>
+                    <p
+                      className={`text-xs mt-1 text-right ${
+                        message.sender === "user" ? "text-red-100" : "text-gray-500"
+                      }`}
+                    >
+                      {formatTime(message.timestamp)}
+                    </p>
                   </div>
                 </div>
               ))}
 
               {isTyping && (
                 <div className="flex justify-start">
-                  <div className="max-w-[80%] rounded-lg p-3 bg-gray-800 text-gray-100">
+                  <div className="max-w-[80%] rounded-lg p-3 bg-gray-100 text-gray-800">
                     <div className="flex space-x-1">
                       <div
                         className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
@@ -159,7 +165,7 @@ export function LiveChatWidget() {
             </div>
           </CardContent>
 
-          <CardFooter className="p-3 border-t border-gray-800">
+          <CardFooter className="p-3 border-t border-gray-200">
             <form
               onSubmit={(e) => {
                 e.preventDefault()
@@ -171,7 +177,7 @@ export function LiveChatWidget() {
                 placeholder="Type your message..."
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                className="flex-grow bg-gray-800 border-gray-700"
+                className="flex-grow bg-white border-gray-300"
               />
               <Button type="submit" size="icon" className="bg-red-600 hover:bg-red-700">
                 <Send className="h-4 w-4" />
