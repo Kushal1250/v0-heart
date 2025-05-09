@@ -79,6 +79,7 @@ export default function Navbar() {
       { name: "History", href: "/history" },
       { name: "About", href: "/about" },
       { name: "How It Works", href: "/how-it-works" },
+      { name: "Profile", href: "/profile" },
       ...(isAdmin ? [{ name: "Admin", href: "/admin" }] : []),
     ]
   }

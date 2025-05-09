@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth-context"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Heart, ChevronRight, ArrowUpRight, X, CheckCircle, FileText, History } from "lucide-react"
+import { Heart, ChevronRight, ArrowUpRight, X, CheckCircle, FileText, History, User } from "lucide-react"
 
 export default function UserDashboard() {
   const { user, isLoading } = useAuth()
@@ -132,7 +132,7 @@ export default function UserDashboard() {
         {/* Quick actions */}
         <div className="mb-8">
           <h2 className="text-lg font-medium text-white mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Link href="/predict" className="block">
               <Card className="p-6 hover:bg-gray-800 transition-colors duration-200 border border-gray-800 bg-gray-900">
                 <div className="flex items-center">
@@ -157,6 +157,21 @@ export default function UserDashboard() {
                   <div className="ml-4">
                     <h3 className="text-lg font-medium text-white">View History</h3>
                     <p className="text-sm text-gray-400">See past predictions</p>
+                  </div>
+                  <ChevronRight className="ml-auto h-5 w-5 text-gray-400" />
+                </div>
+              </Card>
+            </Link>
+
+            <Link href="/profile" className="block">
+              <Card className="p-6 hover:bg-gray-800 transition-colors duration-200 border border-gray-800 bg-gray-900">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0 bg-gray-800 rounded-lg p-3">
+                    <User className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-white">Profile</h3>
+                    <p className="text-sm text-gray-400">Manage your account</p>
                   </div>
                   <ChevronRight className="ml-auto h-5 w-5 text-gray-400" />
                 </div>
