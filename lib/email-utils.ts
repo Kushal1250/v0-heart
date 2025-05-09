@@ -12,6 +12,46 @@ const emailConfig = {
   },
 }
 
+// For development/testing
+let testAccount: nodemailer.TestAccount | null = null
+
+/**
+ * Get a test account for development
+ */
+async function getTestAccount() {
+  if (!testAccount) {
+    testAccount = await nodemailer.createTestAccount()
+    console.log("Created test account:", testAccount)
+  }
+  return testAccount
+}
+
+/**
+ * Get email transport configuration
+ */
+async function getTransport() {
+  // Use Ethereal for development if no email config is provided
+  if (
+    process.env.NODE_ENV === "development" &&
+    (!emailConfig.host || !emailConfig.auth.user || !emailConfig.auth.pass)
+  ) {
+    console.log("Using Ethereal test account for email")
+    const testAccount = await getTestAccount()
+    return nodemailer.createTransport({
+      host: "smtp.ethereal.email",
+      port: 587,
+      secure: false,
+      auth: {
+        user: testAccount.user,
+        pass: testAccount.pass,
+      },
+    })
+  }
+
+  // Use configured email service
+  return nodemailer.createTransport(emailConfig)
+}
+
 /**
  * Send an email
  * @param options Email options including to, subject, html, and text
@@ -24,27 +64,15 @@ export async function sendEmail(options: {
   text?: string
 }) {
   try {
-    console.log("Email configuration:", {
-      host: emailConfig.host,
-      port: emailConfig.port,
-      secure: emailConfig.secure,
-      user: emailConfig.auth.user ? "Set" : "Not set",
-      pass: emailConfig.auth.pass ? "Set" : "Not set",
-      from: process.env.EMAIL_FROM || "noreply@example.com",
-    })
+    console.log("Sending email to:", options.to)
+    console.log("Email subject:", options.subject)
 
-    // Create transporter
-    const transporter = nodemailer.createTransport(emailConfig)
-
-    // Verify connection configuration
-    await transporter.verify().catch((error) => {
-      console.error("SMTP connection verification failed:", error)
-      throw new Error(`SMTP connection failed: ${error.message}`)
-    })
+    // Get transport
+    const transporter = await getTransport()
 
     // Send email
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || "noreply@example.com",
+      from: process.env.EMAIL_FROM || "noreply@heartpredict.com",
       to: options.to,
       subject: options.subject,
       text: options.text || options.html.replace(/<[^>]*>/g, ""),
@@ -52,10 +80,17 @@ export async function sendEmail(options: {
     })
 
     console.log("Email sent:", info.messageId)
+
+    // Get preview URL for development
+    const previewUrl = nodemailer.getTestMessageUrl(info)
+    if (previewUrl) {
+      console.log("Preview URL:", previewUrl)
+    }
+
     return {
       success: true,
       messageId: info.messageId,
-      previewUrl: nodemailer.getTestMessageUrl(info),
+      previewUrl,
     }
   } catch (error) {
     console.error("Error sending email:", error)

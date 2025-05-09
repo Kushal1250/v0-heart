@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -9,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react"
+import { isValidEmail } from "@/lib/auth-utils"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -22,17 +24,32 @@ export default function ForgotPasswordPage() {
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+
+    // Validate email
+    if (!email) {
+      setError("Please enter your email address")
+      return
+    }
+
+    if (!isValidEmail(email)) {
+      setError("Please enter a valid email address")
+      return
+    }
+
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/auth/forgot-password", {
+      console.log("Sending verification code to:", email)
+
+      const response = await fetch("/api/auth/send-verification-code", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email,
+          identifier: email,
           method: "email",
+          purpose: "password-reset",
         }),
       })
 
@@ -43,6 +60,7 @@ export default function ForgotPasswordPage() {
       }
 
       setCodeSent(true)
+      console.log("Verification code sent successfully")
 
       // If we're in development, we can show the code for testing
       if (process.env.NODE_ENV === "development" && data.previewCode) {
@@ -50,7 +68,7 @@ export default function ForgotPasswordPage() {
       }
     } catch (err: any) {
       console.error("Error sending verification code:", err)
-      setError(err.message || "An unexpected error occurred")
+      setError(err.message || "Failed to send verification code. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -59,9 +77,23 @@ export default function ForgotPasswordPage() {
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+
+    // Validate code
+    if (!verificationCode) {
+      setError("Please enter the verification code")
+      return
+    }
+
+    if (verificationCode.length !== 6 || !/^\d+$/.test(verificationCode)) {
+      setError("Please enter a valid 6-digit verification code")
+      return
+    }
+
     setIsVerifying(true)
 
     try {
+      console.log("Verifying code:", verificationCode)
+
       const response = await fetch("/api/auth/verify-code", {
         method: "POST",
         headers: {
@@ -70,6 +102,7 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({
           identifier: email,
           code: verificationCode,
+          purpose: "password-reset",
         }),
       })
 
@@ -87,7 +120,7 @@ export default function ForgotPasswordPage() {
       }
     } catch (err: any) {
       console.error("Error verifying code:", err)
-      setError(err.message || "An unexpected error occurred")
+      setError(err.message || "Failed to verify code. Please try again.")
     } finally {
       setIsVerifying(false)
     }
@@ -98,14 +131,17 @@ export default function ForgotPasswordPage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/auth/forgot-password", {
+      console.log("Resending verification code to:", email)
+
+      const response = await fetch("/api/auth/send-verification-code", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email,
+          identifier: email,
           method: "email",
+          purpose: "password-reset",
         }),
       })
 
@@ -115,10 +151,11 @@ export default function ForgotPasswordPage() {
         throw new Error(data.message || "Failed to resend verification code")
       }
 
+      // Show success message
       setError("A new verification code has been sent to your email.")
     } catch (err: any) {
       console.error("Error resending verification code:", err)
-      setError(err.message || "An unexpected error occurred")
+      setError(err.message || "Failed to resend verification code. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -128,15 +165,12 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-900 px-4 py-12 sm:px-6 lg:px-8 text-white">
       <Card className="w-full max-w-md bg-gray-800 border-gray-700">
         <CardHeader>
-          <CardTitle className="text-center text-2xl font-bold text-white">
-            {codeSent ? "Verification Code" : "Reset Your Password"}
-          </CardTitle>
-          {!codeSent && (
+          <CardTitle className="text-center text-2xl font-bold text-white">Reset Your Password</CardTitle>
+          {!codeSent ? (
             <p className="text-center text-gray-300 mt-2">
               We&apos;ll send you a verification code to reset your password
             </p>
-          )}
-          {codeSent && (
+          ) : (
             <p className="text-center text-gray-300 mt-2">
               Enter the 6-digit code sent to your email
               <br />
