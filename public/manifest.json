@@ -3,22 +3,22 @@
   "short_name": "HeartPredict",
   "icons": [
     {
-      "src": "/favicon.ico",
+      "src": "/heart-icon-new.ico?v=2",
       "sizes": "64x64 32x32 24x24 16x16",
       "type": "image/x-icon"
     },
     {
-      "src": "/apple-touch-icon.png",
+      "src": "/heart-apple-icon-new.png?v=2",
       "sizes": "180x180",
       "type": "image/png"
     },
     {
-      "src": "/android-chrome-192x192.png",
+      "src": "/heart-icon-192-new.png?v=2",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/android-chrome-512x512.png",
+      "src": "/heart-icon-512-new.png?v=2",
       "sizes": "512x512",
       "type": "image/png"
     }

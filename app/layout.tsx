@@ -25,10 +25,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-        <link rel="icon" href="/favicon.ico" />
-        <link rel="icon" href="/favicon.png" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <link rel="manifest" href="/manifest.json" />
+        <link rel="icon" href="/heart-icon-new.ico?v=2" />
+        <link rel="icon" href="/heart-icon-new.png?v=2" type="image/png" />
+        <link rel="apple-touch-icon" href="/heart-apple-icon-new.png?v=2" />
+        <link rel="manifest" href="/manifest.json?v=2" />
       </head>
       <body className={inter.className}>
         <ErrorBoundary>
