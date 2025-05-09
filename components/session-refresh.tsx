@@ -29,14 +29,19 @@ export default function SessionRefresh() {
   // Handle manual refresh
   const handleRefresh = async () => {
     setRefreshing(true)
-    const success = await refreshSession()
-    setRefreshing(false)
-
-    if (success) {
-      setSessionExpired(false)
-      router.refresh()
-    } else {
+    try {
+      const success = await refreshSession()
+      if (success) {
+        setSessionExpired(false)
+        router.refresh()
+      } else {
+        setSessionExpired(true)
+      }
+    } catch (error) {
+      console.error("Error during session refresh:", error)
       setSessionExpired(true)
+    } finally {
+      setRefreshing(false)
     }
   }
 
@@ -50,7 +55,7 @@ export default function SessionRefresh() {
   return (
     <div className="fixed top-0 left-0 right-0 z-50 p-4 bg-red-50 border-b border-red-200">
       <Alert variant="destructive" className="max-w-3xl mx-auto">
-        <AlertDescription className="flex items-center justify-between">
+        <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <span>Your admin session has expired or you don't have the required permissions.</span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>

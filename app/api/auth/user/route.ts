@@ -6,7 +6,21 @@ export async function GET() {
     const user = await getCurrentUser()
 
     if (!user) {
-      return NextResponse.json({ authenticated: false }, { status: 401 })
+      // Return a more graceful response for unauthenticated users
+      return NextResponse.json(
+        {
+          authenticated: false,
+          message: "Not authenticated",
+        },
+        {
+          status: 401,
+          headers: {
+            "Cache-Control": "no-store, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+        },
+      )
     }
 
     // Remove sensitive information
@@ -17,10 +31,19 @@ export async function GET() {
       role: user.role,
     }
 
-    return NextResponse.json({
-      authenticated: true,
-      user: safeUser,
-    })
+    return NextResponse.json(
+      {
+        authenticated: true,
+        user: safeUser,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
+    )
   } catch (error) {
     console.error("Error in user route:", error)
     return NextResponse.json(
@@ -28,7 +51,14 @@ export async function GET() {
         authenticated: false,
         error: "Failed to authenticate user",
       },
-      { status: 500 },
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
     )
   }
 }

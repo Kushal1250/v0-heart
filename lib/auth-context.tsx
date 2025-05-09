@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const now = Date.now()
       if (!force && lastRefresh > 0 && now - lastRefresh < 60000) {
         // 1 minute cooldown
+        setIsLoading(false)
         return
       }
 
@@ -105,14 +106,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
         })
 
+        // Handle 401 Unauthorized gracefully - this is expected for non-logged in users
+        if (response.status === 401) {
+          setUser(null)
+          setIsAdmin(false)
+          localStorage.removeItem("user")
+          localStorage.removeItem("userExpiry")
+          setIsLoading(false)
+          setLastRefresh(now)
+          return
+        }
+
         if (response.ok) {
           const userData = await response.json()
-          setUser(userData)
-          setIsAdmin(userData.role === "admin")
+          setUser(userData.user)
+          setIsAdmin(userData.user?.role === "admin" || false)
           setLastRefresh(now)
 
           // Cache the user data with a 4-hour expiry (increased from 2 hours)
-          localStorage.setItem("user", JSON.stringify(userData))
+          localStorage.setItem("user", JSON.stringify(userData.user))
           localStorage.setItem("userExpiry", (new Date().getTime() + 4 * 60 * 60 * 1000).toString())
         } else {
           setUser(null)
@@ -122,9 +134,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem("userExpiry")
         }
       } catch (error) {
-        console.error("Error checking auth status:", error)
-        setUser(null)
-        setIsAdmin(false)
+        // Don't log errors for expected auth failures
+        if (error instanceof TypeError && error.message.includes("Failed to fetch")) {
+          // Network error - likely offline or API unavailable
+          // Use cached data if available
+          const cachedUser = localStorage.getItem("user")
+          if (cachedUser) {
+            try {
+              const userData = JSON.parse(cachedUser)
+              setUser(userData)
+              setIsAdmin(userData.role === "admin")
+            } catch (e) {
+              setUser(null)
+              setIsAdmin(false)
+            }
+          } else {
+            setUser(null)
+            setIsAdmin(false)
+          }
+        } else {
+          console.error("Error checking auth status:", error)
+          setUser(null)
+          setIsAdmin(false)
+        }
       } finally {
         setIsLoading(false)
       }
@@ -161,7 +193,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up a timer to refresh the session every 25 minutes
     const intervalId = setInterval(
       () => {
-        refreshSession()
+        refreshSession().catch(() => {
+          // Silently handle refresh errors
+        })
       },
       25 * 60 * 1000,
     ) // 25 minutes
