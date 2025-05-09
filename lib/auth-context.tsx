@@ -42,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [lastRefresh, setLastRefresh] = useState<number>(0)
+  const [authInitialized, setAuthInitialized] = useState(false)
   const router = useRouter()
 
   // Check if auth token exists in cookies or localStorage
@@ -72,95 +73,152 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setIsLoading(true)
+
       try {
-        // Check for admin cookie first
-        const isAdminCookie = document.cookie.includes("is_admin=true")
+        // Add a timeout to prevent the auth check from hanging indefinitely
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Auth check timed out")), 5000)
+        })
 
-        if (isAdminCookie) {
-          setIsAdmin(true)
+        const authCheckPromise = (async () => {
+          // Check for admin cookie first
+          const isAdminCookie = document.cookie.includes("is_admin=true")
 
-          // If we don't have user data yet, set default admin user
-          if (!user || user.role !== "admin") {
-            const adminUser = {
-              id: "admin",
-              name: "Admin",
-              email: "admin@example.com",
-              role: "admin",
+          if (isAdminCookie) {
+            setIsAdmin(true)
+
+            // If we don't have user data yet, set default admin user
+            if (!user || user.role !== "admin") {
+              const adminUser = {
+                id: "admin",
+                name: "Admin",
+                email: "admin@example.com",
+                role: "admin",
+              }
+              setUser(adminUser)
+              localStorage.setItem("user", JSON.stringify(adminUser))
+              localStorage.setItem("userExpiry", (new Date().getTime() + 8 * 60 * 60 * 1000).toString())
             }
-            setUser(adminUser)
-            localStorage.setItem("user", JSON.stringify(adminUser))
-            localStorage.setItem("userExpiry", (new Date().getTime() + 8 * 60 * 60 * 1000).toString())
-          }
-
-          setIsLoading(false)
-          return
-        }
-
-        // First check localStorage for cached user data
-        const cachedUser = localStorage.getItem("user")
-        if (cachedUser && !force) {
-          const userData = JSON.parse(cachedUser)
-          const expiryTime = localStorage.getItem("userExpiry")
-
-          // If we have valid cached data that hasn't expired
-          if (expiryTime && new Date().getTime() < Number.parseInt(expiryTime)) {
-            setUser(userData)
-            setIsAdmin(userData.role === "admin")
-            setIsLoading(false)
             return
           }
-        }
 
-        // Only make the API call if we have reason to believe the user might be authenticated
-        // This prevents unnecessary 401 errors in the console
-        if (force || hasAuthToken()) {
-          // If no valid cached data or forced refresh, check with the server
-          const response = await fetch("/api/auth/check-session", {
-            credentials: "include",
-            headers: {
-              "Cache-Control": "no-cache, no-store, must-revalidate",
-              Pragma: "no-cache",
-              Expires: "0",
-            },
-          })
+          // First check localStorage for cached user data
+          const cachedUser = localStorage.getItem("user")
+          if (cachedUser && !force) {
+            try {
+              const userData = JSON.parse(cachedUser)
+              const expiryTime = localStorage.getItem("userExpiry")
 
-          if (response.ok) {
-            const userData = await response.json()
-            if (userData.authenticated && userData.user) {
-              setUser(userData.user)
-              setIsAdmin(userData.user.role === "admin" || false)
-              setLastRefresh(now)
-
-              // Cache the user data with a 4-hour expiry
-              localStorage.setItem("user", JSON.stringify(userData.user))
-              localStorage.setItem("userExpiry", (new Date().getTime() + 4 * 60 * 60 * 1000).toString())
-            } else {
-              // User is not authenticated according to the server
-              setUser(null)
-              setIsAdmin(false)
+              // If we have valid cached data that hasn't expired
+              if (expiryTime && new Date().getTime() < Number.parseInt(expiryTime)) {
+                setUser(userData)
+                setIsAdmin(userData.role === "admin")
+                return
+              }
+            } catch (e) {
+              // Invalid JSON in localStorage, clear it
               localStorage.removeItem("user")
               localStorage.removeItem("userExpiry")
             }
+          }
+
+          // Only make the API call if we have reason to believe the user might be authenticated
+          // This prevents unnecessary 401 errors in the console
+          if (force || hasAuthToken()) {
+            // If no valid cached data or forced refresh, check with the server
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 second timeout
+
+            try {
+              const response = await fetch("/api/auth/check-session", {
+                credentials: "include",
+                headers: {
+                  "Cache-Control": "no-cache, no-store, must-revalidate",
+                  Pragma: "no-cache",
+                  Expires: "0",
+                },
+                signal: controller.signal,
+              })
+
+              clearTimeout(timeoutId)
+
+              if (response.ok) {
+                const userData = await response.json()
+                if (userData.authenticated && userData.user) {
+                  setUser(userData.user)
+                  setIsAdmin(userData.user.role === "admin" || false)
+                  setLastRefresh(now)
+
+                  // Cache the user data with a 4-hour expiry
+                  localStorage.setItem("user", JSON.stringify(userData.user))
+                  localStorage.setItem("userExpiry", (new Date().getTime() + 4 * 60 * 60 * 1000).toString())
+                } else {
+                  // User is not authenticated according to the server
+                  setUser(null)
+                  setIsAdmin(false)
+                  localStorage.removeItem("user")
+                  localStorage.removeItem("userExpiry")
+                }
+              } else {
+                // Error with the request - clear user state
+                setUser(null)
+                setIsAdmin(false)
+                localStorage.removeItem("user")
+                localStorage.removeItem("userExpiry")
+              }
+            } catch (fetchError) {
+              clearTimeout(timeoutId)
+              // Handle fetch errors (timeout, network error, etc.)
+              console.warn("Auth check fetch error:", fetchError)
+
+              // If we have cached user data, use it as fallback
+              if (cachedUser) {
+                try {
+                  const userData = JSON.parse(cachedUser)
+                  setUser(userData)
+                  setIsAdmin(userData.role === "admin")
+                } catch (e) {
+                  setUser(null)
+                  setIsAdmin(false)
+                }
+              } else {
+                setUser(null)
+                setIsAdmin(false)
+              }
+            }
           } else {
-            // Error with the request - clear user state
+            // No auth token found, user is definitely not authenticated
             setUser(null)
             setIsAdmin(false)
             localStorage.removeItem("user")
             localStorage.removeItem("userExpiry")
           }
-        } else {
-          // No auth token found, user is definitely not authenticated
-          setUser(null)
-          setIsAdmin(false)
-          localStorage.removeItem("user")
-          localStorage.removeItem("userExpiry")
-        }
+        })()
+
+        // Race between the auth check and the timeout
+        await Promise.race([authCheckPromise, timeoutPromise])
       } catch (error) {
         // Handle errors silently - don't log to console
-        setUser(null)
-        setIsAdmin(false)
+        console.warn("Auth check error or timeout:", error)
+
+        // Use cached data if available
+        const cachedUser = localStorage.getItem("user")
+        if (cachedUser) {
+          try {
+            const userData = JSON.parse(cachedUser)
+            setUser(userData)
+            setIsAdmin(userData.role === "admin")
+          } catch (e) {
+            setUser(null)
+            setIsAdmin(false)
+          }
+        } else {
+          setUser(null)
+          setIsAdmin(false)
+        }
       } finally {
         setIsLoading(false)
+        setAuthInitialized(true)
       }
     },
     [lastRefresh, user, hasAuthToken],
@@ -169,13 +227,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Add a session refresh function
   const refreshSession = async (): Promise<boolean> => {
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 second timeout
+
       const response = await fetch("/api/auth/refresh-session", {
         method: "POST",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
+        signal: controller.signal,
       })
+
+      clearTimeout(timeoutId)
 
       if (response.ok) {
         // Force a refresh of auth status
@@ -188,8 +252,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Initialize auth state once on mount
   useEffect(() => {
-    checkAuthStatus()
+    // Use a more reliable way to load initial auth state
+    const loadInitialAuthState = async () => {
+      try {
+        // First try to load from localStorage to prevent flicker
+        const cachedUser = localStorage.getItem("user")
+        const expiryTime = localStorage.getItem("userExpiry")
+
+        if (cachedUser && expiryTime && new Date().getTime() < Number.parseInt(expiryTime)) {
+          try {
+            const userData = JSON.parse(cachedUser)
+            setUser(userData)
+            setIsAdmin(userData.role === "admin")
+            setIsLoading(false) // Stop loading immediately with cached data
+          } catch (e) {
+            // Invalid JSON, clear it
+            localStorage.removeItem("user")
+            localStorage.removeItem("userExpiry")
+          }
+        }
+
+        // Then check with the server (this will update the state if needed)
+        await checkAuthStatus()
+      } catch (error) {
+        console.warn("Error loading initial auth state:", error)
+        setIsLoading(false)
+        setAuthInitialized(true)
+      }
+    }
+
+    loadInitialAuthState()
 
     // Set up a timer to refresh the session every 25 minutes
     const intervalId = setInterval(
@@ -205,17 +299,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ) // 25 minutes
 
     return () => clearInterval(intervalId)
-  }, [checkAuthStatus, user])
+  }, []) // Empty dependency array - only run once on mount
+
+  // Update auth state when user changes
+  useEffect(() => {
+    if (authInitialized && user) {
+      // Update last refresh time when user changes
+      setLastRefresh(Date.now())
+    }
+  }, [authInitialized, user])
 
   const login = async (email: string, password: string, phone: string, rememberMe = false) => {
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout for login
+
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password, phone, rememberMe }),
+        signal: controller.signal,
       })
+
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         let errorMessage = "Login failed"
@@ -254,12 +362,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return { success: true, message: "Login successful" }
     } catch (error: any) {
+      if (error.name === "AbortError") {
+        return { success: false, message: "Login request timed out. Please try again." }
+      }
       return { success: false, message: error.message || "An unexpected error occurred" }
     }
   }
 
   const adminLogin = async (email: string, password: string) => {
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout for login
+
       const response = await fetch("/api/auth/admin/login", {
         method: "POST",
         headers: {
@@ -267,7 +381,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         body: JSON.stringify({ email, password }),
         credentials: "include", // Important to include credentials
+        signal: controller.signal,
       })
+
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         let errorMessage = "Admin login failed"
@@ -308,19 +425,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return { success: true, message: "Admin login successful" }
     } catch (error: any) {
+      if (error.name === "AbortError") {
+        return { success: false, message: "Login request timed out. Please try again." }
+      }
       return { success: false, message: error.message || "An unexpected error occurred" }
     }
   }
 
   const signup = async (name: string, email: string, password: string, phone: string) => {
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout for signup
+
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ name, email, password, phone }),
+        signal: controller.signal,
       })
+
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         let errorMessage = "Signup failed"
@@ -345,6 +471,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLastRefresh(Date.now())
       return { success: true, message: "Signup successful" }
     } catch (error: any) {
+      if (error.name === "AbortError") {
+        return { success: false, message: "Signup request timed out. Please try again." }
+      }
       return { success: false, message: error.message || "An unexpected error occurred" }
     }
   }
@@ -352,7 +481,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Update the logout function to handle redirection properly
   const logout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" })
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout for logout
+
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
       setUser(null)
       setIsAdmin(false)
 
@@ -368,7 +506,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Redirect to home page after logout
       window.location.href = "/"
     } catch (error) {
-      // Handle logout error silently
+      // Even if logout fails, clear local state
+      setUser(null)
+      setIsAdmin(false)
+      localStorage.removeItem("user")
+      localStorage.removeItem("userExpiry")
+
+      // Redirect anyway
+      window.location.href = "/"
     }
   }
 
