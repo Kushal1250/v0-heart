@@ -10,7 +10,6 @@ import { sendSMS } from "@/lib/sms-utils"
 import { logError } from "@/lib/error-logger"
 import { compare, hash } from "bcrypt-ts"
 import { sendVerificationCodeEmail } from "@/lib/email-utils"
-import { cookies as nextCookies } from "next/headers"
 
 // Check if we're in a browser environment
 const isBrowser = typeof window !== "undefined"
@@ -31,13 +30,16 @@ export function getSessionToken(req?: any): string | undefined {
     return req.cookies.session
   }
 
-  // Use App Router cookies() (this will throw an error if used in Pages Router)
-  try {
-    return nextCookies().get("session")?.value
-  } catch (error) {
-    console.error("Error accessing cookies with next/headers:", error)
-    return undefined
+  // For App Router, we need to use the request headers
+  if (req?.headers?.cookie) {
+    const cookies = req.headers.cookie.split(";")
+    const sessionCookie = cookies.find((cookie) => cookie.trim().startsWith("session="))
+    return sessionCookie ? sessionCookie.split("=")[1].trim() : undefined
   }
+
+  // If no request object and not in browser, we can't get the cookie
+  console.warn("No request object provided and not in browser environment - cannot get session token")
+  return undefined
 }
 
 /**
@@ -50,12 +52,14 @@ export function clearSessionCookie(res?: any): void {
     return
   }
 
-  // Use App Router cookies() (this will throw an error if used in Pages Router)
-  try {
-    nextCookies().delete("session")
-  } catch (error) {
-    console.error("Error deleting cookie with next/headers:", error)
+  // If in browser, clear the cookie
+  if (isBrowser) {
+    document.cookie = "session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"
+    return
   }
+
+  // If no response object and not in browser, we can't clear the cookie
+  console.warn("No response object provided and not in browser environment - cannot clear session cookie")
 }
 
 /**
