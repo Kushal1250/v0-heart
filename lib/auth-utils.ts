@@ -1,3 +1,5 @@
+"use server"
+
 import { v4 as uuidv4 } from "uuid"
 import {
   getSessionByToken,
@@ -17,7 +19,7 @@ const isBrowser = typeof window !== "undefined"
 /**
  * Get session token from cookies - works in both App Router and Pages Router
  */
-export function getSessionToken(req?: any): string | undefined {
+export async function getSessionToken(req?: any): Promise<string | undefined> {
   // If we're in a browser environment, use document.cookie
   if (isBrowser) {
     const cookies = document.cookie.split(";")
@@ -45,7 +47,7 @@ export function getSessionToken(req?: any): string | undefined {
 /**
  * Clear session cookie - works in both App Router and Pages Router
  */
-export function clearSessionCookie(res?: any): void {
+export async function clearSessionCookie(res?: any): Promise<void> {
   // If response object is provided (Pages API)
   if (res?.setHeader) {
     res.setHeader("Set-Cookie", `session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`)
@@ -65,7 +67,7 @@ export function clearSessionCookie(res?: any): void {
 /**
  * Create response with cookie - works in both App Router and Pages Router
  */
-export function createResponseWithCookie(data: any, token: string, res?: any): any {
+export async function createResponseWithCookie(data: any, token: string, res?: any): Promise<any> {
   // If response object is provided (Pages API)
   if (res?.setHeader) {
     res.setHeader("Set-Cookie", `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`)
@@ -118,17 +120,17 @@ export async function getUserIdFromToken(token: string): Promise<string | null> 
   }
 }
 
-export function generateToken(): string {
+export async function generateToken(): Promise<string> {
   return uuidv4()
 }
 
-export function isValidEmail(email: string): boolean {
+export async function isValidEmail(email: string): Promise<boolean> {
   // Basic email format validation
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
 }
 
-export function isStrongPassword(password: string): boolean {
+export async function isStrongPassword(password: string): Promise<boolean> {
   // Password must be at least 8 characters with uppercase, lowercase, and numbers
   return password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password)
 }
@@ -140,7 +142,7 @@ export async function getCurrentUser(req?: any): Promise<{
   role: string
 } | null> {
   try {
-    const token = getSessionToken(req)
+    const token = await getSessionToken(req)
 
     if (!token) {
       console.log("No session token found")
@@ -174,7 +176,7 @@ export async function verifyAdminSession(req?: any): Promise<{
   name: string | null
   role: string
 } | null> {
-  const sessionToken = getSessionToken(req)
+  const sessionToken = await getSessionToken(req)
   if (!sessionToken) {
     return null
   }
@@ -198,7 +200,7 @@ export async function verifyAdminSession(req?: any): Promise<{
 export async function getUserFromRequest(req: any) {
   try {
     // Get the session token from the cookie
-    const sessionToken = getSessionToken(req)
+    const sessionToken = await getSessionToken(req)
 
     if (!sessionToken) {
       console.log("No session token found in request")
@@ -262,7 +264,7 @@ export async function getUserFromSession(sessionToken: string | undefined): Prom
 /**
  * Generates a random verification code
  */
-function generateVerificationCode(): string {
+async function generateVerificationCode(): Promise<string> {
   // Generate a 6-digit code
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
@@ -325,7 +327,7 @@ export async function sendVerificationCode(
     console.log(`Sending verification code to ${identifier} via ${method}`)
 
     // Generate a verification code
-    const code = generateVerificationCode()
+    const code = await generateVerificationCode()
     console.log(`Generated verification code: ${code}`)
 
     // Store the code in the database with a 15-minute expiration
@@ -484,7 +486,7 @@ export async function resendVerificationCode(
  * @param user User object or user role string
  * @returns Boolean indicating if the user is an admin
  */
-export function isAdmin(user: { role?: string } | string | null | undefined): boolean {
+export async function isAdmin(user: { role?: string } | string | null | undefined): Promise<boolean> {
   if (!user) return false
 
   // If user is a string, assume it's the role

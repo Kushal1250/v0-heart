@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
-import { sendVerificationCode } from "@/lib/auth-utils"
-import { isValidEmail } from "@/lib/auth-utils"
+import { sendVerificationCode, isValidEmail } from "@/lib/auth-utils"
 import { getUserByEmail } from "@/lib/db"
 import { logError } from "@/lib/error-logger"
 
@@ -22,7 +21,7 @@ export async function POST(request: Request) {
     }
 
     // Validate email format if method is email
-    if (method === "email" && !isValidEmail(identifier)) {
+    if (method === "email" && !(await isValidEmail(identifier))) {
       return NextResponse.json({ message: "Please enter a valid email address" }, { status: 400 })
     }
 

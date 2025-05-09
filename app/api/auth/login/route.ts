@@ -34,13 +34,13 @@ export async function POST(request: Request) {
     }
 
     // Create session
-    const token = generateToken()
+    const token = await generateToken()
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
     await createSession(user.id, token, expiresAt)
 
     // Return user data (without password) and set cookie
     const { password: _, ...userWithoutPassword } = user
-    return createResponseWithCookie({ user: userWithoutPassword }, token)
+    return await createResponseWithCookie({ user: userWithoutPassword }, token)
   } catch (error) {
     console.error("Login error:", error)
     const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred during login"

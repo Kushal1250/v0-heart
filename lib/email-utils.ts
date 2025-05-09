@@ -1,3 +1,5 @@
+"use server"
+
 import nodemailer from "nodemailer"
 import { logError } from "./error-logger"
 
@@ -13,7 +15,7 @@ const emailConfig = {
 }
 
 // For development/testing
-let testAccount: nodemailer.TestAccount | null = null
+let testAccount: any = null
 
 /**
  * Get a test account for development
@@ -82,9 +84,14 @@ export async function sendEmail(options: {
     console.log("Email sent:", info.messageId)
 
     // Get preview URL for development
-    const previewUrl = nodemailer.getTestMessageUrl(info)
-    if (previewUrl) {
-      console.log("Preview URL:", previewUrl)
+    let previewUrl = null
+    try {
+      previewUrl = nodemailer.getTestMessageUrl(info)
+      if (previewUrl) {
+        console.log("Preview URL:", previewUrl)
+      }
+    } catch (error) {
+      console.log("Could not get preview URL:", error)
     }
 
     return {

@@ -63,17 +63,14 @@ export async function formatPhoneToE164(phone: string): Promise<string> {
 }
 
 /**
- * Validate phone number
+ * Validates a phone number format
+ * @param phone Phone number to validate
+ * @returns Boolean indicating if the phone number is valid
  */
 export async function isValidPhone(phone: string): Promise<boolean> {
-  if (!phone) return false
-
-  // Basic validation for international phone numbers
-  const formattedPhone = phone.replace(/\D/g, "")
-
-  // Most international phone numbers are between 8 and 15 digits
-  // This includes country code
-  return formattedPhone.length >= 8 && formattedPhone.length <= 15
+  // Basic phone number validation
+  const phoneRegex = /^\+?[1-9]\d{1,14}$/
+  return phoneRegex.test(phone)
 }
 
 // Add this function if it doesn't exist already
@@ -118,193 +115,74 @@ export async function isTwilioConfigured() {
 // }
 
 /**
- * Send an SMS message
+ * Sends an SMS message
  * @param to Recipient phone number
- * @param body Message content
+ * @param message Message content
  * @returns Success status and message
  */
-async function baseSendSMS(to: string, body: string): Promise<SMSResponse> {
+export async function sendSMS(
+  to: string,
+  message: string,
+): Promise<{
+  success: boolean
+  message: string
+  errorDetails?: any
+}> {
   try {
-    // Check if Twilio is configured
-    if (!twilioClient || !fromNumber) {
-      console.warn("Twilio not configured. SMS would have been sent to:", to)
-      return { success: false, error: "SMS service not configured" }
-    }
-
-    // Send SMS
-    const message = await twilioClient.messages.create({
-      body,
-      from: fromNumber,
-      to,
-    })
-
-    console.log("SMS sent:", message.sid)
-    return { success: true, messageId: message.sid, sid: message.sid }
-  } catch (error: any) {
-    console.error("Error sending SMS:", error)
-    logError("SMS sending failed", { error, to, body })
-    return { success: false, error: "Failed to send SMS", errorDetails: error.message }
-  }
-}
-
-/**
- * Send SMS using Twilio with enhanced error handling and debugging
- */
-export async function sendSMS(to: string, message: string): Promise<SMSResponse> {
-  try {
-    console.log(`Attempting to send SMS to ${to}`)
-
-    // Format the phone number
-    const formattedPhone = await formatPhoneToE164(to)
-    console.log(`Formatted phone: ${formattedPhone}`)
-
-    // Validate the phone number
-    const isValid = await isValidPhone(formattedPhone)
-    if (!isValid) {
-      console.log(`Invalid phone number format: ${formattedPhone}`)
-      return {
-        success: false,
-        message: "Invalid phone number format. Please enter a valid phone number.",
-        debugInfo: { originalPhone: to, formattedPhone },
-      }
-    }
+    console.log(`Sending SMS to ${to}: ${message}`)
 
     // Check if Twilio credentials are configured
-    const twilioConfig = await isTwilioConfigured()
-    if (!twilioConfig.configured) {
-      console.log(`Twilio credentials not configured. Missing: ${twilioConfig.missing.join(", ")}`)
+    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
+      console.warn("Twilio credentials not configured")
 
-      // In development, provide a simulated success response
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`[DEV MODE] Would send SMS to ${formattedPhone}: ${message}`)
+      // In development, simulate success
+      if (process.env.NODE_ENV === "development") {
+        console.log("Development mode: Simulating SMS success")
         return {
           success: true,
-          message: "SMS simulated in development mode (Twilio not configured)",
-          sid: "dev_mode_simulated",
-          debugInfo: {
-            mode: "development",
-            missingEnvVars: twilioConfig.missing,
-            phone: formattedPhone,
-          },
+          message: "SMS sent successfully (simulated in development)",
         }
       }
 
       return {
         success: false,
-        message: "SMS service is not properly configured. Please contact support.",
-        errorDetails: `Missing Twilio credentials: ${twilioConfig.missing.join(", ")}`,
-        debugInfo: { missingEnvVars: twilioConfig.missing, configDetails: twilioConfig.details },
+        message: "SMS service not configured",
       }
     }
 
-    const accountSid = process.env.TWILIO_ACCOUNT_SID!
-    const authToken = process.env.TWILIO_AUTH_TOKEN!
-    const fromNumber = process.env.TWILIO_PHONE_NUMBER!
-
-    // In development, just log the message
-    if (process.env.NODE_ENV !== "production") {
-      console.log(`[DEV MODE] Would send SMS to ${formattedPhone}: ${message}`)
+    // In a real implementation, we would use the Twilio SDK here
+    // For now, we'll just simulate success in development and log the attempt
+    if (process.env.NODE_ENV === "development") {
+      console.log("Development mode: Simulating SMS success")
       return {
         success: true,
-        message: "SMS simulated in development mode",
-        sid: "dev_mode_simulated",
-        debugInfo: {
-          mode: "development",
-          phone: formattedPhone,
-          message,
-        },
+        message: "SMS sent successfully (simulated in development)",
       }
     }
 
-    // In production, send the actual SMS
-    try {
-      // Dynamically import Twilio to avoid bundling issues
-      // const twilioModule = await import("twilio").catch((err) => {
-      //   console.error("Failed to import Twilio module:", err)
-      //   throw new Error("Failed to load SMS service module. Please try again later.")
-      // })
+    // Dynamic import Twilio to avoid client-side inclusion
+    const twilio = await import("twilio")
+    const client = twilio.default(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
 
-      // const Twilio = twilioModule.Twilio
-      // const client = new Twilio(accountSid, authToken)
+    // Send the SMS
+    const result = await client.messages.create({
+      body: message,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: to,
+    })
 
-      console.log(`Sending SMS via Twilio from ${fromNumber} to ${formattedPhone}`)
-
-      // const result = await client.messages.create({
-      //   body: message,
-      //   from: fromNumber,
-      //   to: formattedPhone,
-      // })
-
-      const result = await baseSendSMS(formattedPhone, message)
-
-      if (!result.success) {
-        return result
-      }
-
-      console.log(`SMS sent successfully. SID: ${result.sid}`)
-
-      return {
-        success: true,
-        message: "Verification code sent successfully",
-        sid: result.sid,
-      }
-    } catch (twilioError: any) {
-      console.error("Twilio error:", twilioError)
-
-      // Handle specific Twilio error codes
-      let userMessage = "Failed to send verification code. Please try again."
-      const errorDetails = twilioError.message || "Unknown Twilio error"
-
-      // Map common Twilio error codes to user-friendly messages
-      const errorCodeMap: Record<string, string> = {
-        "21211": "Invalid phone number format. Please check the number and try again.",
-        "21214": "The phone number is not a valid mobile number.",
-        "21608": "This phone number is not capable of receiving SMS messages.",
-        "21610": "This number has been blocked from receiving messages.",
-        "21612": "The 'To' phone number is not currently reachable via SMS.",
-        "21614": "This number is unverified. Trial accounts cannot send messages to unverified numbers.",
-        "20003": "Authentication error. Please check your Twilio credentials.",
-        "20404": "The requested resource was not found.",
-        "30001": "Queue overflow. Too many messages are being sent at once.",
-        "30004": "Message blocked. This message was flagged as spam.",
-        "30005": "Unknown destination. The destination number is not a valid phone number.",
-        "30006": "Landline or unreachable carrier. This number cannot receive SMS.",
-        "30007": "Carrier violation. Message content violates carrier rules.",
-        "30008": "Unknown error. The message could not be sent.",
-      }
-
-      if (twilioError.code && errorCodeMap[twilioError.code]) {
-        userMessage = errorCodeMap[twilioError.code]
-      }
-
-      // Special handling for trial accounts
-      if (twilioError.code === "21614") {
-        userMessage =
-          "This number is not verified with our SMS provider. For security reasons, we can only send SMS to verified numbers during the trial period. Please contact support for assistance."
-      }
-
-      return {
-        success: false,
-        message: userMessage,
-        errorDetails,
-        debugInfo: {
-          errorCode: twilioError.code,
-          errorMessage: twilioError.message,
-          phone: formattedPhone,
-        },
-      }
+    console.log(`SMS sent with SID: ${result.sid}`)
+    return {
+      success: true,
+      message: "SMS sent successfully",
     }
-  } catch (error: any) {
-    console.error("Error in sendSMS function:", error)
-
+  } catch (error) {
+    console.error("Error sending SMS:", error)
+    await logError("SMS sending failed", { error, to, message })
     return {
       success: false,
-      message: "An unexpected error occurred. Please try again later.",
-      errorDetails: error.message || "Unknown error",
-      debugInfo: {
-        errorType: error.name,
-        errorStack: error.stack,
-      },
+      message: error instanceof Error ? error.message : "Failed to send SMS",
+      errorDetails: error,
     }
   }
 }

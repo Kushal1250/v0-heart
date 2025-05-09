@@ -4,13 +4,13 @@ import { deleteSession } from "@/lib/db"
 
 export async function POST() {
   try {
-    const token = getSessionToken()
+    const token = await getSessionToken()
 
     if (token) {
       await deleteSession(token)
     }
 
-    clearSessionCookie()
+    await clearSessionCookie()
 
     return NextResponse.json({ message: "Logged out successfully" })
   } catch (error) {
