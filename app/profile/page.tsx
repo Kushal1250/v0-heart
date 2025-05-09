@@ -28,6 +28,8 @@ import {
   Save,
   AlertCircle,
 } from "lucide-react"
+import { ForgotPasswordModal } from "@/components/forgot-password-modal"
+import { UpdatePasswordForm } from "@/components/update-password-form"
 
 export default function ProfilePage() {
   const { user, isLoading } = useAuth()
@@ -55,6 +57,7 @@ export default function ProfilePage() {
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -338,19 +341,7 @@ export default function ProfilePage() {
                 <h3 className="text-lg font-medium flex items-center">
                   <Lock className="mr-2 h-5 w-5" /> Password
                 </h3>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="currentPassword">Current Password</Label>
-                    <Input id="currentPassword" type="password" />
-                  </div>
-                  <div>
-                    <Label htmlFor="newPassword">New Password</Label>
-                    <Input id="newPassword" type="password" />
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <Button>Update Password</Button>
-                </div>
+                <UpdatePasswordForm onForgotPassword={() => setForgotPasswordOpen(true)} />
               </div>
 
               <Separator />
@@ -482,6 +473,11 @@ export default function ProfilePage() {
           </Card>
         </TabsContent>
       </Tabs>
+      <ForgotPasswordModal
+        isOpen={forgotPasswordOpen}
+        onClose={() => setForgotPasswordOpen(false)}
+        email={formData.email}
+      />
     </div>
   )
 }

@@ -11,6 +11,27 @@ import type { NextRequest } from "next/server"
 import { sendSMS } from "@/lib/sms-utils"
 import { logError } from "@/lib/error-logger"
 import { sendEmail } from "@/lib/email-utils"
+import { compare, hash } from "bcrypt-ts"
+
+export async function hashPassword(password: string): Promise<string> {
+  try {
+    const hashedPassword = await hash(password, 10)
+    return hashedPassword
+  } catch (error) {
+    console.error("Error hashing password:", error)
+    throw new Error("Failed to hash password")
+  }
+}
+
+export async function comparePasswords(password: string, hashedPassword: string): Promise<boolean> {
+  try {
+    const result = await compare(password, hashedPassword)
+    return result
+  } catch (error) {
+    console.error("Password comparison error:", error)
+    throw new Error("Password comparison failed")
+  }
+}
 
 export function getSessionToken(): string | undefined {
   return cookies().get("session")?.value
@@ -37,7 +58,6 @@ export function isValidEmail(email: string): boolean {
   return emailRegex.test(email)
 }
 
-// Add this function if it doesn't exist already
 export function isStrongPassword(password: string): boolean {
   // Password must be at least 8 characters with uppercase, lowercase, and numbers
   return password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password)
@@ -62,7 +82,6 @@ export function clearSessionCookie(): void {
   cookies().delete("session")
 }
 
-// Add back the getCurrentUser function that was missing
 export async function getCurrentUser(): Promise<{
   id: string
   email: string
@@ -161,7 +180,6 @@ export async function getUserFromRequest(request: Request | NextRequest) {
 
 /**
  * Gets the user from the session token
- * This is the missing export that was causing the deployment error
  */
 export async function getUserFromSession(sessionToken: string | undefined): Promise<{
   id: string
