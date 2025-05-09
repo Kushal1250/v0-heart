@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth-context"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Heart, ChevronRight, ArrowUpRight, X, CheckCircle, FileText, History, User } from "lucide-react"
+import { Heart, ChevronRight, ArrowUpRight, X, CheckCircle, FileText, History } from "lucide-react"
 
 export default function UserDashboard() {
   const { user, isLoading } = useAuth()
@@ -65,7 +65,7 @@ export default function UserDashboard() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
-                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
               </svg>
               <span className="font-bold text-xl text-gray-900">HeartPredict</span>
             </Link>
@@ -132,7 +132,7 @@ export default function UserDashboard() {
         {/* Quick actions */}
         <div className="mb-8">
           <h2 className="text-lg font-medium text-white mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Link href="/predict" className="block">
               <Card className="p-6 hover:bg-gray-800 transition-colors duration-200 border border-gray-800 bg-gray-900">
                 <div className="flex items-center">
@@ -157,21 +157,6 @@ export default function UserDashboard() {
                   <div className="ml-4">
                     <h3 className="text-lg font-medium text-white">View History</h3>
                     <p className="text-sm text-gray-400">See past predictions</p>
-                  </div>
-                  <ChevronRight className="ml-auto h-5 w-5 text-gray-400" />
-                </div>
-              </Card>
-            </Link>
-
-            <Link href="/profile" className="block">
-              <Card className="p-6 hover:bg-gray-800 transition-colors duration-200 border border-gray-800 bg-gray-900">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 bg-gray-800 rounded-lg p-3">
-                    <User className="h-6 w-6 text-white" />
-                  </div>
-                  <div className="ml-4">
-                    <h3 className="text-lg font-medium text-white">Profile</h3>
-                    <p className="text-sm text-gray-400">Manage your account</p>
                   </div>
                   <ChevronRight className="ml-auto h-5 w-5 text-gray-400" />
                 </div>

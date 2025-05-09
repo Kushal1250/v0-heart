@@ -1,12 +1,22 @@
 "use client"
 
 import Link from "next/link"
-import { User, UserPlus, LogOut, Menu, X, Shield, Heart } from "lucide-react"
+import { User, UserPlus, Shield, Heart, Settings, LayoutDashboard, LogOut, X, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useEffect, useState } from "react"
 import { useToast } from "@/components/ui/use-toast"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function Navbar() {
   const pathname = usePathname()
@@ -46,7 +56,7 @@ export default function Navbar() {
   }, [user, toast])
 
   const handleLogout = async (e) => {
-    e.preventDefault()
+    if (e) e.preventDefault()
     try {
       await logout()
       window.location.href = "/"
@@ -79,9 +89,19 @@ export default function Navbar() {
       { name: "History", href: "/history" },
       { name: "About", href: "/about" },
       { name: "How It Works", href: "/how-it-works" },
-      { name: "Profile", href: "/profile" },
       ...(isAdmin ? [{ name: "Admin", href: "/admin" }] : []),
     ]
+  }
+
+  // Get user initials for avatar fallback
+  const getUserInitials = () => {
+    if (!user || !user.name) return "U"
+    return user.name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .substring(0, 2)
   }
 
   return (
@@ -119,15 +139,51 @@ export default function Navbar() {
             {!isLoading && (
               <div className="flex items-center gap-4">
                 {user ? (
-                  // Simplified authenticated user navigation - just a logout button
-                  <Button
-                    onClick={handleLogout}
-                    variant="outline"
-                    size="sm"
-                    className="rounded-md bg-gray-50 text-gray-700 hover:bg-gray-100"
-                  >
-                    <LogOut className="h-4 w-4 mr-2" /> Logout
-                  </Button>
+                  // User dropdown menu
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                        <Avatar className="h-10 w-10 border border-gray-200">
+                          <AvatarImage src={user.image || ""} alt={user.name || "User"} />
+                          <AvatarFallback className="bg-blue-100 text-blue-800">{getUserInitials()}</AvatarFallback>
+                        </Avatar>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56" align="end" forceMount>
+                      <DropdownMenuLabel className="font-normal">
+                        <div className="flex flex-col space-y-1">
+                          <p className="text-sm font-medium leading-none">{user.name || "User"}</p>
+                          <p className="text-xs leading-none text-gray-500">{user.email || ""}</p>
+                        </div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem>
+                          <Link href="/profile" className="flex items-center w-full">
+                            <User className="mr-2 h-4 w-4" />
+                            <span>Profile</span>
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Link href="/dashboard" className="flex items-center w-full">
+                            <LayoutDashboard className="mr-2 h-4 w-4" />
+                            <span>Dashboard</span>
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Link href="/settings" className="flex items-center w-full">
+                            <Settings className="mr-2 h-4 w-4" />
+                            <span>Settings</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-red-600" onClick={handleLogout}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>Logout</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 ) : (
                   // Non-authenticated user navigation
                   <div className="flex items-center gap-3">
@@ -163,7 +219,7 @@ export default function Navbar() {
               </div>
             )}
 
-            {/* Mobile menu button */}
+            {/* Mobile menu button - keep this as is */}
             <button
               type="button"
               className="sm:hidden inline-flex items-center justify-center p-3 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
