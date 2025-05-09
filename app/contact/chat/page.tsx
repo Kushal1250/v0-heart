@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { MessageSquare, ArrowLeft, Send, User, AlertCircle } from "lucide-react"
-import { connectSocket, getSocket, type ChatMessage } from "@/lib/socket-service"
+import { MessageSquare, ArrowLeft, Send, User, AlertCircle, RefreshCw } from "lucide-react"
+import { connectSocket, getSocket, type ChatMessage, sendMessageFallback } from "@/lib/socket-service"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useRouter } from "next/navigation"
 
 export default function LiveChatPage() {
+  const router = useRouter()
   const [chatStarted, setChatStarted] = useState(false)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -25,6 +27,8 @@ export default function LiveChatPage() {
   const [agentName, setAgentName] = useState<string | null>(null)
   const [connectionError, setConnectionError] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
+  const [useFallbackMode, setUseFallbackMode] = useState(false)
+  const [fallbackPollingInterval, setFallbackPollingInterval] = useState<NodeJS.Timeout | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll to bottom when messages change
@@ -38,7 +42,41 @@ export default function LiveChatPage() {
   useEffect(() => {
     if (chatStarted && !sessionId) {
       setIsConnecting(true)
+
+      // First try real-time WebSocket connection
       const socket = connectSocket()
+
+      // Set a timeout to detect if connection is taking too long
+      const connectionTimeout = setTimeout(() => {
+        if (!sessionId) {
+          console.log("Connection taking too long, switching to fallback mode")
+          setUseFallbackMode(true)
+          setConnectionError(false)
+          setIsConnecting(false)
+
+          // Generate a fallback session ID
+          const fallbackId = `fallback-${Date.now()}`
+          setSessionId(fallbackId)
+
+          // Add initial message
+          const initialMessage = {
+            id: `msg-${Date.now()}`,
+            text: message,
+            sender: "user" as const,
+            timestamp: new Date(),
+            sessionId: fallbackId,
+          }
+
+          setChatMessages([initialMessage])
+
+          // Setup polling for fallback mode messages
+          const interval = setInterval(() => {
+            fetchFallbackMessages(fallbackId)
+          }, 3000)
+
+          setFallbackPollingInterval(interval)
+        }
+      }, 5000) // Wait 5 seconds before switching to fallback
 
       // Set up event listeners
       socket.on("chat:message", (message) => {
@@ -60,70 +98,160 @@ export default function LiveChatPage() {
       })
 
       socket.on("chat:session-created", (data) => {
+        clearTimeout(connectionTimeout)
         setSessionId(data.sessionId)
         setIsConnecting(false)
       })
 
       socket.on("connect_error", () => {
-        setConnectionError(true)
-        setIsConnecting(false)
+        console.error("Socket connection error")
+        // Don't set error immediately, let the timeout handle fallback
+      })
+
+      socket.on("connection:established", () => {
+        console.log("Socket connection established")
       })
 
       return () => {
-        // Clean up event listeners
+        // Clean up event listeners and intervals
+        clearTimeout(connectionTimeout)
+        if (fallbackPollingInterval) {
+          clearInterval(fallbackPollingInterval)
+        }
+
         socket.off("chat:message")
         socket.off("chat:typing")
         socket.off("chat:agent-joined")
         socket.off("chat:agent-left")
         socket.off("chat:session-created")
         socket.off("connect_error")
+        socket.off("connection:established")
       }
     }
-  }, [chatStarted, sessionId])
+
+    return () => {
+      if (fallbackPollingInterval) {
+        clearInterval(fallbackPollingInterval)
+      }
+    }
+  }, [chatStarted, sessionId, message, fallbackPollingInterval])
+
+  // Fetch messages for fallback mode
+  const fetchFallbackMessages = async (sessionId: string) => {
+    try {
+      const response = await fetch(`/api/chat/message?sessionId=${sessionId}`)
+      const data = await response.json()
+
+      if (data.messages && data.messages.length > 0) {
+        setChatMessages(data.messages)
+      }
+    } catch (error) {
+      console.error("Failed to fetch fallback messages:", error)
+    }
+  }
 
   const startChat = (e: FormEvent) => {
     e.preventDefault()
     setChatStarted(true)
 
-    // Connect to socket and join as user
-    const socket = connectSocket()
-    socket.emit("chat:join-as-user", {
-      name,
-      email,
-      topic,
-      initialMessage: message,
-    })
+    // Real-time connection will be initialized in the useEffect above
   }
 
-  const sendMessage = (e: FormEvent) => {
+  const sendMessage = async (e: FormEvent) => {
     e.preventDefault()
     if (!userMessage.trim() || !sessionId) return
 
-    const socket = getSocket()
-    socket.emit("chat:send-message", {
-      text: userMessage,
-      sender: "user",
-      sessionId,
-    })
+    if (useFallbackMode) {
+      // Use fallback REST API
+      try {
+        const newMessage = {
+          text: userMessage,
+          sender: "user" as const,
+          sessionId,
+        }
 
-    setUserMessage("")
+        // Optimistically add message to UI
+        const optimisticMessage = {
+          id: `msg-${Date.now()}`,
+          text: userMessage,
+          sender: "user" as const,
+          timestamp: new Date(),
+          sessionId,
+        }
+
+        setChatMessages((prev) => [...prev, optimisticMessage])
+        setUserMessage("")
+
+        // Send via REST API
+        await sendMessageFallback(newMessage)
+      } catch (error) {
+        console.error("Failed to send message in fallback mode:", error)
+      }
+    } else {
+      // Use WebSocket
+      try {
+        const socket = getSocket()
+        socket.emit("chat:send-message", {
+          text: userMessage,
+          sender: "user",
+          sessionId,
+        })
+
+        setUserMessage("")
+      } catch (error) {
+        console.error("Failed to send message via WebSocket:", error)
+
+        // Switch to fallback mode if WebSocket fails
+        setUseFallbackMode(true)
+
+        // Resend the message using fallback
+        sendMessageFallback({
+          text: userMessage,
+          sender: "user",
+          sessionId,
+        })
+
+        setUserMessage("")
+      }
+    }
   }
 
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUserMessage(e.target.value)
 
-    // Send typing indicator
-    const socket = getSocket()
-    socket.emit("chat:typing", e.target.value.length > 0)
+    // Send typing indicator only in WebSocket mode
+    if (!useFallbackMode && sessionId) {
+      try {
+        const socket = getSocket()
+        socket.emit("chat:typing", e.target.value.length > 0)
+      } catch (error) {
+        // Silently fail for typing events
+        console.error("Failed to send typing indicator:", error)
+      }
+    }
   }
 
   const endChat = () => {
-    const socket = getSocket()
-    socket.emit("chat:leave")
+    if (!useFallbackMode) {
+      try {
+        const socket = getSocket()
+        socket.emit("chat:leave")
+      } catch (error) {
+        console.error("Failed to leave chat properly:", error)
+      }
+    }
+
+    // Clear polling interval for fallback mode
+    if (fallbackPollingInterval) {
+      clearInterval(fallbackPollingInterval)
+      setFallbackPollingInterval(null)
+    }
+
     setChatStarted(false)
     setChatMessages([])
     setSessionId(null)
     setAgentName(null)
+    setUseFallbackMode(false)
   }
 
   const formatTime = (date: Date) => {
@@ -136,15 +264,10 @@ export default function LiveChatPage() {
   const reconnect = () => {
     setConnectionError(false)
     setIsConnecting(true)
-    const socket = connectSocket()
+    setUseFallbackMode(false)
 
-    // Try to reconnect
-    setTimeout(() => {
-      if (!socket.connected) {
-        setConnectionError(true)
-        setIsConnecting(false)
-      }
-    }, 5000)
+    // Reload the page to reset all state and connections
+    router.refresh()
   }
 
   return (
@@ -156,6 +279,24 @@ export default function LiveChatPage() {
           </Button>
           <h1 className="text-2xl md:text-3xl font-bold">Live Chat Support</h1>
         </div>
+
+        {useFallbackMode && (
+          <Alert variant="warning" className="mb-6 bg-yellow-50 border-yellow-200">
+            <AlertCircle className="h-4 w-4 text-yellow-500" />
+            <AlertTitle className="text-yellow-700">Using Basic Chat Mode</AlertTitle>
+            <AlertDescription className="text-yellow-600">
+              Real-time chat is unavailable. Using basic mode instead.
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-4 border-yellow-300 text-yellow-700"
+                onClick={reconnect}
+              >
+                <RefreshCw className="h-3 w-3 mr-1" /> Try Real-Time
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {connectionError && (
           <Alert variant="destructive" className="mb-6">
@@ -259,9 +400,11 @@ export default function LiveChatPage() {
                         {agentName && <span className="text-sm font-normal ml-2">({agentName})</span>}
                       </CardTitle>
                       <CardDescription>
-                        {agentName
-                          ? "Agent is online and responding to your questions"
-                          : "We'll connect you with an agent shortly"}
+                        {useFallbackMode
+                          ? "Basic chat mode active"
+                          : agentName
+                            ? "Agent is online and responding to your questions"
+                            : "We'll connect you with an agent shortly"}
                       </CardDescription>
                     </div>
                   </div>
@@ -286,7 +429,7 @@ export default function LiveChatPage() {
                     </div>
                   ))}
 
-                  {isAgentTyping && (
+                  {isAgentTyping && !useFallbackMode && (
                     <div className="flex justify-start">
                       <div className="bg-gray-100 rounded-lg p-3 max-w-[80%]">
                         <div className="flex space-x-1">
@@ -348,6 +491,11 @@ export default function LiveChatPage() {
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Chat Started</h3>
                     <p>{new Date().toLocaleTimeString()}</p>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Chat Mode</h3>
+                    <p>{useFallbackMode ? "Basic Mode" : "Real-Time"}</p>
                   </div>
 
                   <div className="pt-4">
