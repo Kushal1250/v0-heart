@@ -148,15 +148,15 @@ export function PredictionForm() {
   }
 
   return (
-    <Card className="bg-white border-gray-200">
-      <CardHeader>
-        <CardTitle className="text-gray-900">Heart Health Assessment</CardTitle>
-        <CardDescription className="text-gray-600">
+    <Card className="bg-white border-gray-200 w-full max-w-full sm:max-w-3xl mx-auto">
+      <CardHeader className="px-4 py-5 sm:px-6">
+        <CardTitle className="text-xl sm:text-2xl text-gray-900">Heart Health Assessment</CardTitle>
+        <CardDescription className="text-sm sm:text-base text-gray-600">
           Enter your health information to get a heart disease risk assessment
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 px-4 sm:px-6">
           {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">{error}</div>}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -182,7 +182,7 @@ export function PredictionForm() {
                 value={formData.age}
                 onChange={handleInputChange}
                 required
-                className="bg-white border-gray-300"
+                className="bg-white border-gray-300 h-11 text-base"
               />
             </div>
 
@@ -206,7 +206,7 @@ export function PredictionForm() {
                 onValueChange={(value) => handleSelectChange("sex", value)}
                 required
               >
-                <SelectTrigger className="bg-white border-gray-300">
+                <SelectTrigger className="bg-white border-gray-300 h-11">
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
                 <SelectContent>
@@ -240,7 +240,7 @@ export function PredictionForm() {
                 value={formData.trestbps}
                 onChange={handleInputChange}
                 required
-                className="bg-white border-gray-300"
+                className="bg-white border-gray-300 h-11 text-base"
               />
             </div>
 
@@ -266,7 +266,7 @@ export function PredictionForm() {
                 value={formData.chol}
                 onChange={handleInputChange}
                 required
-                className="bg-white border-gray-300"
+                className="bg-white border-gray-300 h-11 text-base"
               />
             </div>
           </div>
@@ -275,7 +275,7 @@ export function PredictionForm() {
             <div className="space-y-2">
               <Label htmlFor="cp">Chest Pain Type</Label>
               <Select name="cp" value={formData.cp} onValueChange={(value) => handleSelectChange("cp", value)}>
-                <SelectTrigger className="bg-white border-gray-300">
+                <SelectTrigger className="bg-white border-gray-300 h-11">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -290,7 +290,7 @@ export function PredictionForm() {
             <div className="space-y-2">
               <Label htmlFor="fbs">Fasting Blood Sugar &gt; 120 mg/dl</Label>
               <Select name="fbs" value={formData.fbs} onValueChange={(value) => handleSelectChange("fbs", value)}>
-                <SelectTrigger className="bg-white border-gray-300">
+                <SelectTrigger className="bg-white border-gray-300 h-11">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
@@ -309,7 +309,7 @@ export function PredictionForm() {
                 value={formData.restecg}
                 onValueChange={(value) => handleSelectChange("restecg", value)}
               >
-                <SelectTrigger className="bg-white border-gray-300">
+                <SelectTrigger className="bg-white border-gray-300 h-11">
                   <SelectValue placeholder="Select result" />
                 </SelectTrigger>
                 <SelectContent>
@@ -342,7 +342,7 @@ export function PredictionForm() {
                 value={formData.thalach}
                 onChange={handleInputChange}
                 required
-                className="bg-white border-gray-300"
+                className="bg-white border-gray-300 h-11 text-base"
               />
             </div>
           </div>
@@ -351,7 +351,7 @@ export function PredictionForm() {
             <div className="space-y-2">
               <Label htmlFor="exang">Exercise Induced Angina</Label>
               <Select name="exang" value={formData.exang} onValueChange={(value) => handleSelectChange("exang", value)}>
-                <SelectTrigger className="bg-white border-gray-300">
+                <SelectTrigger className="bg-white border-gray-300 h-11">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
@@ -371,7 +371,7 @@ export function PredictionForm() {
                 placeholder="e.g., 1.0"
                 value={formData.oldpeak}
                 onChange={handleInputChange}
-                className="bg-white border-gray-300"
+                className="bg-white border-gray-300 h-11 text-base"
               />
             </div>
           </div>
@@ -380,7 +380,7 @@ export function PredictionForm() {
             <div className="space-y-2">
               <Label htmlFor="slope">Slope of Peak Exercise ST Segment</Label>
               <Select name="slope" value={formData.slope} onValueChange={(value) => handleSelectChange("slope", value)}>
-                <SelectTrigger className="bg-white border-gray-300">
+                <SelectTrigger className="bg-white border-gray-300 h-11">
                   <SelectValue placeholder="Select slope" />
                 </SelectTrigger>
                 <SelectContent>
@@ -394,7 +394,7 @@ export function PredictionForm() {
             <div className="space-y-2">
               <Label htmlFor="ca">Number of Major Vessels</Label>
               <Select name="ca" value={formData.ca} onValueChange={(value) => handleSelectChange("ca", value)}>
-                <SelectTrigger className="bg-white border-gray-300">
+                <SelectTrigger className="bg-white border-gray-300 h-11">
                   <SelectValue placeholder="Select number" />
                 </SelectTrigger>
                 <SelectContent>
@@ -411,7 +411,7 @@ export function PredictionForm() {
             <div className="space-y-2">
               <Label htmlFor="thal">Thalassemia</Label>
               <Select name="thal" value={formData.thal} onValueChange={(value) => handleSelectChange("thal", value)}>
-                <SelectTrigger className="bg-white border-gray-300">
+                <SelectTrigger className="bg-white border-gray-300 h-11">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -431,7 +431,7 @@ export function PredictionForm() {
                 value={formData.foodHabits}
                 onValueChange={(value) => handleSelectChange("foodHabits", value)}
               >
-                <SelectTrigger className="bg-white border-gray-300">
+                <SelectTrigger className="bg-white border-gray-300 h-11">
                   <SelectValue placeholder="Select food habits" />
                 </SelectTrigger>
                 <SelectContent>
@@ -449,7 +449,7 @@ export function PredictionForm() {
                 value={formData.junkFoodConsumption}
                 onValueChange={(value) => handleSelectChange("junkFoodConsumption", value)}
               >
-                <SelectTrigger className="bg-white border-gray-300">
+                <SelectTrigger className="bg-white border-gray-300 h-11">
                   <SelectValue placeholder="Select frequency" />
                 </SelectTrigger>
                 <SelectContent>
@@ -468,7 +468,7 @@ export function PredictionForm() {
               value={formData.sleepingHours}
               onValueChange={(value) => handleSelectChange("sleepingHours", value)}
             >
-              <SelectTrigger className="bg-white border-gray-300">
+              <SelectTrigger className="bg-white border-gray-300 h-11">
                 <SelectValue placeholder="Select hours" />
               </SelectTrigger>
               <SelectContent>
@@ -481,8 +481,12 @@ export function PredictionForm() {
             </Select>
           </div>
         </CardContent>
-        <CardFooter>
-          <Button type="submit" disabled={isSubmitting} className="w-full bg-red-600 hover:bg-red-700 text-white">
+        <CardFooter className="px-4 sm:px-6 pb-6">
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full bg-red-600 hover:bg-red-700 text-white h-12 text-base font-medium"
+          >
             {isSubmitting ? "Processing..." : "Get Assessment"}
           </Button>
         </CardFooter>

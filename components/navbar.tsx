@@ -165,10 +165,12 @@ export default function Navbar() {
             {/* Mobile menu button */}
             <button
               type="button"
-              className="sm:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
+              className="sm:hidden inline-flex items-center justify-center p-3 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-menu"
             >
-              <span className="sr-only">Open main menu</span>
+              <span className="sr-only">{mobileMenuOpen ? "Close main menu" : "Open main menu"}</span>
               {mobileMenuOpen ? (
                 <X className="block h-6 w-6" aria-hidden="true" />
               ) : (
@@ -180,17 +182,17 @@ export default function Navbar() {
 
         {/* Mobile menu, show/hide based on menu state */}
         {mobileMenuOpen && (
-          <div className="sm:hidden">
-            <div className="pt-2 pb-3 space-y-1">
+          <div className="sm:hidden" id="mobile-menu">
+            <div className="pt-2 pb-4 space-y-1 bg-white shadow-lg border-t border-gray-200">
               {navigationItems.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`block pl-3 pr-4 py-2 border-l-4 ${
+                  className={`block py-3 px-4 text-base font-medium ${
                     pathname === item.href
-                      ? "border-primary text-primary bg-primary/5"
-                      : "border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
-                  } text-base font-medium`}
+                      ? "text-primary border-l-4 border-primary bg-primary/5"
+                      : "text-gray-700 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent"
+                  }`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {item.name}
@@ -198,10 +200,13 @@ export default function Navbar() {
               ))}
               {user && (
                 <button
-                  onClick={handleLogout}
-                  className="w-full text-left block pl-3 pr-4 py-2 border-l-4 border-transparent text-red-600 hover:bg-gray-50 hover:border-red-300 hover:text-red-800 text-base font-medium"
+                  onClick={(e) => {
+                    handleLogout(e)
+                    setMobileMenuOpen(false)
+                  }}
+                  className="w-full text-left block py-3 px-4 text-base font-medium text-red-600 hover:bg-red-50 border-l-4 border-transparent hover:border-red-300"
                 >
-                  <LogOut className="inline h-4 w-4 mr-2" /> Log out
+                  <LogOut className="inline h-5 w-5 mr-2" /> Log out
                 </button>
               )}
             </div>

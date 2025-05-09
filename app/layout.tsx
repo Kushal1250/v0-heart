@@ -30,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         {/* Explicit favicon links in addition to metadata */}
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/heart-favicon.png" type="image/png" />
