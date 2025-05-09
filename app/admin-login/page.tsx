@@ -43,7 +43,16 @@ export default function AdminLoginPage() {
 
     try {
       console.log("Attempting admin login with email:", email)
-      const result = await adminLogin(email, password)
+
+      const response = await fetch("/api/auth/admin/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      })
+
+      const result = await response.json()
 
       if (result.success) {
         console.log("Admin login successful, redirecting to", redirectPath)
@@ -52,7 +61,7 @@ export default function AdminLoginPage() {
         window.location.href = redirectPath
       } else {
         console.error("Admin login failed:", result.message)
-        setError(result.message)
+        setError(result.message || "Login failed. Please check your credentials.")
       }
     } catch (err) {
       console.error("Error during admin login:", err)
