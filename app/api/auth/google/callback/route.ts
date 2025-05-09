@@ -1,56 +1,47 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createUser, getUserByEmail, createSession } from "@/lib/db"
 import { generateToken } from "@/lib/auth-utils"
-import { getGoogleOAuthConfig, getBaseUrl } from "@/lib/oauth-config"
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("[OAuth] Callback received")
-
     const { searchParams } = new URL(request.url)
     const code = searchParams.get("code")
     const state = searchParams.get("state")
     const error = searchParams.get("error")
 
-    const baseUrl = getBaseUrl()
-
-    // Check for errors from Google
+    // Check for errors
     if (error) {
-      console.error("[OAuth] Error from Google:", error)
-      return NextResponse.redirect(`${baseUrl}/login?error=google_${error}`)
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=oauth_error`)
     }
 
     // Validate state to prevent CSRF
     const storedState = request.cookies.get("oauth_state")?.value
     if (!state || !storedState || state !== storedState) {
-      console.error("[OAuth] Invalid state - possible CSRF attempt")
-      return NextResponse.redirect(`${baseUrl}/login?error=invalid_state`)
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=invalid_state`)
     }
 
     if (!code) {
-      console.error("[OAuth] No authorization code provided")
-      return NextResponse.redirect(`${baseUrl}/login?error=no_code`)
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=no_code`)
     }
 
-    // Get Google OAuth configuration
-    const { clientId, clientSecret, redirectUri, isConfigured } = getGoogleOAuthConfig()
+    // Get the base URL from the request
+    const baseUrl = request.headers.get("host") || process.env.NEXT_PUBLIC_APP_URL || "localhost:3000"
+    const protocol = baseUrl.includes("localhost") ? "http" : "https"
 
-    if (!isConfigured) {
-      console.error("[OAuth] Google OAuth is not configured")
-      return NextResponse.redirect(`${baseUrl}/login?error=oauth_not_configured`)
-    }
-
-    console.log("[OAuth] Exchanging code for token")
-    console.log("[OAuth] Using redirect URI:", redirectUri)
+    // Construct the redirect URI using the actual host
+    const redirectUri = `${protocol}://${baseUrl}/api/auth/google/callback`
 
     // Exchange code for token
+    const clientId = process.env.GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         code,
-        client_id: clientId,
-        client_secret: clientSecret,
+        client_id: clientId!,
+        client_secret: clientSecret!,
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
       }),
@@ -59,8 +50,8 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
 
     if (!tokenResponse.ok) {
-      console.error("[OAuth] Token exchange failed:", tokenData)
-      return NextResponse.redirect(`${baseUrl}/login?error=token_exchange`)
+      console.error("Token exchange failed:", tokenData)
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=token_exchange`)
     }
 
     // Get user info
@@ -71,25 +62,20 @@ export async function GET(request: NextRequest) {
     const userData = await userResponse.json()
 
     if (!userResponse.ok) {
-      console.error("[OAuth] Failed to get user data:", userData)
-      return NextResponse.redirect(`${baseUrl}/login?error=user_data`)
+      console.error("Failed to get user data:", userData)
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=user_data`)
     }
-
-    console.log("[OAuth] User data retrieved:", userData.email)
 
     // Check if user exists
     let user = await getUserByEmail(userData.email)
 
     // Create user if they don't exist
     if (!user) {
-      console.log("[OAuth] Creating new user:", userData.email)
       user = await createUser(
         userData.email,
         generateToken(), // Generate random password for OAuth users
         userData.name,
       )
-    } else {
-      console.log("[OAuth] User already exists:", userData.email)
     }
 
     // Create session
@@ -98,7 +84,7 @@ export async function GET(request: NextRequest) {
     await createSession(user.id, token, expiresAt)
 
     // Create response with session cookie
-    const response = NextResponse.redirect(`${baseUrl}/dashboard`)
+    const response = NextResponse.redirect(`${protocol}://${baseUrl}/dashboard`)
     response.cookies.set({
       name: "session",
       value: token,
@@ -111,8 +97,7 @@ export async function GET(request: NextRequest) {
 
     return response
   } catch (error) {
-    console.error("[OAuth] Callback error:", error)
-    const baseUrl = getBaseUrl()
-    return NextResponse.redirect(`${baseUrl}/login?error=server_error`)
+    console.error("OAuth callback error:", error)
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/login?error=server_error`)
   }
 }

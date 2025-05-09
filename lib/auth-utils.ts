@@ -10,28 +10,7 @@ import {
 import type { NextRequest } from "next/server"
 import { sendSMS } from "@/lib/sms-utils"
 import { logError } from "@/lib/error-logger"
-import { compare, hash } from "bcrypt-ts"
-import { sendVerificationCodeEmail } from "@/lib/email-utils"
-
-export async function hashPassword(password: string): Promise<string> {
-  try {
-    const hashedPassword = await hash(password, 10)
-    return hashedPassword
-  } catch (error) {
-    console.error("Error hashing password:", error)
-    throw new Error("Failed to hash password")
-  }
-}
-
-export async function comparePasswords(password: string, hashedPassword: string): Promise<boolean> {
-  try {
-    const result = await compare(password, hashedPassword)
-    return result
-  } catch (error) {
-    console.error("Password comparison error:", error)
-    throw new Error("Password comparison failed")
-  }
-}
+import { sendEmail } from "@/lib/email-utils"
 
 export function getSessionToken(): string | undefined {
   return cookies().get("session")?.value
@@ -58,6 +37,7 @@ export function isValidEmail(email: string): boolean {
   return emailRegex.test(email)
 }
 
+// Add this function if it doesn't exist already
 export function isStrongPassword(password: string): boolean {
   // Password must be at least 8 characters with uppercase, lowercase, and numbers
   return password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password)
@@ -82,6 +62,7 @@ export function clearSessionCookie(): void {
   cookies().delete("session")
 }
 
+// Add back the getCurrentUser function that was missing
 export async function getCurrentUser(): Promise<{
   id: string
   email: string
@@ -180,6 +161,7 @@ export async function getUserFromRequest(request: Request | NextRequest) {
 
 /**
  * Gets the user from the session token
+ * This is the missing export that was causing the deployment error
  */
 export async function getUserFromSession(sessionToken: string | undefined): Promise<{
   id: string
@@ -231,14 +213,29 @@ async function sendEmailVerification(
   try {
     console.log(`Sending email verification to ${email} with code ${code}`)
 
-    // Use the sendVerificationCodeEmail function from email-utils.ts
-    const result = await sendVerificationCodeEmail(email, code)
+    // Use the sendEmail function from email-utils.ts
+    const result = await sendEmail({
+      to: email,
+      subject: "Your Verification Code",
+      text: `Your verification code is: ${code}. It will expire in 15 minutes.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Your Verification Code</h2>
+          <p>Use the following code to verify your account:</p>
+          <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold;">
+            ${code}
+          </div>
+          <p>This code will expire in 15 minutes.</p>
+          <p>If you didn't request this code, please ignore this email.</p>
+        </div>
+      `,
+    })
 
     if (!result.success) {
-      console.error("Failed to send email verification:", result.error)
+      console.error("Failed to send email verification:", result.message)
       return {
         success: false,
-        message: result.error || "Failed to send email verification",
+        message: result.message || "Failed to send email verification",
         previewUrl: result.previewUrl,
       }
     }

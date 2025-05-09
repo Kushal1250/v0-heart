@@ -1,53 +1,33 @@
 import { NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-import { verifyJwtToken } from "@/lib/token"
-import { hashPassword } from "@/lib/auth-utils"
+import { updateUserPassword } from "@/lib/db"
+import { isStrongPassword, getUserFromRequest } from "@/lib/auth-utils"
 
 export async function POST(request: Request) {
   try {
-    const { currentPassword, newPassword, token } = await request.json()
+    const { password } = await request.json()
 
-    if (!token) {
+    // Validate input
+    if (!password) {
+      return NextResponse.json({ message: "Password is required" }, { status: 400 })
+    }
+
+    if (!isStrongPassword(password)) {
+      return NextResponse.json({ message: "Password must be at least 8 characters" }, { status: 400 })
+    }
+
+    // Get the current user from the session
+    const user = await getUserFromRequest(request as any)
+
+    if (!user) {
       return NextResponse.json({ message: "Authentication required" }, { status: 401 })
     }
 
-    if (!newPassword) {
-      return NextResponse.json({ message: "New password is required" }, { status: 400 })
-    }
+    // Update password
+    await updateUserPassword(user.id, password)
 
-    if (newPassword.length < 8) {
-      return NextResponse.json({ message: "Password must be at least 8 characters long" }, { status: 400 })
-    }
-
-    // Verify the token
-    const payload = await verifyJwtToken(token)
-    if (!payload || !payload.userId) {
-      return NextResponse.json({ message: "Invalid or expired token" }, { status: 401 })
-    }
-
-    // Connect to the database
-    const sql = neon(process.env.DATABASE_URL)
-
-    // Get the user
-    const users = await sql`SELECT * FROM users WHERE id = ${payload.userId}`
-    if (users.length === 0) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 })
-    }
-
-    const user = users[0]
-
-    // Hash the new password
-    const hashedPassword = await hashPassword(newPassword)
-
-    // Update the password
-    await sql`UPDATE users SET password = ${hashedPassword}, updated_at = NOW() WHERE id = ${user.id}`
-
-    return NextResponse.json({ message: "Password updated successfully" })
+    return NextResponse.json({ message: "Password reset successful" })
   } catch (error) {
-    console.error("Error resetting password:", error)
-    return NextResponse.json(
-      { message: "An error occurred while resetting your password. Please try again." },
-      { status: 500 },
-    )
+    console.error("Password reset error:", error)
+    return NextResponse.json({ message: "An error occurred" }, { status: 500 })
   }
 }

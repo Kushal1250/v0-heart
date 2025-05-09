@@ -1,27 +1,11 @@
-// Update the database connection code to properly use the Neon database URL
-// Make sure to import and use the neon client correctly
-
 import { neon } from "@neondatabase/serverless"
-import { drizzle } from "drizzle-orm/neon-http"
 import { hash, compare } from "bcrypt-ts"
 import { v4 as uuidv4 } from "uuid"
 
-// Create SQL client with Neon
+// Create a SQL query executor using the Neon serverless driver
 export const sql = neon(process.env.DATABASE_URL!)
-
-// Create Drizzle client with Neon
-export const db = drizzle(sql)
-
-// Export a function to test the database connection
-export async function testConnection() {
-  try {
-    const result = await sql`SELECT NOW() as time`
-    return { success: true, time: result[0]?.time }
-  } catch (error) {
-    console.error("Database connection error:", error)
-    return { success: false, error: String(error) }
-  }
-}
+// Export db as an alias for sql for backward compatibility
+export const db = sql
 
 // Initialize database tables
 export async function initDatabase() {

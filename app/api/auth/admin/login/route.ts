@@ -8,7 +8,7 @@ export async function POST(request: Request) {
 
     // Validate input
     if (!email || !password) {
-      return NextResponse.json({ success: false, message: "Email and password are required" }, { status: 400 })
+      return NextResponse.json({ message: "Email and password are required" }, { status: 400 })
     }
 
     // Check if credentials match the hardcoded admin credentials
@@ -66,9 +66,9 @@ export async function POST(request: Request) {
     }
 
     console.log("Admin login failed: Invalid credentials")
-    return NextResponse.json({ success: false, message: "Invalid admin credentials" }, { status: 401 })
+    return NextResponse.json({ message: "Invalid admin credentials" }, { status: 401 })
   } catch (error) {
     console.error("Admin login error:", error)
-    return NextResponse.json({ success: false, message: "An error occurred during admin login" }, { status: 500 })
+    return NextResponse.json({ message: "An error occurred during admin login" }, { status: 500 })
   }
 }

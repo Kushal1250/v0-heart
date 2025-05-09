@@ -1,4 +1,15 @@
 import type React from "react"
-export default function ProfileLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "User Profile | Heart Disease Predictor",
+  description: "View and manage your profile information",
+}
+
+export default function ProfileLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return <div className="min-h-screen bg-background">{children}</div>
 }

@@ -58,7 +58,7 @@ export default function PredictPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white relative">
+    <div className="min-h-screen bg-gray-50 relative">
       <div className="predict-bg-animation">
         <div className="pulse-circle pulse-circle-1"></div>
         <div className="pulse-circle pulse-circle-2"></div>

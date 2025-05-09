@@ -47,63 +47,10 @@ export async function middleware(request: NextRequest) {
     const isAdminCookie = request.cookies.get("is_admin")?.value === "true"
 
     // Special case for admin paths
-    if (isAdminRequired) {
-      const isAdminCookie = request.cookies.get("is_admin")?.value === "true"
-
-      if (isAdminCookie) {
-        // If is_admin cookie is set, allow access to admin paths
-        console.log("Admin access granted via is_admin cookie")
-        return NextResponse.next()
-      }
-
-      if (!sessionToken) {
-        // No session token, redirect to admin login
-        console.log("No session token, redirecting to admin login")
-        const url = new URL("/admin-login", request.url)
-        url.searchParams.set("redirect", pathname)
-        return NextResponse.redirect(url)
-      }
-
-      try {
-        // Verify the session token
-        const session = await getSessionByToken(sessionToken)
-
-        if (!session) {
-          // Invalid session, redirect to admin login
-          console.log("Invalid session, redirecting to admin login")
-          const url = new URL("/admin-login", request.url)
-          url.searchParams.set("redirect", pathname)
-          return NextResponse.redirect(url)
-        }
-
-        // Check if session is expired
-        if (new Date(session.expires_at) < new Date()) {
-          // Session expired, redirect to admin login
-          console.log("Session expired, redirecting to admin login")
-          const url = new URL("/admin-login", request.url)
-          url.searchParams.set("redirect", pathname)
-          url.searchParams.set("expired", "true")
-          return NextResponse.redirect(url)
-        }
-
-        // If admin role is required, check the user's role
-        const user = await getUserById(session.user_id)
-
-        if (!user || user.role !== "admin") {
-          // User is not an admin, redirect to unauthorized page
-          console.log("User is not an admin, redirecting to unauthorized")
-          return NextResponse.redirect(new URL("/unauthorized", request.url))
-        }
-
-        // User is an admin, allow access
-        return NextResponse.next()
-      } catch (error) {
-        console.error("Error in middleware:", error)
-        // Error occurred, redirect to admin login
-        const url = new URL("/admin-login", request.url)
-        url.searchParams.set("redirect", pathname)
-        return NextResponse.redirect(url)
-      }
+    if (isAdminRequired && isAdminCookie) {
+      // If is_admin cookie is set, allow access to admin paths
+      console.log("Admin access granted via is_admin cookie")
+      return NextResponse.next()
     }
 
     if (!sessionToken) {

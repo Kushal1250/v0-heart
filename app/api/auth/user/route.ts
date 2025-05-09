@@ -1,28 +1,12 @@
 import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth-utils"
 
-// Keep this route for backward compatibility, but it's no longer the primary auth check
 export async function GET() {
   try {
     const user = await getCurrentUser()
 
     if (!user) {
-      // Return a 200 OK response even when not authenticated
-      // This prevents 401 errors in the console
-      return NextResponse.json(
-        {
-          authenticated: false,
-          message: "Not authenticated",
-        },
-        {
-          status: 200, // Use 200 instead of 401
-          headers: {
-            "Cache-Control": "no-store, must-revalidate",
-            Pragma: "no-cache",
-            Expires: "0",
-          },
-        },
-      )
+      return NextResponse.json({ authenticated: false }, { status: 401 })
     }
 
     // Remove sensitive information
@@ -33,36 +17,18 @@ export async function GET() {
       role: user.role,
     }
 
-    return NextResponse.json(
-      {
-        authenticated: true,
-        user: safeUser,
-      },
-      {
-        headers: {
-          "Cache-Control": "no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-      },
-    )
+    return NextResponse.json({
+      authenticated: true,
+      user: safeUser,
+    })
   } catch (error) {
     console.error("Error in user route:", error)
-
-    // Still return 200 OK to prevent console errors
     return NextResponse.json(
       {
         authenticated: false,
         error: "Failed to authenticate user",
       },
-      {
-        status: 200, // Use 200 instead of 500
-        headers: {
-          "Cache-Control": "no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-      },
+      { status: 500 },
     )
   }
 }

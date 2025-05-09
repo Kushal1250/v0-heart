@@ -24,8 +24,8 @@ export default function AdminLoginPage() {
   const { adminLogin, isAdmin } = useAuth()
 
   // Get redirect path from URL params
-  const redirectPath = searchParams.get("redirect") || "/admin"
-  const sessionExpired = searchParams.get("expired") === "true"
+  const redirectPath = searchParams?.get("redirect") || "/admin"
+  const sessionExpired = searchParams?.get("expired") === "true"
 
   // Check if already logged in as admin
   useEffect(() => {
@@ -43,16 +43,7 @@ export default function AdminLoginPage() {
 
     try {
       console.log("Attempting admin login with email:", email)
-
-      const response = await fetch("/api/auth/admin/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      })
-
-      const result = await response.json()
+      const result = await adminLogin(email, password)
 
       if (result.success) {
         console.log("Admin login successful, redirecting to", redirectPath)
@@ -61,7 +52,7 @@ export default function AdminLoginPage() {
         window.location.href = redirectPath
       } else {
         console.error("Admin login failed:", result.message)
-        setError(result.message || "Login failed. Please check your credentials.")
+        setError(result.message)
       }
     } catch (err) {
       console.error("Error during admin login:", err)

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { User, UserPlus, Shield, Heart, Settings, LayoutDashboard, LogOut, X, Menu } from "lucide-react"
+import { User, UserPlus, LogOut, Menu, X, Bell, LayoutDashboard, Heart, Settings, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -10,7 +10,6 @@ import { useToast } from "@/components/ui/use-toast"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -55,19 +54,9 @@ export default function Navbar() {
     }
   }, [user, toast])
 
-  const handleLogout = async (e) => {
-    if (e) e.preventDefault()
-    try {
-      await logout()
-      window.location.href = "/"
-    } catch (error) {
-      console.error("Logout error:", error)
-      toast({
-        title: "Logout failed",
-        description: "Please try again",
-        variant: "destructive",
-      })
-    }
+  const handleLogout = async () => {
+    await logout()
+    window.location.href = "/"
   }
 
   // Navigation items based on current page and authentication status
@@ -91,17 +80,6 @@ export default function Navbar() {
       { name: "How It Works", href: "/how-it-works" },
       ...(isAdmin ? [{ name: "Admin", href: "/admin" }] : []),
     ]
-  }
-
-  // Get user initials for avatar fallback
-  const getUserInitials = () => {
-    if (!user || !user.name) return "U"
-    return user.name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .substring(0, 2)
   }
 
   return (
@@ -139,53 +117,119 @@ export default function Navbar() {
             {!isLoading && (
               <div className="flex items-center gap-4">
                 {user ? (
-                  // User dropdown menu
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                        <Avatar className="h-10 w-10 border border-gray-200">
-                          <AvatarImage src={user.image || ""} alt={user.name || "User"} />
-                          <AvatarFallback className="bg-blue-100 text-blue-800">{getUserInitials()}</AvatarFallback>
-                        </Avatar>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-56" align="end" forceMount>
-                      <DropdownMenuLabel className="font-normal">
-                        <div className="flex flex-col space-y-1">
-                          <p className="text-sm font-medium leading-none">{user.name || "User"}</p>
-                          <p className="text-xs leading-none text-gray-500">{user.email || ""}</p>
-                        </div>
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem>
-                          <Link href="/profile" className="flex items-center w-full">
-                            <User className="mr-2 h-4 w-4" />
-                            <span>Profile</span>
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Link href="/dashboard" className="flex items-center w-full">
-                            <LayoutDashboard className="mr-2 h-4 w-4" />
-                            <span>Dashboard</span>
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Link href="/settings" className="flex items-center w-full">
-                            <Settings className="mr-2 h-4 w-4" />
-                            <span>Settings</span>
-                          </Link>
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-red-600" onClick={handleLogout}>
-                        <LogOut className="mr-2 h-4 w-4" />
-                        <span>Logout</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  // Authenticated user navigation
+                  <>
+                    <div className="hidden md:flex items-center gap-4">
+                      <button className="p-1 rounded-full text-gray-400 hover:text-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors btn-hover-effect">
+                        <span className="sr-only">View notifications</span>
+                        <Bell className="h-6 w-6" />
+                      </button>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                            <Avatar className="h-10 w-10 transition-transform hover:scale-110 bg-blue-100">
+                              {user.profile_picture ? (
+                                <AvatarImage
+                                  src={user.profile_picture || "/placeholder.svg"}
+                                  alt={user.name || "User"}
+                                />
+                              ) : (
+                                <AvatarFallback className="bg-blue-100 text-blue-600 font-medium">
+                                  {user.name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || "A"}
+                                </AvatarFallback>
+                              )}
+                            </Avatar>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          className="w-56 bg-[#1a1f2e] text-white border-[#2a2f3e]"
+                          align="end"
+                          forceMount
+                        >
+                          <DropdownMenuLabel className="font-normal px-4 py-3 border-b border-[#2a2f3e]">
+                            <div className="flex flex-col space-y-1">
+                              <div className="flex items-center">
+                                <p className="text-sm font-medium leading-none">{user.name || "Admin"}</p>
+                                {isAdmin && (
+                                  <span className="ml-2 px-1.5 py-0.5 text-xs bg-red-500 text-white rounded-md">
+                                    Admin
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs leading-none text-gray-400">{user.email || "admin@example.com"}</p>
+                            </div>
+                          </DropdownMenuLabel>
+                          <div className="px-2 py-2">
+                            <DropdownMenuItem
+                              asChild
+                              className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
+                            >
+                              <Link href="/profile" className="flex items-center">
+                                <User className="mr-2 h-4 w-4" />
+                                <span>Profile</span>
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              asChild
+                              className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
+                            >
+                              <Link href="/dashboard" className="flex items-center">
+                                <LayoutDashboard className="mr-2 h-4 w-4" />
+                                <span>Dashboard</span>
+                              </Link>
+                            </DropdownMenuItem>
+                            {isAdmin && (
+                              <DropdownMenuItem
+                                asChild
+                                className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
+                              >
+                                <Link href="/admin" className="flex items-center">
+                                  <Shield className="mr-2 h-4 w-4" />
+                                  <span>Admin</span>
+                                </Link>
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              asChild
+                              className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
+                            >
+                              <Link href="/settings" className="flex items-center">
+                                <Settings className="mr-2 h-4 w-4" />
+                                <span>Settings</span>
+                              </Link>
+                            </DropdownMenuItem>
+                          </div>
+                          <DropdownMenuSeparator className="bg-[#2a2f3e]" />
+                          <div className="px-2 py-2">
+                            <DropdownMenuItem
+                              onClick={handleLogout}
+                              className="px-2 py-2 text-red-500 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
+                            >
+                              <LogOut className="mr-2 h-4 w-4" />
+                              <span>Log out</span>
+                            </DropdownMenuItem>
+                          </div>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    {/* Mobile menu button */}
+                    <button
+                      type="button"
+                      className="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary custom-button"
+                      onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    >
+                      <span className="sr-only">Open main menu</span>
+                      {mobileMenuOpen ? (
+                        <X className="block h-6 w-6" aria-hidden="true" />
+                      ) : (
+                        <Menu className="block h-6 w-6" aria-hidden="true" />
+                      )}
+                    </button>
+                  </>
                 ) : (
-                  // Non-authenticated user navigation
+                  // Non-authenticated user navigation - updated to match the design
                   <div className="flex items-center gap-3">
                     <Link href="/login">
                       <Button
@@ -218,53 +262,66 @@ export default function Navbar() {
                 )}
               </div>
             )}
-
-            {/* Mobile menu button - keep this as is */}
-            <button
-              type="button"
-              className="sm:hidden inline-flex items-center justify-center p-3 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-expanded={mobileMenuOpen}
-              aria-controls="mobile-menu"
-            >
-              <span className="sr-only">{mobileMenuOpen ? "Close main menu" : "Open main menu"}</span>
-              {mobileMenuOpen ? (
-                <X className="block h-6 w-6" aria-hidden="true" />
-              ) : (
-                <Menu className="block h-6 w-6" aria-hidden="true" />
-              )}
-            </button>
           </div>
         </div>
 
         {/* Mobile menu, show/hide based on menu state */}
         {mobileMenuOpen && (
-          <div className="sm:hidden" id="mobile-menu">
-            <div className="pt-2 pb-4 space-y-1 bg-white shadow-lg border-t border-gray-200">
+          <div className="md:hidden">
+            <div className="pt-2 pb-3 space-y-1">
               {navigationItems.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`block py-3 px-4 text-base font-medium ${
+                  className={`block pl-3 pr-4 py-2 border-l-4 ${
                     pathname === item.href
-                      ? "text-primary border-l-4 border-primary bg-primary/5"
-                      : "text-gray-700 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent"
-                  }`}
+                      ? "border-primary text-primary bg-primary/5"
+                      : "border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
+                  } text-base font-medium custom-link`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {item.name}
                 </Link>
               ))}
               {user && (
-                <button
-                  onClick={(e) => {
-                    handleLogout(e)
-                    setMobileMenuOpen(false)
-                  }}
-                  className="w-full text-left block py-3 px-4 text-base font-medium text-red-600 hover:bg-red-50 border-l-4 border-transparent hover:border-red-300"
-                >
-                  <LogOut className="inline h-5 w-5 mr-2" /> Log out
-                </button>
+                <>
+                  <Link
+                    href="/profile"
+                    className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <User className="inline h-4 w-4 mr-2" /> Profile
+                  </Link>
+                  <Link
+                    href="/dashboard"
+                    className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <LayoutDashboard className="inline h-4 w-4 mr-2" /> Dashboard
+                  </Link>
+                  <Link
+                    href="/settings"
+                    className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Settings className="inline h-4 w-4 mr-2" /> Settings
+                  </Link>
+                  {isAdmin && (
+                    <Link
+                      href="/admin"
+                      className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <Shield className="inline h-4 w-4 mr-2" /> Admin
+                    </Link>
+                  )}
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left block pl-3 pr-4 py-2 border-l-4 border-transparent text-red-600 hover:bg-gray-50 hover:border-red-300 hover:text-red-800 text-base font-medium custom-button"
+                  >
+                    <LogOut className="inline h-4 w-4 mr-2" /> Log out
+                  </button>
+                </>
               )}
             </div>
           </div>

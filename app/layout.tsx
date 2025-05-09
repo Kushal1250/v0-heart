@@ -10,41 +10,39 @@ import { Toaster } from "@/components/ui/toaster"
 import GlobalFooter from "@/components/global-footer"
 // Import the SessionKeeper component
 import { SessionKeeper } from "@/components/session-keeper"
-import ErrorBoundary from "@/components/error-boundary"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Heart Disease Predictor",
   description: "Predict your risk of heart disease using machine learning",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
     generator: 'v0.dev'
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-        <link rel="icon" href="/heart-icon-new.ico?v=2" />
-        <link rel="icon" href="/heart-icon-new.png?v=2" type="image/png" />
-        <link rel="apple-touch-icon" href="/heart-apple-icon-new.png?v=2" />
-        <link rel="manifest" href="/manifest.json?v=2" />
-      </head>
       <body className={inter.className}>
-        <ErrorBoundary>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-            <AuthProvider>
-              <SessionKeeper />
-              <div className="flex flex-col min-h-screen">
-                <Navbar />
-                <main className="flex-grow">{children}</main>
-                <GlobalFooter />
-              </div>
-              <NavigationTracker />
-              <Toaster />
-            </AuthProvider>
-          </ThemeProvider>
-        </ErrorBoundary>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <AuthProvider>
+            <SessionKeeper />
+            <div className="flex flex-col min-h-screen">
+              <Navbar />
+              <main className="flex-grow">{children}</main>
+              <GlobalFooter />
+            </div>
+            <NavigationTracker />
+            <Toaster />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

@@ -1,36 +1,33 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { v4 as uuidv4 } from "uuid"
-import { getGoogleOAuthConfig } from "@/lib/oauth-config"
 
 export async function GET(request: NextRequest) {
   try {
-    // Get Google OAuth configuration
-    const { clientId, clientSecret, redirectUri, isConfigured } = getGoogleOAuthConfig()
+    const clientId = process.env.GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
 
-    // Check if Google OAuth is configured
-    if (!isConfigured) {
-      console.error("[OAuth] Google OAuth is not configured")
-      return NextResponse.redirect(new URL("/login?error=oauth_not_configured", request.url))
+    // Get the base URL from the request
+    const baseUrl = request.headers.get("host") || process.env.NEXT_PUBLIC_APP_URL || "localhost:3000"
+    const protocol = baseUrl.includes("localhost") ? "http" : "https"
+
+    // Construct the redirect URI using the actual host
+    const redirectUri = `${protocol}://${baseUrl}/api/auth/google/callback`
+
+    if (!clientId || !clientSecret) {
+      return NextResponse.json({ message: "OAuth configuration missing" }, { status: 500 })
     }
 
     // Generate state for CSRF protection
     const state = uuidv4()
 
-    // Create the authorization URL
-    const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth")
-    authUrl.searchParams.append("client_id", clientId)
-    authUrl.searchParams.append("redirect_uri", redirectUri)
-    authUrl.searchParams.append("response_type", "code")
-    authUrl.searchParams.append("scope", "email profile")
-    authUrl.searchParams.append("state", state)
-    authUrl.searchParams.append("prompt", "select_account")
-
-    console.log("[OAuth] Initiating Google OAuth flow")
-    console.log("[OAuth] Redirect URI:", redirectUri)
-
     // Store state in cookie for validation
-    const response = NextResponse.redirect(authUrl.toString())
+    const response = NextResponse.redirect(
+      `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(
+        redirectUri,
+      )}&response_type=code&scope=email%20profile&state=${state}`,
+    )
 
+    // Set state cookie to verify on callback
     response.cookies.set({
       name: "oauth_state",
       value: state,
@@ -43,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     return response
   } catch (error) {
-    console.error("[OAuth] Google auth error:", error)
-    return NextResponse.redirect(new URL("/login?error=oauth_error", request.url))
+    console.error("Google auth error:", error)
+    return NextResponse.redirect(new URL("/signup?error=auth_failed", request.url))
   }
 }
