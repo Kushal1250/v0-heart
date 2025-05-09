@@ -17,13 +17,6 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Heart Disease Predictor",
   description: "Predict your risk of heart disease using machine learning",
-  icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/heart-favicon.png", type: "image/png" },
-    ],
-    apple: { url: "/apple-touch-icon.png", type: "image/png" },
-  },
     generator: 'v0.dev'
 }
 
@@ -32,8 +25,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="icon" href="/heart-favicon.png" type="image/png" />
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="/favicon.png" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
       </head>
