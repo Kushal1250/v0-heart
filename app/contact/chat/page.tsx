@@ -1,12 +1,16 @@
 "use client"
 
-import { useState, type FormEvent } from "react"
+import type React from "react"
+
+import { useState, useEffect, useRef, type FormEvent } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { MessageSquare, ArrowLeft, Send, User } from "lucide-react"
+import { MessageSquare, ArrowLeft, Send, User, AlertCircle } from "lucide-react"
+import { connectSocket, getSocket, type ChatMessage } from "@/lib/socket-service"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function LiveChatPage() {
   const [chatStarted, setChatStarted] = useState(false)
@@ -14,79 +18,133 @@ export default function LiveChatPage() {
   const [email, setEmail] = useState("")
   const [topic, setTopic] = useState("")
   const [message, setMessage] = useState("")
-  const [chatMessages, setChatMessages] = useState<Array<{ text: string; sender: "user" | "agent"; time: string }>>([])
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [userMessage, setUserMessage] = useState("")
   const [isAgentTyping, setIsAgentTyping] = useState(false)
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [agentName, setAgentName] = useState<string | null>(null)
+  const [connectionError, setConnectionError] = useState(false)
+  const [isConnecting, setIsConnecting] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [chatMessages, isAgentTyping])
+
+  // Initialize socket connection
+  useEffect(() => {
+    if (chatStarted && !sessionId) {
+      setIsConnecting(true)
+      const socket = connectSocket()
+
+      // Set up event listeners
+      socket.on("chat:message", (message) => {
+        setChatMessages((prev) => [...prev, message])
+      })
+
+      socket.on("chat:typing", (data) => {
+        if (data.user === "agent") {
+          setIsAgentTyping(data.isTyping)
+        }
+      })
+
+      socket.on("chat:agent-joined", (data) => {
+        setAgentName(data.agentName)
+      })
+
+      socket.on("chat:agent-left", () => {
+        setAgentName(null)
+      })
+
+      socket.on("chat:session-created", (data) => {
+        setSessionId(data.sessionId)
+        setIsConnecting(false)
+      })
+
+      socket.on("connect_error", () => {
+        setConnectionError(true)
+        setIsConnecting(false)
+      })
+
+      return () => {
+        // Clean up event listeners
+        socket.off("chat:message")
+        socket.off("chat:typing")
+        socket.off("chat:agent-joined")
+        socket.off("chat:agent-left")
+        socket.off("chat:session-created")
+        socket.off("connect_error")
+      }
+    }
+  }, [chatStarted, sessionId])
 
   const startChat = (e: FormEvent) => {
     e.preventDefault()
-
-    // Initialize chat with user's initial message
-    const initialMessages = [
-      {
-        text: `Hello ${name}! Welcome to HeartPredict support. How can I help you with "${topic}" today?`,
-        sender: "agent" as const,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      },
-      {
-        text: message,
-        sender: "user" as const,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      },
-    ]
-
-    setChatMessages(initialMessages)
     setChatStarted(true)
 
-    // Simulate agent typing and response
-    simulateAgentResponse(
-      "Thank you for providing that information. Let me look into this for you. I'll have an answer shortly.",
-    )
+    // Connect to socket and join as user
+    const socket = connectSocket()
+    socket.emit("chat:join-as-user", {
+      name,
+      email,
+      topic,
+      initialMessage: message,
+    })
   }
 
   const sendMessage = (e: FormEvent) => {
     e.preventDefault()
-    if (!userMessage.trim()) return
+    if (!userMessage.trim() || !sessionId) return
 
-    // Add user message
-    const newUserMessage = {
+    const socket = getSocket()
+    socket.emit("chat:send-message", {
       text: userMessage,
-      sender: "user" as const,
-      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    }
+      sender: "user",
+      sessionId,
+    })
 
-    setChatMessages((prev) => [...prev, newUserMessage])
     setUserMessage("")
-
-    // Simulate agent response
-    const responses = [
-      "I understand your concern. Let me help you with that.",
-      "Thank you for providing that information. Let me check our resources.",
-      "That's a great question about heart health. Here's what I can tell you...",
-      "I'd be happy to explain how our prediction model works.",
-      "Would you like me to connect you with one of our healthcare specialists for more detailed information?",
-    ]
-
-    simulateAgentResponse(responses[Math.floor(Math.random() * responses.length)])
   }
 
-  const simulateAgentResponse = (responseText: string) => {
-    setIsAgentTyping(true)
+  const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUserMessage(e.target.value)
 
-    // Simulate typing delay (1.5-3 seconds)
-    const typingDelay = 1500 + Math.random() * 1500
+    // Send typing indicator
+    const socket = getSocket()
+    socket.emit("chat:typing", e.target.value.length > 0)
+  }
 
+  const endChat = () => {
+    const socket = getSocket()
+    socket.emit("chat:leave")
+    setChatStarted(false)
+    setChatMessages([])
+    setSessionId(null)
+    setAgentName(null)
+  }
+
+  const formatTime = (date: Date) => {
+    if (typeof date === "string") {
+      date = new Date(date)
+    }
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  }
+
+  const reconnect = () => {
+    setConnectionError(false)
+    setIsConnecting(true)
+    const socket = connectSocket()
+
+    // Try to reconnect
     setTimeout(() => {
-      setIsAgentTyping(false)
-
-      const agentResponse = {
-        text: responseText,
-        sender: "agent" as const,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      if (!socket.connected) {
+        setConnectionError(true)
+        setIsConnecting(false)
       }
-
-      setChatMessages((prev) => [...prev, agentResponse])
-    }, typingDelay)
+    }, 5000)
   }
 
   return (
@@ -98,6 +156,19 @@ export default function LiveChatPage() {
           </Button>
           <h1 className="text-2xl md:text-3xl font-bold">Live Chat Support</h1>
         </div>
+
+        {connectionError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Connection Error</AlertTitle>
+            <AlertDescription>
+              Unable to connect to chat server. Please try again.
+              <Button variant="outline" size="sm" className="ml-4" onClick={reconnect}>
+                Reconnect
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {!chatStarted ? (
           <Card className="bg-white border-gray-200 shadow-sm">
@@ -157,9 +228,18 @@ export default function LiveChatPage() {
                   />
                 </div>
 
-                <Button type="submit" className="w-full bg-red-600 hover:bg-red-700">
-                  <MessageSquare className="h-5 w-5 mr-2" />
-                  Start Chat
+                <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={isConnecting}>
+                  {isConnecting ? (
+                    <>
+                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="h-5 w-5 mr-2" />
+                      Start Chat
+                    </>
+                  )}
                 </Button>
               </form>
             </CardContent>
@@ -174,8 +254,15 @@ export default function LiveChatPage() {
                       <User className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg">Chat with Support</CardTitle>
-                      <CardDescription>We typically respond in under 2 minutes</CardDescription>
+                      <CardTitle className="text-lg">
+                        Chat with Support
+                        {agentName && <span className="text-sm font-normal ml-2">({agentName})</span>}
+                      </CardTitle>
+                      <CardDescription>
+                        {agentName
+                          ? "Agent is online and responding to your questions"
+                          : "We'll connect you with an agent shortly"}
+                      </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -193,7 +280,7 @@ export default function LiveChatPage() {
                             msg.sender === "user" ? "text-red-100" : "text-gray-500"
                           }`}
                         >
-                          {msg.time}
+                          {formatTime(msg.timestamp)}
                         </p>
                       </div>
                     </div>
@@ -219,6 +306,7 @@ export default function LiveChatPage() {
                       </div>
                     </div>
                   )}
+                  <div ref={messagesEndRef} />
                 </CardContent>
                 <div className="p-4 border-t border-gray-200">
                   <form onSubmit={sendMessage} className="flex gap-2">
@@ -226,7 +314,7 @@ export default function LiveChatPage() {
                       placeholder="Type your message..."
                       className="bg-white border-gray-300"
                       value={userMessage}
-                      onChange={(e) => setUserMessage(e.target.value)}
+                      onChange={handleTyping}
                     />
                     <Button type="submit" className="bg-red-600 hover:bg-red-700">
                       <Send className="h-4 w-4" />
@@ -263,7 +351,7 @@ export default function LiveChatPage() {
                   </div>
 
                   <div className="pt-4">
-                    <Button variant="outline" className="w-full" onClick={() => setChatStarted(false)}>
+                    <Button variant="outline" className="w-full" onClick={endChat}>
                       End Chat
                     </Button>
                   </div>
