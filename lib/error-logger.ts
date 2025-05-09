@@ -29,20 +29,31 @@ export interface ErrorLogEntry {
 }
 
 /**
- * Logs an error to the console and potentially to a monitoring service
- * @param context The context in which the error occurred
+ * Log an error to the console and potentially to a monitoring service
+ * @param context The context where the error occurred
  * @param error The error object
  * @param metadata Additional metadata about the error
  */
-export async function logError(context: string, error: any, metadata?: any): Promise<void> {
-  console.error(`[${context}] Error:`, error)
+export async function logError(context: string, error: any, metadata: Record<string, any> = {}) {
+  const errorMessage = error instanceof Error ? error.message : String(error)
+  const errorStack = error instanceof Error ? error.stack : undefined
 
-  if (metadata) {
+  // Log to console
+  console.error(`[${context}] Error:`, errorMessage)
+  if (errorStack) {
+    console.error(`[${context}] Stack:`, errorStack)
+  }
+  if (Object.keys(metadata).length > 0) {
     console.error(`[${context}] Metadata:`, metadata)
   }
 
-  // In a real application, you would send this to a monitoring service like Sentry
-  // For now, we'll just log it to the console
+  // In a production environment, you would send this to a monitoring service
+  // like Sentry, LogRocket, etc.
+  if (process.env.NODE_ENV === "production") {
+    // Example: await sentryClient.captureException(error, { extra: { context, ...metadata } })
+  }
+
+  return { logged: true, context, errorMessage }
 }
 
 /**
@@ -107,18 +118,7 @@ export async function createErrorResponse(
   metadata: Record<string, any> = {},
   severity: ErrorSeverity = ErrorSeverity.MEDIUM,
 ): Promise<{ success: false; message: string; errorId: string }> {
-  const errorId = generateErrorId()
-  await storeErrorLog({
-    id: errorId,
-    timestamp: new Date(),
-    context,
-    message: error instanceof Error ? error.message : String(error),
-    stack: error instanceof Error ? error.stack : undefined,
-    severity,
-    userId,
-    metadata,
-  })
-  await logError(context, error, metadata)
+  const errorId = await logError(context, error, metadata, severity, userId)
 
   return {
     success: false,

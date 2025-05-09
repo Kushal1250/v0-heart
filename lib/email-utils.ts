@@ -1,5 +1,3 @@
-"use server"
-
 import nodemailer from "nodemailer"
 import { logError } from "./error-logger"
 
@@ -14,46 +12,6 @@ const emailConfig = {
   },
 }
 
-// For development/testing
-let testAccount: any = null
-
-/**
- * Get a test account for development
- */
-async function getTestAccount() {
-  if (!testAccount) {
-    testAccount = await nodemailer.createTestAccount()
-    console.log("Created test account:", testAccount)
-  }
-  return testAccount
-}
-
-/**
- * Get email transport configuration
- */
-async function getTransport() {
-  // Use Ethereal for development if no email config is provided
-  if (
-    process.env.NODE_ENV === "development" &&
-    (!emailConfig.host || !emailConfig.auth.user || !emailConfig.auth.pass)
-  ) {
-    console.log("Using Ethereal test account for email")
-    const testAccount = await getTestAccount()
-    return nodemailer.createTransport({
-      host: "smtp.ethereal.email",
-      port: 587,
-      secure: false,
-      auth: {
-        user: testAccount.user,
-        pass: testAccount.pass,
-      },
-    })
-  }
-
-  // Use configured email service
-  return nodemailer.createTransport(emailConfig)
-}
-
 /**
  * Send an email
  * @param options Email options including to, subject, html, and text
@@ -66,15 +24,27 @@ export async function sendEmail(options: {
   text?: string
 }) {
   try {
-    console.log("Sending email to:", options.to)
-    console.log("Email subject:", options.subject)
+    console.log("Email configuration:", {
+      host: emailConfig.host,
+      port: emailConfig.port,
+      secure: emailConfig.secure,
+      user: emailConfig.auth.user ? "Set" : "Not set",
+      pass: emailConfig.auth.pass ? "Set" : "Not set",
+      from: process.env.EMAIL_FROM || "noreply@example.com",
+    })
 
-    // Get transport
-    const transporter = await getTransport()
+    // Create transporter
+    const transporter = nodemailer.createTransport(emailConfig)
+
+    // Verify connection configuration
+    await transporter.verify().catch((error) => {
+      console.error("SMTP connection verification failed:", error)
+      throw new Error(`SMTP connection failed: ${error.message}`)
+    })
 
     // Send email
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || "noreply@heartpredict.com",
+      from: process.env.EMAIL_FROM || "noreply@example.com",
       to: options.to,
       subject: options.subject,
       text: options.text || options.html.replace(/<[^>]*>/g, ""),
@@ -82,22 +52,10 @@ export async function sendEmail(options: {
     })
 
     console.log("Email sent:", info.messageId)
-
-    // Get preview URL for development
-    let previewUrl = null
-    try {
-      previewUrl = nodemailer.getTestMessageUrl(info)
-      if (previewUrl) {
-        console.log("Preview URL:", previewUrl)
-      }
-    } catch (error) {
-      console.log("Could not get preview URL:", error)
-    }
-
     return {
       success: true,
       messageId: info.messageId,
-      previewUrl,
+      previewUrl: nodemailer.getTestMessageUrl(info),
     }
   } catch (error) {
     console.error("Error sending email:", error)

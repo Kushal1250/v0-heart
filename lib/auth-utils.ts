@@ -1,5 +1,4 @@
-"use server"
-
+import { cookies } from "next/headers"
 import { v4 as uuidv4 } from "uuid"
 import {
   getSessionByToken,
@@ -8,86 +7,11 @@ import {
   getVerificationCode,
   deleteVerificationCode,
 } from "@/lib/db"
+import type { NextRequest } from "next/server"
 import { sendSMS } from "@/lib/sms-utils"
 import { logError } from "@/lib/error-logger"
 import { compare, hash } from "bcrypt-ts"
 import { sendVerificationCodeEmail } from "@/lib/email-utils"
-
-// Check if we're in a browser environment
-const isBrowser = typeof window !== "undefined"
-
-/**
- * Get session token from cookies - works in both App Router and Pages Router
- */
-export async function getSessionToken(req?: any): Promise<string | undefined> {
-  // If we're in a browser environment, use document.cookie
-  if (isBrowser) {
-    const cookies = document.cookie.split(";")
-    const sessionCookie = cookies.find((cookie) => cookie.trim().startsWith("session="))
-    return sessionCookie ? sessionCookie.split("=")[1] : undefined
-  }
-
-  // If request object is provided (Pages API)
-  if (req?.cookies) {
-    return req.cookies.session
-  }
-
-  // For App Router, we need to use the request headers
-  if (req?.headers?.cookie) {
-    const cookies = req.headers.cookie.split(";")
-    const sessionCookie = cookies.find((cookie) => cookie.trim().startsWith("session="))
-    return sessionCookie ? sessionCookie.split("=")[1].trim() : undefined
-  }
-
-  // If no request object and not in browser, we can't get the cookie
-  console.warn("No request object provided and not in browser environment - cannot get session token")
-  return undefined
-}
-
-/**
- * Clear session cookie - works in both App Router and Pages Router
- */
-export async function clearSessionCookie(res?: any): Promise<void> {
-  // If response object is provided (Pages API)
-  if (res?.setHeader) {
-    res.setHeader("Set-Cookie", `session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`)
-    return
-  }
-
-  // If in browser, clear the cookie
-  if (isBrowser) {
-    document.cookie = "session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"
-    return
-  }
-
-  // If no response object and not in browser, we can't clear the cookie
-  console.warn("No response object provided and not in browser environment - cannot clear session cookie")
-}
-
-/**
- * Create response with cookie - works in both App Router and Pages Router
- */
-export async function createResponseWithCookie(data: any, token: string, res?: any): Promise<any> {
-  // If response object is provided (Pages API)
-  if (res?.setHeader) {
-    res.setHeader("Set-Cookie", `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`)
-    return res.status(200).json(data)
-  }
-
-  // Use App Router Response
-  const response = new Response(JSON.stringify(data), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  })
-
-  // Set cookie with proper configuration
-  response.headers.set(
-    "Set-Cookie",
-    `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`, // 24 hours
-  )
-
-  return response
-}
 
 export async function hashPassword(password: string): Promise<string> {
   try {
@@ -109,6 +33,10 @@ export async function comparePasswords(password: string, hashedPassword: string)
   }
 }
 
+export function getSessionToken(): string | undefined {
+  return cookies().get("session")?.value
+}
+
 export async function getUserIdFromToken(token: string): Promise<string | null> {
   try {
     // In a real application, you would verify the token and extract the user ID
@@ -120,29 +48,48 @@ export async function getUserIdFromToken(token: string): Promise<string | null> 
   }
 }
 
-export async function generateToken(): Promise<string> {
+export function generateToken(): string {
   return uuidv4()
 }
 
-export async function isValidEmail(email: string): Promise<boolean> {
+export function isValidEmail(email: string): boolean {
   // Basic email format validation
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
 }
 
-export async function isStrongPassword(password: string): Promise<boolean> {
+export function isStrongPassword(password: string): boolean {
   // Password must be at least 8 characters with uppercase, lowercase, and numbers
   return password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password)
 }
 
-export async function getCurrentUser(req?: any): Promise<{
+export function createResponseWithCookie(data: any, token: string): any {
+  const response = new Response(JSON.stringify(data), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  })
+
+  // Set cookie with proper configuration
+  response.headers.set(
+    "Set-Cookie",
+    `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`, // 24 hours
+  )
+
+  return response
+}
+
+export function clearSessionCookie(): void {
+  cookies().delete("session")
+}
+
+export async function getCurrentUser(): Promise<{
   id: string
   email: string
   name: string | null
   role: string
 } | null> {
   try {
-    const token = await getSessionToken(req)
+    const token = getSessionToken()
 
     if (!token) {
       console.log("No session token found")
@@ -170,13 +117,13 @@ export async function getCurrentUser(req?: any): Promise<{
   }
 }
 
-export async function verifyAdminSession(req?: any): Promise<{
+export async function verifyAdminSession(request: Request): Promise<{
   id: string
   email: string
   name: string | null
   role: string
 } | null> {
-  const sessionToken = await getSessionToken(req)
+  const sessionToken = getSessionToken()
   if (!sessionToken) {
     return null
   }
@@ -197,10 +144,11 @@ export async function verifyAdminSession(req?: any): Promise<{
 /**
  * Extracts user information from an incoming request
  */
-export async function getUserFromRequest(req: any) {
+export async function getUserFromRequest(request: Request | NextRequest) {
   try {
     // Get the session token from the cookie
-    const sessionToken = await getSessionToken(req)
+    const cookieStore = cookies()
+    const sessionToken = cookieStore.get("session")?.value
 
     if (!sessionToken) {
       console.log("No session token found in request")
@@ -264,7 +212,7 @@ export async function getUserFromSession(sessionToken: string | undefined): Prom
 /**
  * Generates a random verification code
  */
-async function generateVerificationCode(): Promise<string> {
+function generateVerificationCode(): string {
   // Generate a 6-digit code
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
@@ -327,7 +275,7 @@ export async function sendVerificationCode(
     console.log(`Sending verification code to ${identifier} via ${method}`)
 
     // Generate a verification code
-    const code = await generateVerificationCode()
+    const code = generateVerificationCode()
     console.log(`Generated verification code: ${code}`)
 
     // Store the code in the database with a 15-minute expiration
@@ -486,7 +434,7 @@ export async function resendVerificationCode(
  * @param user User object or user role string
  * @returns Boolean indicating if the user is an admin
  */
-export async function isAdmin(user: { role?: string } | string | null | undefined): Promise<boolean> {
+export function isAdmin(user: { role?: string } | string | null | undefined): boolean {
   if (!user) return false
 
   // If user is a string, assume it's the role
