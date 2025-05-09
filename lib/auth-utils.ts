@@ -10,8 +10,8 @@ import {
 import type { NextRequest } from "next/server"
 import { sendSMS } from "@/lib/sms-utils"
 import { logError } from "@/lib/error-logger"
-import { sendEmail } from "@/lib/email-utils"
 import { compare, hash } from "bcrypt-ts"
+import { sendVerificationCodeEmail } from "@/lib/email-utils"
 
 export async function hashPassword(password: string): Promise<string> {
   try {
@@ -231,29 +231,14 @@ async function sendEmailVerification(
   try {
     console.log(`Sending email verification to ${email} with code ${code}`)
 
-    // Use the sendEmail function from email-utils.ts
-    const result = await sendEmail({
-      to: email,
-      subject: "Your Verification Code",
-      text: `Your verification code is: ${code}. It will expire in 15 minutes.`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Your Verification Code</h2>
-          <p>Use the following code to verify your account:</p>
-          <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold;">
-            ${code}
-          </div>
-          <p>This code will expire in 15 minutes.</p>
-          <p>If you didn't request this code, please ignore this email.</p>
-        </div>
-      `,
-    })
+    // Use the sendVerificationCodeEmail function from email-utils.ts
+    const result = await sendVerificationCodeEmail(email, code)
 
     if (!result.success) {
-      console.error("Failed to send email verification:", result.message)
+      console.error("Failed to send email verification:", result.error)
       return {
         success: false,
-        message: result.message || "Failed to send email verification",
+        message: result.error || "Failed to send email verification",
         previewUrl: result.previewUrl,
       }
     }

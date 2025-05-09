@@ -14,32 +14,56 @@ const emailConfig = {
 
 /**
  * Send an email
- * @param to Recipient email address
- * @param subject Email subject
- * @param html HTML content
- * @param text Plain text content (optional)
+ * @param options Email options including to, subject, html, and text
  * @returns Success status and message
  */
-export async function sendEmail(to: string, subject: string, html: string, text?: string) {
+export async function sendEmail(options: {
+  to: string
+  subject: string
+  html: string
+  text?: string
+}) {
   try {
+    console.log("Email configuration:", {
+      host: emailConfig.host,
+      port: emailConfig.port,
+      secure: emailConfig.secure,
+      user: emailConfig.auth.user ? "Set" : "Not set",
+      pass: emailConfig.auth.pass ? "Set" : "Not set",
+      from: process.env.EMAIL_FROM || "noreply@example.com",
+    })
+
     // Create transporter
     const transporter = nodemailer.createTransport(emailConfig)
+
+    // Verify connection configuration
+    await transporter.verify().catch((error) => {
+      console.error("SMTP connection verification failed:", error)
+      throw new Error(`SMTP connection failed: ${error.message}`)
+    })
 
     // Send email
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || "noreply@example.com",
-      to,
-      subject,
-      text: text || html.replace(/<[^>]*>/g, ""),
-      html,
+      to: options.to,
+      subject: options.subject,
+      text: options.text || options.html.replace(/<[^>]*>/g, ""),
+      html: options.html,
     })
 
     console.log("Email sent:", info.messageId)
-    return { success: true, messageId: info.messageId }
+    return {
+      success: true,
+      messageId: info.messageId,
+      previewUrl: nodemailer.getTestMessageUrl(info),
+    }
   } catch (error) {
     console.error("Error sending email:", error)
-    logError("Email sending failed", { error, to, subject })
-    return { success: false, error: "Failed to send email" }
+    logError("Email sending failed", { error, to: options.to, subject: options.subject })
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to send email",
+    }
   }
 }
 
@@ -107,5 +131,77 @@ export async function sendPasswordResetEmail(to: string, resetLink: string, user
     This is an automated message, please do not reply to this email.
   `
 
-  return await sendEmail(to, subject, html, text)
+  return await sendEmail({
+    to,
+    subject,
+    html,
+    text,
+  })
+}
+
+/**
+ * Send a verification code email
+ * @param to Recipient email address
+ * @param code Verification code
+ * @returns Success status and message
+ */
+export async function sendVerificationCodeEmail(to: string, code: string) {
+  const subject = "Your Verification Code"
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #0070f3; color: white; padding: 10px 20px; text-align: center; }
+        .content { padding: 20px; background-color: #f9f9f9; }
+        .code { background-color: #eee; padding: 15px; text-align: center; font-size: 24px; 
+               letter-spacing: 5px; font-weight: bold; margin: 20px 0; }
+        .footer { font-size: 12px; color: #666; text-align: center; margin-top: 20px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Your Verification Code</h1>
+        </div>
+        <div class="content">
+          <p>Hello,</p>
+          <p>You requested a verification code. Use the following code to complete your request:</p>
+          <div class="code">${code}</div>
+          <p>This code will expire in 15 minutes.</p>
+          <p>If you didn't request this code, please ignore this email.</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated message, please do not reply to this email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `
+
+  const text = `
+    Your Verification Code
+    
+    Hello,
+    
+    You requested a verification code. Use the following code to complete your request:
+    
+    ${code}
+    
+    This code will expire in 15 minutes.
+    
+    If you didn't request this code, please ignore this email.
+    
+    This is an automated message, please do not reply to this email.
+  `
+
+  return await sendEmail({
+    to,
+    subject,
+    html,
+    text,
+  })
 }

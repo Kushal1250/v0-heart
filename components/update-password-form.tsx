@@ -6,23 +6,29 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Loader2, Save } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { useAuth } from "@/lib/auth-context"
+import { Loader2 } from "lucide-react"
 
-export function UpdatePasswordForm({ onForgotPassword }: { onForgotPassword: () => void }) {
+interface UpdatePasswordFormProps {
+  onForgotPassword: () => void
+}
+
+export function UpdatePasswordForm({ onForgotPassword }: UpdatePasswordFormProps) {
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const { toast } = useToast()
-  const { user } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setError("All fields are required")
+      return
+    }
 
     if (newPassword !== confirmPassword) {
       setError("New passwords do not match")
@@ -37,7 +43,7 @@ export function UpdatePasswordForm({ onForgotPassword }: { onForgotPassword: () 
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/user/change-password", {
+      const response = await fetch("/api/auth/reset-password-profile", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -73,12 +79,7 @@ export function UpdatePasswordForm({ onForgotPassword }: { onForgotPassword: () 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+      {error && <p className="text-red-500 text-sm">{error}</p>}
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
@@ -88,14 +89,15 @@ export function UpdatePasswordForm({ onForgotPassword }: { onForgotPassword: () 
             type="password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            required
+            placeholder="Enter current password"
           />
           <div className="text-right">
-            <button type="button" onClick={onForgotPassword} className="text-sm text-blue-500 hover:text-blue-700">
+            <button type="button" className="text-sm text-blue-500 hover:text-blue-700" onClick={onForgotPassword}>
               Forgot password?
             </button>
           </div>
         </div>
+
         <div className="space-y-2">
           <Label htmlFor="newPassword">New Password</Label>
           <Input
@@ -103,10 +105,10 @@ export function UpdatePasswordForm({ onForgotPassword }: { onForgotPassword: () 
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            required
-            minLength={8}
+            placeholder="Enter new password"
           />
         </div>
+
         <div className="space-y-2 md:col-span-2">
           <Label htmlFor="confirmPassword">Confirm New Password</Label>
           <Input
@@ -114,8 +116,7 @@ export function UpdatePasswordForm({ onForgotPassword }: { onForgotPassword: () 
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-            minLength={8}
+            placeholder="Confirm new password"
           />
         </div>
       </div>
@@ -128,9 +129,7 @@ export function UpdatePasswordForm({ onForgotPassword }: { onForgotPassword: () 
               Updating...
             </>
           ) : (
-            <>
-              <Save className="mr-2 h-4 w-4" /> Update Password
-            </>
+            "Update Password"
           )}
         </Button>
       </div>

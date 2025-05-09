@@ -41,6 +41,7 @@ export function ForgotPasswordModal({ isOpen, onClose, email = "" }: ForgotPassw
 
     setIsLoading(true)
     try {
+      // Use the direct API endpoint for sending verification codes
       const response = await fetch("/api/auth/send-verification-code", {
         method: "POST",
         headers: {
@@ -49,12 +50,14 @@ export function ForgotPasswordModal({ isOpen, onClose, email = "" }: ForgotPassw
         body: JSON.stringify({
           identifier: userEmail,
           method: "email",
+          purpose: "password_reset",
         }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
+        console.error("Server error response:", data)
         throw new Error(data.message || "Failed to send verification code")
       }
 
@@ -66,7 +69,9 @@ export function ForgotPasswordModal({ isOpen, onClose, email = "" }: ForgotPassw
       setStep(2)
     } catch (err: any) {
       console.error("Error sending verification code:", err)
-      setError(err.message || "An unexpected error occurred")
+      setError(
+        err.message || "An unexpected error occurred while sending the verification email. Please try again later.",
+      )
     } finally {
       setIsLoading(false)
     }
@@ -172,10 +177,10 @@ export function ForgotPasswordModal({ isOpen, onClose, email = "" }: ForgotPassw
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] bg-[#0f1729] text-white border-gray-800">
         <DialogHeader>
           <DialogTitle>Reset Password</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-gray-400">
             {step === 1 && "Enter your email address to receive a verification code."}
             {step === 2 && "Enter the verification code sent to your email."}
             {step === 3 && "Create a new password for your account."}
@@ -183,7 +188,7 @@ export function ForgotPasswordModal({ isOpen, onClose, email = "" }: ForgotPassw
         </DialogHeader>
 
         {error && (
-          <Alert variant="destructive" className="mb-4">
+          <Alert variant="destructive" className="mb-4 bg-transparent border border-red-800 text-red-500">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
@@ -192,14 +197,16 @@ export function ForgotPasswordModal({ isOpen, onClose, email = "" }: ForgotPassw
         {step === 1 && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-gray-300">
+                Email
+              </Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   id="email"
                   type="email"
                   placeholder="you@example.com"
-                  className="pl-10"
+                  className="pl-10 bg-[#1a2236] border-gray-700 text-white"
                   value={userEmail}
                   onChange={(e) => setUserEmail(e.target.value)}
                 />
@@ -207,10 +214,20 @@ export function ForgotPasswordModal({ isOpen, onClose, email = "" }: ForgotPassw
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
+              >
                 Cancel
               </Button>
-              <Button type="button" onClick={handleSendCode} disabled={isLoading}>
+              <Button
+                type="button"
+                onClick={handleSendCode}
+                disabled={isLoading}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -227,23 +244,25 @@ export function ForgotPasswordModal({ isOpen, onClose, email = "" }: ForgotPassw
         {step === 2 && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="code">Verification Code</Label>
+              <Label htmlFor="code" className="text-gray-300">
+                Verification Code
+              </Label>
               <div className="relative">
                 <KeyRound className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   id="code"
                   placeholder="123456"
-                  className="pl-10"
+                  className="pl-10 bg-[#1a2236] border-gray-700 text-white text-center text-lg py-6"
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value)}
                   maxLength={6}
                 />
               </div>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-400">
                 Enter the 6-digit code sent to {userEmail}.{" "}
                 <button
                   type="button"
-                  className="text-blue-500 hover:text-blue-700"
+                  className="text-blue-400 hover:text-blue-300"
                   onClick={handleSendCode}
                   disabled={isLoading}
                 >
@@ -253,10 +272,20 @@ export function ForgotPasswordModal({ isOpen, onClose, email = "" }: ForgotPassw
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setStep(1)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStep(1)}
+                className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
+              >
                 Back
               </Button>
-              <Button type="button" onClick={handleVerifyCode} disabled={isLoading}>
+              <Button
+                type="button"
+                onClick={handleVerifyCode}
+                disabled={isLoading}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -273,32 +302,48 @@ export function ForgotPasswordModal({ isOpen, onClose, email = "" }: ForgotPassw
         {step === 3 && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="newPassword">New Password</Label>
+              <Label htmlFor="newPassword" className="text-gray-300">
+                New Password
+              </Label>
               <Input
                 id="newPassword"
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 minLength={8}
+                className="bg-[#1a2236] border-gray-700 text-white"
               />
-              <p className="text-xs text-gray-500">Password must be at least 8 characters long.</p>
+              <p className="text-xs text-gray-400">Password must be at least 8 characters long.</p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword" className="text-gray-300">
+                Confirm Password
+              </Label>
               <Input
                 id="confirmPassword"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                className="bg-[#1a2236] border-gray-700 text-white"
               />
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setStep(2)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStep(2)}
+                className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
+              >
                 Back
               </Button>
-              <Button type="button" onClick={handleResetPassword} disabled={isLoading}>
+              <Button
+                type="button"
+                onClick={handleResetPassword}
+                disabled={isLoading}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
