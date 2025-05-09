@@ -1,18 +1,6 @@
 {
   "name": "Heart Disease Predictor",
   "short_name": "HeartPredict",
-  "icons": [
-    {
-      "src": "/heart-favicon.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "/heart-icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ],
   "theme_color": "#e11d48",
   "background_color": "#ffffff",
   "start_url": "/",
