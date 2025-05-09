@@ -24,8 +24,8 @@ export default function AdminLoginPage() {
   const { adminLogin, isAdmin } = useAuth()
 
   // Get redirect path from URL params
-  const redirectPath = searchParams?.get("redirect") || "/admin"
-  const sessionExpired = searchParams?.get("expired") === "true"
+  const redirectPath = searchParams.get("redirect") || "/admin"
+  const sessionExpired = searchParams.get("expired") === "true"
 
   // Check if already logged in as admin
   useEffect(() => {

@@ -1,62 +1,82 @@
 import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { getSessionByToken, updateSessionExpiry } from "@/lib/db"
 import { generateToken } from "@/lib/auth-utils"
 
 export async function POST(request: Request) {
   try {
-    // Check for existing cookies
-    const cookieHeader = request.headers.get("cookie") || ""
-    const hasAdminCookie = cookieHeader.includes("is_admin=true")
+    // Get the current session token
+    const sessionToken = cookies().get("session")?.value
 
-    // If admin cookie exists, refresh the session
-    if (hasAdminCookie) {
-      const token = generateToken()
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+    if (!sessionToken) {
+      return NextResponse.json({ success: false, message: "No session token found" }, { status: 401 })
+    }
 
-      const response = NextResponse.json({
-        success: true,
-        message: "Session refreshed successfully",
-      })
+    // Check if the session exists
+    const session = await getSessionByToken(sessionToken)
 
-      // Set cookies with proper configuration
-      response.cookies.set({
-        name: "token",
-        value: token,
-        httpOnly: true,
-        path: "/",
-        expires: expiresAt,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-      })
+    if (!session) {
+      return NextResponse.json({ success: false, message: "Invalid session" }, { status: 401 })
+    }
 
-      response.cookies.set({
-        name: "session",
-        value: token,
-        httpOnly: true,
-        path: "/",
-        expires: expiresAt,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-      })
+    // Check if the session is for an admin
+    const isAdmin = cookies().get("is_admin")?.value === "true"
 
+    // Generate a new token
+    const newToken = generateToken()
+
+    // Set the expiry date (7 days for admin, 1 day for regular users)
+    const expiresAt = new Date(Date.now() + (isAdmin ? 7 : 1) * 24 * 60 * 60 * 1000)
+
+    // Update the session expiry in the database
+    await updateSessionExpiry(sessionToken, expiresAt)
+
+    // Create the response
+    const response = NextResponse.json({
+      success: true,
+      message: "Session refreshed successfully",
+    })
+
+    // Set the cookies with the new expiry
+    response.cookies.set({
+      name: "session",
+      value: newToken,
+      httpOnly: true,
+      path: "/",
+      expires: expiresAt,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    })
+
+    response.cookies.set({
+      name: "token",
+      value: newToken,
+      httpOnly: true,
+      path: "/",
+      expires: expiresAt,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    })
+
+    // If it's an admin session, refresh the is_admin cookie too
+    if (isAdmin) {
       response.cookies.set({
         name: "is_admin",
         value: "true",
-        httpOnly: false, // Needs to be accessible from JavaScript
+        httpOnly: false,
         path: "/",
         expires: expiresAt,
         sameSite: "lax",
         secure: process.env.NODE_ENV === "production",
       })
-
-      return response
     }
 
-    // If no admin cookie, check for regular user session
-    // This would typically involve checking the database
-    // For now, just return a 401 Unauthorized
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    return response
   } catch (error) {
     console.error("Error refreshing session:", error)
-    return NextResponse.json({ message: "An error occurred while refreshing the session" }, { status: 500 })
+    return NextResponse.json(
+      { success: false, message: "An error occurred while refreshing the session" },
+      { status: 500 },
+    )
   }
 }
