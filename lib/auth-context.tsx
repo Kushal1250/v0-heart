@@ -44,7 +44,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [lastRefresh, setLastRefresh] = useState<number>(0)
   const router = useRouter()
 
-  // Update the checkAuthStatus function to be more resilient
+  // Check if auth token exists in cookies or localStorage
+  const hasAuthToken = useCallback(() => {
+    // Check for common auth tokens in cookies
+    const hasCookie =
+      document.cookie.includes("token=") ||
+      document.cookie.includes("session=") ||
+      document.cookie.includes("is_admin=")
+
+    // Check localStorage for cached user that hasn't expired
+    const cachedUser = localStorage.getItem("user")
+    const expiryTime = localStorage.getItem("userExpiry")
+    const hasValidCache = cachedUser && expiryTime && new Date().getTime() < Number.parseInt(expiryTime)
+
+    return hasCookie || hasValidCache
+  }, [])
+
+  // Update the checkAuthStatus function to avoid unnecessary API calls
   const checkAuthStatus = useCallback(
     async (force = false) => {
       // Don't check too frequently unless forced
@@ -61,7 +77,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const isAdminCookie = document.cookie.includes("is_admin=true")
 
         if (isAdminCookie) {
-          console.log("Admin cookie found, setting admin status")
           setIsAdmin(true)
 
           // If we don't have user data yet, set default admin user
@@ -96,72 +111,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // If no valid cached data or forced refresh, check with the server
-        const response = await fetch("/api/auth/user", {
-          credentials: "include",
-          headers: {
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            Pragma: "no-cache",
-            Expires: "0",
-          },
-        })
+        // Only make the API call if we have reason to believe the user might be authenticated
+        // This prevents unnecessary 401 errors in the console
+        if (force || hasAuthToken()) {
+          // If no valid cached data or forced refresh, check with the server
+          const response = await fetch("/api/auth/check-session", {
+            credentials: "include",
+            headers: {
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              Pragma: "no-cache",
+              Expires: "0",
+            },
+          })
 
-        // Handle 401 Unauthorized gracefully - this is expected for non-logged in users
-        if (response.status === 401) {
-          setUser(null)
-          setIsAdmin(false)
-          localStorage.removeItem("user")
-          localStorage.removeItem("userExpiry")
-          setIsLoading(false)
-          setLastRefresh(now)
-          return
-        }
+          if (response.ok) {
+            const userData = await response.json()
+            if (userData.authenticated && userData.user) {
+              setUser(userData.user)
+              setIsAdmin(userData.user.role === "admin" || false)
+              setLastRefresh(now)
 
-        if (response.ok) {
-          const userData = await response.json()
-          setUser(userData.user)
-          setIsAdmin(userData.user?.role === "admin" || false)
-          setLastRefresh(now)
-
-          // Cache the user data with a 4-hour expiry (increased from 2 hours)
-          localStorage.setItem("user", JSON.stringify(userData.user))
-          localStorage.setItem("userExpiry", (new Date().getTime() + 4 * 60 * 60 * 1000).toString())
+              // Cache the user data with a 4-hour expiry
+              localStorage.setItem("user", JSON.stringify(userData.user))
+              localStorage.setItem("userExpiry", (new Date().getTime() + 4 * 60 * 60 * 1000).toString())
+            } else {
+              // User is not authenticated according to the server
+              setUser(null)
+              setIsAdmin(false)
+              localStorage.removeItem("user")
+              localStorage.removeItem("userExpiry")
+            }
+          } else {
+            // Error with the request - clear user state
+            setUser(null)
+            setIsAdmin(false)
+            localStorage.removeItem("user")
+            localStorage.removeItem("userExpiry")
+          }
         } else {
+          // No auth token found, user is definitely not authenticated
           setUser(null)
           setIsAdmin(false)
-          // Clear any stale data
           localStorage.removeItem("user")
           localStorage.removeItem("userExpiry")
         }
       } catch (error) {
-        // Don't log errors for expected auth failures
-        if (error instanceof TypeError && error.message.includes("Failed to fetch")) {
-          // Network error - likely offline or API unavailable
-          // Use cached data if available
-          const cachedUser = localStorage.getItem("user")
-          if (cachedUser) {
-            try {
-              const userData = JSON.parse(cachedUser)
-              setUser(userData)
-              setIsAdmin(userData.role === "admin")
-            } catch (e) {
-              setUser(null)
-              setIsAdmin(false)
-            }
-          } else {
-            setUser(null)
-            setIsAdmin(false)
-          }
-        } else {
-          console.error("Error checking auth status:", error)
-          setUser(null)
-          setIsAdmin(false)
-        }
+        // Handle errors silently - don't log to console
+        setUser(null)
+        setIsAdmin(false)
       } finally {
         setIsLoading(false)
       }
     },
-    [lastRefresh, user],
+    [lastRefresh, user, hasAuthToken],
   )
 
   // Add a session refresh function
@@ -182,7 +184,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return false
     } catch (error) {
-      console.error("Error refreshing session:", error)
       return false
     }
   }
@@ -193,15 +194,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up a timer to refresh the session every 25 minutes
     const intervalId = setInterval(
       () => {
-        refreshSession().catch(() => {
-          // Silently handle refresh errors
-        })
+        // Only try to refresh if we have a user
+        if (user) {
+          refreshSession().catch(() => {
+            // Silently handle refresh errors
+          })
+        }
       },
       25 * 60 * 1000,
     ) // 25 minutes
 
     return () => clearInterval(intervalId)
-  }, [checkAuthStatus])
+  }, [checkAuthStatus, user])
 
   const login = async (email: string, password: string, phone: string, rememberMe = false) => {
     try {
@@ -256,8 +260,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const adminLogin = async (email: string, password: string) => {
     try {
-      console.log("Attempting admin login with email:", email)
-
       const response = await fetch("/api/auth/admin/login", {
         method: "POST",
         headers: {
@@ -275,7 +277,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (jsonError) {
           errorMessage = `Admin login failed: ${response.statusText || "Unknown error"}`
         }
-        console.error("Admin login error:", errorMessage)
         return { success: false, message: errorMessage }
       }
 
@@ -283,11 +284,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         data = await response.json()
       } catch (jsonError) {
-        console.error("Error parsing admin login response:", jsonError)
         return { success: false, message: "Invalid response from server" }
       }
-
-      console.log("Admin login successful, setting admin user")
 
       // Set admin user
       const adminUser = {
@@ -310,7 +308,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return { success: true, message: "Admin login successful" }
     } catch (error: any) {
-      console.error("Unexpected error during admin login:", error)
       return { success: false, message: error.message || "An unexpected error occurred" }
     }
   }
@@ -363,9 +360,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem("user")
       localStorage.removeItem("userExpiry")
 
-      // Don't clear remembered credentials - we want to keep those for next login
-      // localStorage.removeItem("rememberedCredentials")
-
       // Clear admin cookie
       document.cookie = "is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
       document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
@@ -374,7 +368,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Redirect to home page after logout
       window.location.href = "/"
     } catch (error) {
-      console.error("Logout error:", error)
+      // Handle logout error silently
     }
   }
 

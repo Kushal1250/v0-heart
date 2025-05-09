@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth-utils"
 
-// Keep this route for backward compatibility, but it's no longer the primary auth check
 export async function GET() {
   try {
     const user = await getCurrentUser()
@@ -31,6 +30,8 @@ export async function GET() {
       email: user.email,
       name: user.name,
       role: user.role,
+      profile_picture: user.profile_picture,
+      phone: user.phone,
     }
 
     return NextResponse.json(
@@ -47,13 +48,13 @@ export async function GET() {
       },
     )
   } catch (error) {
-    console.error("Error in user route:", error)
+    console.error("Error in check-session route:", error)
 
     // Still return 200 OK to prevent console errors
     return NextResponse.json(
       {
         authenticated: false,
-        error: "Failed to authenticate user",
+        error: "Failed to check authentication status",
       },
       {
         status: 200, // Use 200 instead of 500
