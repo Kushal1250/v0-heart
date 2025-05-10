@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -48,6 +48,187 @@ import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
 import { ProfileImageUpload } from "@/components/profile-image-upload"
 import { SimpleProfileUpload } from "@/components/simple-profile-upload"
+
+// Define the HealthService type
+type HealthService = {
+  id: string
+  name: string
+  icon: React.ReactNode
+  connected: boolean
+}
+
+// External Services Sync Component
+const ExternalServicesSync = ({
+  connectedServices,
+  onConnect,
+  onDisconnect,
+}: {
+  connectedServices: HealthService[]
+  onConnect: (service: HealthService) => void
+  onDisconnect: (serviceId: string) => void
+}) => {
+  const availableServices: HealthService[] = [
+    { id: "fitbit", name: "Fitbit", icon: <Activity className="h-5 w-5" />, connected: false },
+    { id: "apple-health", name: "Apple Health", icon: <Heart className="h-5 w-5" />, connected: false },
+    { id: "google-fit", name: "Google Fit", icon: <Activity className="h-5 w-5" />, connected: false },
+    { id: "samsung-health", name: "Samsung Health", icon: <Heart className="h-5 w-5" />, connected: false },
+  ]
+
+  // Update connected status based on connectedServices
+  const services = availableServices.map((service) => ({
+    ...service,
+    connected: connectedServices.some((cs) => cs.id === service.id),
+  }))
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {services.map((service) => (
+        <div
+          key={service.id}
+          className="bg-gray-50 p-4 rounded-md border border-gray-200 flex justify-between items-center"
+        >
+          <div className="flex items-center gap-3">
+            <div className="bg-white p-2 rounded-full">{service.icon}</div>
+            <div>
+              <p className="font-medium">{service.name}</p>
+              <p className="text-xs text-muted-foreground">{service.connected ? "Connected" : "Not connected"}</p>
+            </div>
+          </div>
+          <Button
+            variant={service.connected ? "outline" : "default"}
+            size="sm"
+            onClick={() => (service.connected ? onDisconnect(service.id) : onConnect(service))}
+          >
+            {service.connected ? "Disconnect" : "Connect"}
+          </Button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Recent Health Notifications Component
+const RecentHealthNotifications = ({ hasPendingHealth }: { hasPendingHealth: boolean }) => {
+  const notifications = [
+    {
+      id: 1,
+      title: "Heart Health Assessment Due",
+      description: "It's been 3 months since your last assessment",
+      date: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
+      type: "reminder",
+    },
+    {
+      id: 2,
+      title: "Blood Pressure Trend",
+      description: "Your blood pressure readings have improved over the last month",
+      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
+      type: "achievement",
+    },
+    {
+      id: 3,
+      title: "New Health Article",
+      description: "Read our latest article on heart-healthy diets",
+      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
+      type: "info",
+    },
+  ]
+
+  return (
+    <div className="space-y-4">
+      {notifications.length > 0 ? (
+        notifications.map((notification) => (
+          <div
+            key={notification.id}
+            className={`p-4 rounded-md border ${
+              notification.type === "reminder"
+                ? "bg-amber-50 border-amber-200"
+                : notification.type === "achievement"
+                  ? "bg-green-50 border-green-200"
+                  : "bg-blue-50 border-blue-200"
+            }`}
+          >
+            <div className="flex justify-between">
+              <div>
+                <h4 className="font-medium">{notification.title}</h4>
+                <p className="text-sm text-muted-foreground">{notification.description}</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {formatDistanceToNow(notification.date, { addSuffix: true })}
+              </p>
+            </div>
+          </div>
+        ))
+      ) : (
+        <div className="text-center py-8 bg-gray-50 rounded-md border border-gray-200">
+          <p className="text-muted-foreground">No notifications at this time</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Heart Health Routine Component
+const HeartHealthRoutine = () => {
+  const routines = [
+    {
+      id: 1,
+      title: "Morning Walk",
+      description: "30 minutes of brisk walking",
+      time: "7:00 AM",
+      completed: true,
+    },
+    {
+      id: 2,
+      title: "Blood Pressure Check",
+      description: "Record your blood pressure",
+      time: "9:00 AM",
+      completed: true,
+    },
+    {
+      id: 3,
+      title: "Medication",
+      description: "Take your daily medication",
+      time: "8:00 AM & 8:00 PM",
+      completed: false,
+    },
+    {
+      id: 4,
+      title: "Evening Relaxation",
+      description: "15 minutes of meditation",
+      time: "9:30 PM",
+      completed: false,
+    },
+  ]
+
+  return (
+    <div className="space-y-4">
+      {routines.map((routine) => (
+        <div
+          key={routine.id}
+          className={`p-4 rounded-md border ${
+            routine.completed ? "bg-gray-50 border-gray-200" : "bg-white border-gray-200"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-medium flex items-center">
+                {routine.completed && <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />}
+                {routine.title}
+              </h4>
+              <p className="text-sm text-muted-foreground">{routine.description}</p>
+              <p className="text-xs text-muted-foreground mt-1">{routine.time}</p>
+            </div>
+            {!routine.completed && (
+              <Button variant="outline" size="sm">
+                Mark Complete
+              </Button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export default function ProfilePage() {
   const { user, isLoading, updateUserProfile } = useAuth()
@@ -125,6 +306,12 @@ export default function ProfilePage() {
     type: "success" | "error" | null
     message: string
   }>({ type: null, message: "" })
+
+  const [connectedServices, setConnectedServices] = useState<HealthService[]>([])
+  const [showCalendar, setShowCalendar] = useState(false)
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
+  const [hasPendingHealth, setHasPendingHealth] = useState(false)
+  const [reminderDate, setReminderDate] = useState<Date | undefined>(undefined)
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -273,6 +460,33 @@ export default function ProfilePage() {
       })
     } finally {
       setIsFetchingProfile(false)
+    }
+  }
+
+  const handleServiceConnection = (service: HealthService) => {
+    setConnectedServices((prev) => [...prev, service])
+    toast({
+      title: `Connected to ${service.name}`,
+      description: `Your ${service.name} health data will now sync with your profile.`,
+    })
+  }
+
+  const handleDisconnectService = (serviceId: string) => {
+    setConnectedServices((prev) => prev.filter((service) => service.id !== serviceId))
+    toast({
+      title: "Service disconnected",
+      description: "The service has been disconnected from your account.",
+    })
+  }
+
+  const handleSetReminder = (date: Date | undefined) => {
+    setReminderDate(date)
+    setShowCalendar(false)
+    if (date) {
+      toast({
+        title: "Health check reminder set",
+        description: `You'll receive a reminder on ${format(date, "MMMM d, yyyy")}`,
+      })
     }
   }
 
@@ -1107,9 +1321,12 @@ export default function ProfilePage() {
                                     {assessment.risk}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4">
+                                <td className="py-3 px-4 flex gap-2">
                                   <Button variant="link" size="sm" className="p-0 h-auto">
                                     View Details
+                                  </Button>
+                                  <Button variant="ghost" size="sm" className="h-auto">
+                                    <FileText className="h-4 w-4 mr-1" /> PDF
                                   </Button>
                                 </td>
                               </tr>
@@ -1132,104 +1349,123 @@ export default function ProfilePage() {
                       <TrendingUp className="h-5 w-5" /> Heart Health Score Trend
                     </h3>
 
-                    <div className="bg-gray-50 p-4 rounded-md border border-gray-200 h-48 flex items-center justify-center">
-                      <div className="text-center">
-                        <p className="text-muted-foreground">
-                          {profileData.heartHealthScores && profileData.heartHealthScores.length > 0
-                            ? `Heart Health Score: ${profileData.heartHealthScores[0]}`
-                            : "No heart health scores available"}
-                        </p>
+                    {profileData.heartHealthScores && profileData.heartHealthScores.length > 0 ? (
+                      <div className="bg-white p-4 rounded-md border border-gray-200 h-48">
+                        {/* Visual representation of scores would go here */}
+                        <div className="h-full flex items-end justify-between gap-2">
+                          {profileData.heartHealthScores.map((score: number, index: number) => (
+                            <div key={index} className="flex flex-col items-center">
+                              <div
+                                className={`w-10 rounded-t-sm ${
+                                  score > 80 ? "bg-green-500" : score > 60 ? "bg-yellow-500" : "bg-red-500"
+                                }`}
+                                style={{ height: `${score}%` }}
+                              ></div>
+                              <span className="text-xs mt-1">{score}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 bg-gray-50 rounded-md border border-gray-200">
+                        <p className="text-muted-foreground">No heart health scores available</p>
                         <p className="text-xs text-muted-foreground mt-2">
-                          Score trend visualization would appear here
+                          Complete a health assessment to view your trend
                         </p>
                       </div>
+                    )}
+                  </div>
+
+                  {/* Connected Health Services Section */}
+                  <div className="pt-4 border-t">
+                    <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                      <RefreshCw className="h-5 w-5" /> Connected Health Services
+                    </h3>
+
+                    <ExternalServicesSync
+                      connectedServices={connectedServices}
+                      onConnect={handleServiceConnection}
+                      onDisconnect={handleDisconnectService}
+                    />
+                  </div>
+
+                  {/* Health Check Reminder Section */}
+                  <div className="pt-4 border-t">
+                    <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                      <Bell className="h-5 w-5" /> Health Check Reminder
+                    </h3>
+
+                    <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Schedule your next health check</p>
+                          <p className="text-sm text-muted-foreground">
+                            {reminderDate
+                              ? `Reminder set for ${format(reminderDate, "MMMM d, yyyy")}`
+                              : "No reminder set yet"}
+                          </p>
+                        </div>
+                        <Button variant="outline" onClick={() => setShowCalendar(!showCalendar)}>
+                          <CalendarIcon className="h-4 w-4 mr-2" />
+                          {reminderDate ? "Change date" : "Set reminder"}
+                        </Button>
+                      </div>
+
+                      {showCalendar && (
+                        <div className="mt-4 p-4 bg-white border rounded-md">
+                          <div className="flex justify-end mb-2">
+                            <Button variant="ghost" size="sm" onClick={() => setShowCalendar(false)}>
+                              Close
+                            </Button>
+                          </div>
+                          <div className="flex flex-col space-y-4">
+                            <div className="grid grid-cols-7 gap-2">
+                              {Array.from({ length: 30 }, (_, i) => {
+                                const date = new Date()
+                                date.setDate(date.getDate() + i + 1)
+                                return (
+                                  <Button
+                                    key={i}
+                                    variant="outline"
+                                    className="h-10 p-0"
+                                    onClick={() => handleSetReminder(date)}
+                                  >
+                                    {date.getDate()}
+                                  </Button>
+                                )
+                              })}
+                            </div>
+                            <Button variant="outline" onClick={() => handleSetReminder(undefined)}>
+                              Clear reminder
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
+                  {/* Recent Health Notifications */}
                   <div className="pt-4 border-t">
                     <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-                      <CalendarIcon className="h-5 w-5" /> Upcoming Appointments
+                      <Bell className="h-5 w-5" /> Health Notifications
                     </h3>
 
-                    {profileData.upcomingAppointments && profileData.upcomingAppointments.length > 0 ? (
-                      <div className="space-y-4">
-                        {profileData.upcomingAppointments.map((appointment: any) => (
-                          <div key={appointment.id} className="bg-gray-50 p-4 rounded-md border border-gray-200">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <p className="font-medium">{appointment.type}</p>
-                                <p className="text-sm text-muted-foreground">With {appointment.doctor}</p>
-                                <p className="text-sm font-medium mt-2">
-                                  {format(new Date(appointment.date), "MMMM d, yyyy")} at{" "}
-                                  {format(new Date(appointment.date), "h:mm a")}
-                                </p>
-                              </div>
-                              <div className="flex gap-2">
-                                <Button variant="outline" size="sm">
-                                  Reschedule
-                                </Button>
-                                <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                                  Cancel
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 bg-gray-50 rounded-md border border-gray-200">
-                        <p className="text-muted-foreground">No upcoming appointments</p>
-                        <Button variant="link" className="mt-2">
-                          Schedule an appointment
-                        </Button>
-                      </div>
-                    )}
+                    <RecentHealthNotifications hasPendingHealth={hasPendingHealth} />
                   </div>
 
+                  {/* Personalized Health Routine */}
                   <div className="pt-4 border-t">
                     <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-                      <FileText className="h-5 w-5" /> Recent Reports
+                      <Calendar className="h-5 w-5" /> Your Heart Health Routine
                     </h3>
 
-                    {profileData.recentReports && profileData.recentReports.length > 0 ? (
-                      <div className="space-y-3">
-                        {profileData.recentReports.map((report: any) => (
-                          <div
-                            key={report.id}
-                            className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-gray-200"
-                          >
-                            <div className="flex items-center gap-3">
-                              <FileText className="h-5 w-5 text-blue-600" />
-                              <div>
-                                <p className="font-medium">{report.title}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {format(new Date(report.date), "MMMM d, yyyy")}
-                                </p>
-                              </div>
-                            </div>
-                            <Button variant="outline" size="sm">
-                              Download
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 bg-gray-50 rounded-md border border-gray-200">
-                        <p className="text-muted-foreground">No reports available</p>
-                      </div>
-                    )}
+                    <HeartHealthRoutine />
                   </div>
                 </div>
               </TabsContent>
             </Tabs>
           )}
         </CardContent>
-        <CardFooter className="flex justify-between border-t pt-6">
-          <p className="text-xs text-muted-foreground">Last updated: {new Date().toLocaleDateString()}</p>
-          <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard")}>
-            Back to Dashboard
-          </Button>
-        </CardFooter>
       </Card>
     </div>
   )
