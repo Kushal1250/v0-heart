@@ -1376,6 +1376,26 @@ export default function ProfilePage() {
                     )}
                   </div>
 
+                  <div className="pt-4 border-t">
+                    <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                      <Activity className="h-5 w-5" /> Health Metrics Tracking
+                    </h3>
+
+                    <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Track your detailed health metrics</p>
+                          <p className="text-sm text-muted-foreground">
+                            Monitor blood pressure, heart rate, weight, and more over time
+                          </p>
+                        </div>
+                        <Button onClick={() => router.push("/health-metrics")}>
+                          <Activity className="h-4 w-4 mr-2" /> View Health Metrics
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Connected Health Services Section */}
                   <div className="pt-4 border-t">
                     <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
