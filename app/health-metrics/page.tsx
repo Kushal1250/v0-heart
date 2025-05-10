@@ -9,13 +9,26 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/components/ui/use-toast"
-import { subDays, startOfDay, endOfDay } from "date-fns"
-import { Heart, Activity, Droplet, Scale, Clock, Plus, ChevronLeft, AlertCircle, Info, TrendingUp } from "lucide-react"
+import { subDays, startOfDay, endOfDay, addDays } from "date-fns"
+import {
+  Heart,
+  Activity,
+  Droplet,
+  Scale,
+  Clock,
+  Plus,
+  ChevronLeft,
+  AlertCircle,
+  Info,
+  TrendingUp,
+  Target,
+} from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { HealthMetricsChart } from "@/components/health-metrics-chart"
 import { HealthMetricsTable } from "@/components/health-metrics-table"
 import { AddMetricForm } from "@/components/add-metric-form"
 import { MetricInsights } from "@/components/metric-insights"
+import { HealthMetricGoals, type MetricGoal } from "@/components/health-metric-goals"
 
 // Define types for health metrics
 export type MetricType =
@@ -150,19 +163,44 @@ export default function HealthMetricsPage() {
 
   const [activeMetric, setActiveMetric] = useState<MetricType>("blood_pressure")
   const [timeRange, setTimeRange] = useState<"week" | "month" | "3months" | "6months" | "year">("month")
+  const [activeTab, setActiveTab] = useState<"chart" | "table" | "insights" | "goals">("chart")
   const [isAddingMetric, setIsAddingMetric] = useState(false)
   const [metrics, setMetrics] = useState<MetricReading[]>([])
+  const [goals, setGoals] = useState<MetricGoal[]>([])
   const [isLoadingMetrics, setIsLoadingMetrics] = useState(false)
+  const [isLoadingGoals, setIsLoadingGoals] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Get the current metric definition
   const currentMetric = metricDefinitions.find((m) => m.id === activeMetric)!
+
+  // Get the latest value for the current metric
+  const getLatestValue = () => {
+    if (metrics.length === 0) return undefined
+
+    // Sort by timestamp (newest first)
+    const sortedMetrics = [...metrics].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+
+    // Get the latest reading
+    const latestReading = sortedMetrics[0]
+
+    if (activeMetric === "blood_pressure" && typeof latestReading.value === "object") {
+      return latestReading.value
+    } else if (typeof latestReading.value === "number") {
+      return latestReading.value
+    } else if (typeof latestReading.value === "string") {
+      return Number.parseFloat(latestReading.value)
+    }
+
+    return undefined
+  }
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.push("/login")
     } else if (user) {
       fetchMetrics()
+      fetchGoals()
     }
   }, [user, isLoading, router, activeMetric, timeRange])
 
@@ -214,6 +252,112 @@ export default function HealthMetricsPage() {
     }
   }
 
+  // Function to fetch goals from the API
+  const fetchGoals = async () => {
+    setIsLoadingGoals(true)
+
+    try {
+      const response = await fetch(`/api/health-metric-goals?type=${activeMetric}`)
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch health metric goals")
+      }
+
+      const data = await response.json()
+
+      // Calculate progress for each goal
+      const goalsWithProgress = data.map((goal: MetricGoal) => {
+        return calculateGoalProgress(goal)
+      })
+
+      setGoals(goalsWithProgress)
+    } catch (err) {
+      console.error("Error fetching goals:", err)
+      // Don't set error state here to avoid disrupting the metrics view
+    } finally {
+      setIsLoadingGoals(false)
+    }
+  }
+
+  // Calculate progress for a goal
+  const calculateGoalProgress = (goal: MetricGoal): MetricGoal => {
+    // If goal is already achieved, progress is 100%
+    if (goal.achieved) {
+      return { ...goal, progress: 100 }
+    }
+
+    // Get the latest value for this metric
+    const latestValue = getLatestValue()
+    if (!latestValue) {
+      return { ...goal, progress: 0, currentValue: undefined }
+    }
+
+    let progress = 0
+
+    if (activeMetric === "blood_pressure") {
+      if (typeof goal.targetValue === "object" && typeof latestValue === "object") {
+        // For blood pressure, calculate progress based on both systolic and diastolic
+        const systolicProgress = calculateSingleValueProgress(latestValue.systolic, goal.targetValue.systolic, "lower")
+        const diastolicProgress = calculateSingleValueProgress(
+          latestValue.diastolic,
+          goal.targetValue.diastolic,
+          "lower",
+        )
+        progress = Math.floor((systolicProgress + diastolicProgress) / 2)
+      }
+    } else if (typeof goal.targetValue === "number" && typeof latestValue === "number") {
+      // For other metrics, calculate progress based on whether higher or lower is better
+      const direction = ["weight", "cholesterol", "blood_glucose"].includes(activeMetric)
+        ? "lower"
+        : ["steps", "water_intake", "oxygen_saturation"].includes(activeMetric)
+          ? "higher"
+          : "target"
+
+      progress = calculateSingleValueProgress(latestValue, goal.targetValue, direction)
+    }
+
+    return {
+      ...goal,
+      progress,
+      currentValue: latestValue,
+    }
+  }
+
+  // Calculate progress for a single value
+  const calculateSingleValueProgress = (
+    current: number,
+    target: number,
+    direction: "higher" | "lower" | "target",
+  ): number => {
+    if (direction === "lower") {
+      // For metrics where lower is better (like weight, blood pressure)
+      if (current <= target) return 100 // Already reached target
+
+      // Assume starting point was 50% higher than target (arbitrary but reasonable)
+      const startValue = target * 1.5
+      const totalChange = startValue - target
+      const currentChange = startValue - current
+
+      return Math.min(100, Math.max(0, Math.floor((currentChange / totalChange) * 100)))
+    } else if (direction === "higher") {
+      // For metrics where higher is better (like steps, water intake)
+      if (current >= target) return 100 // Already reached target
+
+      // Assume starting point was 50% lower than target (arbitrary but reasonable)
+      const startValue = target * 0.5
+      const totalChange = target - startValue
+      const currentChange = current - startValue
+
+      return Math.min(100, Math.max(0, Math.floor((currentChange / totalChange) * 100)))
+    } else {
+      // For metrics where we want to hit a specific target (like sleep)
+      const difference = Math.abs(current - target)
+      const percentDifference = (difference / target) * 100
+
+      return Math.min(100, Math.max(0, Math.floor(100 - percentDifference)))
+    }
+  }
+
   // Function to add a new metric reading
   const addMetricReading = async (reading: Omit<MetricReading, "id" | "timestamp">) => {
     try {
@@ -239,6 +383,8 @@ export default function HealthMetricsPage() {
 
       // Refresh metrics
       fetchMetrics()
+      // Also refresh goals to update progress
+      fetchGoals()
       setIsAddingMetric(false)
     } catch (err) {
       console.error("Error adding metric:", err)
@@ -268,11 +414,95 @@ export default function HealthMetricsPage() {
 
       // Refresh metrics
       fetchMetrics()
+      // Also refresh goals to update progress
+      fetchGoals()
     } catch (err) {
       console.error("Error deleting metric:", err)
       toast({
         title: "Error",
         description: "Failed to delete health metric. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Function to add a new goal
+  const addGoal = async (goalData: Omit<MetricGoal, "id" | "progress" | "achieved" | "achievedDate">) => {
+    try {
+      const response = await fetch("/api/health-metric-goals", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(goalData),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to add goal")
+      }
+
+      // Refresh goals
+      fetchGoals()
+    } catch (err) {
+      console.error("Error adding goal:", err)
+      toast({
+        title: "Error",
+        description: "Failed to add goal. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Function to update a goal
+  const updateGoal = async (goal: MetricGoal) => {
+    try {
+      const response = await fetch(`/api/health-metric-goals/${goal.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(goal),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update goal")
+      }
+
+      // Refresh goals
+      fetchGoals()
+    } catch (err) {
+      console.error("Error updating goal:", err)
+      toast({
+        title: "Error",
+        description: "Failed to update goal. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Function to delete a goal
+  const deleteGoal = async (goalId: string) => {
+    try {
+      const response = await fetch(`/api/health-metric-goals/${goalId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete goal")
+      }
+
+      toast({
+        title: "Success",
+        description: "Goal deleted successfully!",
+      })
+
+      // Refresh goals
+      fetchGoals()
+    } catch (err) {
+      console.error("Error deleting goal:", err)
+      toast({
+        title: "Error",
+        description: "Failed to delete goal. Please try again.",
         variant: "destructive",
       })
     }
@@ -366,10 +596,112 @@ export default function HealthMetricsPage() {
     return sampleData
   }
 
+  // Generate sample goals for demonstration purposes
+  const generateSampleGoals = () => {
+    const sampleGoals: MetricGoal[] = []
+
+    // Create a goal that's in progress
+    const inProgressGoal: Omit<MetricGoal, "progress"> = {
+      id: `sample-goal-1-${activeMetric}`,
+      metricType: activeMetric,
+      targetValue: getTargetValueForMetric(activeMetric, "in-progress"),
+      startDate: subDays(new Date(), 15).toISOString(),
+      targetDate: addDays(new Date(), 15).toISOString(),
+      notes: "My in-progress goal",
+      reminderEnabled: true,
+      reminderFrequency: "daily",
+      reminderTime: "09:00",
+      achieved: false,
+    }
+
+    // Create a goal that's achieved
+    const achievedGoal: Omit<MetricGoal, "progress"> = {
+      id: `sample-goal-2-${activeMetric}`,
+      metricType: activeMetric,
+      targetValue: getTargetValueForMetric(activeMetric, "achieved"),
+      startDate: subDays(new Date(), 30).toISOString(),
+      targetDate: subDays(new Date(), 5).toISOString(),
+      notes: "My achieved goal",
+      reminderEnabled: false,
+      reminderFrequency: "daily",
+      achieved: true,
+      achievedDate: subDays(new Date(), 5).toISOString(),
+    }
+
+    // Create a new goal
+    const newGoal: Omit<MetricGoal, "progress"> = {
+      id: `sample-goal-3-${activeMetric}`,
+      metricType: activeMetric,
+      targetValue: getTargetValueForMetric(activeMetric, "new"),
+      startDate: new Date().toISOString(),
+      targetDate: addDays(new Date(), 30).toISOString(),
+      notes: "My new goal",
+      reminderEnabled: true,
+      reminderFrequency: "weekly",
+      reminderDays: [1, 4], // Monday and Thursday
+      reminderTime: "18:00",
+      achieved: false,
+    }
+
+    // Add the goals with calculated progress
+    sampleGoals.push({
+      ...inProgressGoal,
+      progress: 50,
+      currentValue: getLatestValue(),
+    })
+
+    sampleGoals.push({
+      ...achievedGoal,
+      progress: 100,
+      currentValue: getLatestValue(),
+    })
+
+    sampleGoals.push({
+      ...newGoal,
+      progress: 10,
+      currentValue: getLatestValue(),
+    })
+
+    return sampleGoals
+  }
+
+  // Helper function to get appropriate target values for sample goals
+  const getTargetValueForMetric = (metricType: MetricType, goalType: "in-progress" | "achieved" | "new") => {
+    switch (metricType) {
+      case "blood_pressure":
+        if (goalType === "achieved") {
+          return { systolic: 120, diastolic: 80 }
+        } else if (goalType === "in-progress") {
+          return { systolic: 115, diastolic: 75 }
+        } else {
+          return { systolic: 110, diastolic: 70 }
+        }
+      case "heart_rate":
+        return goalType === "achieved" ? 70 : goalType === "in-progress" ? 65 : 60
+      case "weight":
+        return goalType === "achieved" ? 70 : goalType === "in-progress" ? 68 : 65
+      case "cholesterol":
+        return goalType === "achieved" ? 180 : goalType === "in-progress" ? 170 : 160
+      case "blood_glucose":
+        return goalType === "achieved" ? 95 : goalType === "in-progress" ? 90 : 85
+      case "oxygen_saturation":
+        return goalType === "achieved" ? 97 : goalType === "in-progress" ? 98 : 99
+      case "sleep":
+        return goalType === "achieved" ? 7 : goalType === "in-progress" ? 7.5 : 8
+      case "steps":
+        return goalType === "achieved" ? 8000 : goalType === "in-progress" ? 9000 : 10000
+      case "water_intake":
+        return goalType === "achieved" ? 2000 : goalType === "in-progress" ? 2500 : 3000
+      default:
+        return 0
+    }
+  }
+
   // Use sample data for demonstration
   useEffect(() => {
     // In a real app, you would use fetchMetrics() instead
     setMetrics(generateSampleData())
+    setGoals(generateSampleGoals())
   }, [activeMetric, timeRange])
 
   if (isLoading) {
@@ -490,11 +822,14 @@ export default function HealthMetricsPage() {
           </Alert>
 
           {/* Metric Visualization and Data */}
-          <Tabs defaultValue="chart" className="w-full">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
             <TabsList className="mb-4">
               <TabsTrigger value="chart">Chart</TabsTrigger>
               <TabsTrigger value="table">Table</TabsTrigger>
               <TabsTrigger value="insights">Insights</TabsTrigger>
+              <TabsTrigger value="goals" className="flex items-center gap-1">
+                <Target className="h-4 w-4" /> Goals
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="chart">
@@ -562,6 +897,25 @@ export default function HealthMetricsPage() {
                     <Plus className="h-4 w-4 mr-2" /> Add Metric Reading
                   </Button>
                 </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="goals">
+              {isLoadingGoals ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                  <p className="text-sm text-muted-foreground mt-4">Loading goals data...</p>
+                </div>
+              ) : (
+                <HealthMetricGoals
+                  metricType={activeMetric}
+                  metricDefinition={currentMetric}
+                  goals={goals.filter((goal) => goal.metricType === activeMetric)}
+                  onAddGoal={addGoal}
+                  onUpdateGoal={updateGoal}
+                  onDeleteGoal={deleteGoal}
+                  latestValue={getLatestValue()}
+                />
               )}
             </TabsContent>
           </Tabs>
