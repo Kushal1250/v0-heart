@@ -1,18 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Loader2, LogOut, ArrowLeft } from "lucide-react"
+import { Loader2, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
 export default function ProfilePage() {
   const { user, isLoading, logout } = useAuth()
   const router = useRouter()
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   // Simple effect to redirect if not logged in
   useEffect(() => {
@@ -20,18 +19,6 @@ export default function ProfilePage() {
       router.push("/login")
     }
   }, [user, isLoading, router])
-
-  const handleLogout = async () => {
-    try {
-      setIsLoggingOut(true)
-      await logout()
-      router.push("/")
-    } catch (error) {
-      console.error("Logout error:", error)
-    } finally {
-      setIsLoggingOut(false)
-    }
-  }
 
   if (isLoading) {
     return (
@@ -74,18 +61,17 @@ export default function ProfilePage() {
               Back to Dashboard
             </Button>
           </Link>
-          <Button onClick={handleLogout} disabled={isLoggingOut} variant="destructive" className="w-full">
-            {isLoggingOut ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Logging out...
-              </>
-            ) : (
-              <>
-                <LogOut className="mr-2 h-4 w-4" />
-                Log out
-              </>
-            )}
+          <Button
+            onClick={() => {
+              router.push("/")
+              setTimeout(() => {
+                logout()
+              }, 100)
+            }}
+            variant="destructive"
+            className="w-full"
+          >
+            Log out
           </Button>
         </CardFooter>
       </Card>
