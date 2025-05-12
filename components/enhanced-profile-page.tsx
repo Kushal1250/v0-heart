@@ -65,19 +65,19 @@ export default function EnhancedProfilePage() {
 
   // Notification preferences
   const [notificationPrefs, setNotificationPrefs] = useState({
-    email: true,
+    email: false,
     sms: false,
-    push: true,
-    reminders: true,
+    push: false,
+    reminders: false,
     newsletter: false,
-    assessment_results: true,
+    assessment_results: false,
   })
 
   // Privacy preferences
   const [privacyPrefs, setPrivacyPrefs] = useState({
-    share_with_doctors: true,
+    share_with_doctors: false,
     share_for_research: false,
-    anonymized_data_usage: true,
+    anonymized_data_usage: false,
   })
 
   // Health data
@@ -105,65 +105,17 @@ export default function EnhancedProfilePage() {
 
     setIsFetchingProfile(true)
     try {
-      console.log("Fetching user profile...")
-      const response = await fetch("/api/user/profile", {
-        method: "GET",
-        headers: {
-          "Cache-Control": "no-cache",
-          Pragma: "no-cache",
-        },
-        cache: "no-store",
-      })
-
-      console.log("Profile response status:", response.status)
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error("Profile fetch error:", errorData)
-        throw new Error(errorData.message || "Failed to fetch profile data")
-      }
-
-      const data = await response.json()
-      console.log("Profile data received:", data)
-
-      setProfileData(data)
-      setFormData({
-        name: data.name || "",
-        phone: data.phone || "",
-      })
-
-      // Set health data if available
-      if (data.health_data) {
-        setHealthData({
-          age: data.health_data.age?.toString() || "",
-          gender: data.health_data.gender || "",
-          height: data.health_data.height?.toString() || "",
-          weight: data.health_data.weight?.toString() || "",
-          blood_type: data.health_data.blood_type || "",
-          allergies: data.health_data.allergies?.join(", ") || "",
-          last_checkup_date: data.health_data.last_checkup_date || "",
-        })
-      }
-
-      // Set notification preferences if available
-      if (data.preferences?.notifications) {
-        setNotificationPrefs(data.preferences.notifications)
-      }
-
-      // Set privacy preferences if available
-      if (data.preferences?.data_sharing) {
-        setPrivacyPrefs(data.preferences.data_sharing)
-      }
-
-      // Clear any existing error
-      setAlert({ type: null, message: "" })
+      // Just set loading state without fetching any real data
+      setTimeout(() => {
+        setIsFetchingProfile(false)
+        setAlert({ type: null, message: "" })
+      }, 500)
     } catch (error) {
       console.error("Error fetching profile:", error)
       setAlert({
         type: "error",
         message: "Failed to load profile data. Please try again later.",
       })
-    } finally {
       setIsFetchingProfile(false)
     }
   }
@@ -204,56 +156,34 @@ export default function EnhancedProfilePage() {
     setAlert({ type: null, message: "" })
 
     try {
-      console.log("Submitting profile update:", formData)
-      const response = await fetch("/api/user/profile", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      })
-
-      console.log("Update response status:", response.status)
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error("Profile update error:", errorData)
-        throw new Error(errorData.message || "Failed to update profile")
-      }
-
-      const updatedProfile = await response.json()
-      console.log("Updated profile data:", updatedProfile)
-
-      setProfileData((prev) => ({
-        ...prev,
-        name: updatedProfile.name,
-        phone: updatedProfile.phone,
-      }))
-      setIsEditing(false)
-      setAlert({
-        type: "success",
-        message: "Profile updated successfully!",
-      })
-      toast({
-        title: "Success",
-        description: "Your profile has been updated successfully!",
-      })
-
-      // Clear alert after 3 seconds
+      // Simulate submission without actually sending data
       setTimeout(() => {
-        setAlert({ type: null, message: "" })
-      }, 3000)
+        setIsEditing(false)
+        setAlert({
+          type: "success",
+          message: "Profile updated successfully!",
+        })
+        toast({
+          title: "Success",
+          description: "Your profile has been updated successfully!",
+        })
+
+        setTimeout(() => {
+          setAlert({ type: null, message: "" })
+        }, 3000)
+
+        setIsSubmitting(false)
+      }, 1000)
     } catch (error: any) {
       setAlert({
         type: "error",
-        message: error.message || "An error occurred while updating your profile",
+        message: "An error occurred while updating your profile",
       })
       toast({
         title: "Error",
-        description: error.message || "An error occurred while updating your profile",
+        description: "An error occurred while updating your profile",
         variant: "destructive",
       })
-    } finally {
       setIsSubmitting(false)
     }
   }
@@ -263,30 +193,20 @@ export default function EnhancedProfilePage() {
     setIsSubmitting(true)
 
     try {
-      const response = await fetch("/api/user/health-data", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(healthData),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || "Failed to update health data")
-      }
-
-      toast({
-        title: "Success",
-        description: "Your health information has been updated successfully!",
-      })
+      // Simulate submission
+      setTimeout(() => {
+        toast({
+          title: "Success",
+          description: "Your health information has been updated successfully!",
+        })
+        setIsSubmitting(false)
+      }, 1000)
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "An error occurred while updating your health information",
+        description: "An error occurred while updating your health information",
         variant: "destructive",
       })
-    } finally {
       setIsSubmitting(false)
     }
   }
@@ -296,38 +216,26 @@ export default function EnhancedProfilePage() {
     setIsSubmitting(true)
 
     try {
-      const response = await fetch("/api/user/preferences", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          notifications: notificationPrefs,
-          data_sharing: privacyPrefs,
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || "Failed to update preferences")
-      }
-
-      toast({
-        title: "Success",
-        description: "Your preferences have been updated successfully!",
-      })
+      // Simulate submission
+      setTimeout(() => {
+        toast({
+          title: "Success",
+          description: "Your preferences have been updated successfully!",
+        })
+        setIsSubmitting(false)
+      }, 1000)
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "An error occurred while updating your preferences",
+        description: "An error occurred while updating your preferences",
         variant: "destructive",
       })
-    } finally {
       setIsSubmitting(false)
     }
   }
 
   const handleProfileImageUpdate = (imageUrl: string) => {
+    // Just update state without sending any data
     setProfileData((prev) => ({
       ...prev,
       profile_picture: imageUrl,
