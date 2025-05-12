@@ -78,76 +78,115 @@ export default function DynamicProfile() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   // Fetch user data
-  const fetchUserData = async () => {
-    try {
-      setLoading(true)
-
-      // Instead of fetching, use empty data
-      const fallbackData: UserData = {
-        id: "",
-        name: "",
-        email: "",
-        phone: "",
-        dateOfBirth: "",
-        gender: "",
-        profilePicture: "/abstract-profile.png",
-        height: "",
-        weight: "",
-        bloodType: "",
-        allergies: "",
-        medicalConditions: "",
-        medications: "",
-        emergencyContactName: "",
-        emergencyContactPhone: "",
-        emergencyContactRelationship: "",
-        accountType: "Standard",
-        memberSince: "",
-        lastLogin: "",
-        subscriptionStatus: "Free",
-        subscriptionRenewal: "",
-        emailNotifications: false,
-        smsNotifications: false,
-        appNotifications: false,
-        twoFactorEnabled: false,
-        emailVerified: false,
-        phoneVerified: false,
-        dataSharing: false,
-        anonymousDataCollection: false,
-        recentAssessments: [],
-        appointments: [],
-        reports: [],
-      }
-
-      // Set the user data with empty values
-      setUser(fallbackData)
-      setPersonalFormData({
-        name: "",
-        email: "",
-        phone: "",
-        dateOfBirth: "",
-        gender: "",
-      })
-
-      setHealthFormData({
-        height: "",
-        weight: "",
-        bloodType: "",
-        allergies: "",
-        medicalConditions: "",
-        medications: "",
-        emergencyContactName: "",
-        emergencyContactPhone: "",
-        emergencyContactRelationship: "",
-      })
-    } catch (err) {
-      console.error("Error fetching user data:", err)
-      setError("Failed to load profile data. Please try again later.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setLoading(true)
+        // Fetch user data from API
+        const response = await fetch("/api/user/profile")
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch user data")
+        }
+
+        const userData = await response.json()
+
+        // Initialize form data with user data
+        setUser(userData)
+        setPersonalFormData({
+          name: userData.name,
+          email: userData.email,
+          phone: userData.phone,
+          dateOfBirth: userData.dateOfBirth,
+          gender: userData.gender,
+        })
+
+        setHealthFormData({
+          height: userData.height,
+          weight: userData.weight,
+          bloodType: userData.bloodType,
+          allergies: userData.allergies,
+          medicalConditions: userData.medicalConditions,
+          medications: userData.medications,
+          emergencyContactName: userData.emergencyContactName,
+          emergencyContactPhone: userData.emergencyContactPhone,
+          emergencyContactRelationship: userData.emergencyContactRelationship,
+        })
+      } catch (err) {
+        console.error("Error fetching user data:", err)
+        setError("Failed to load profile data. Please try again later.")
+
+        // For demo purposes, load fallback data if API fails
+        const fallbackData: UserData = {
+          id: "123456",
+          name: "John Doe",
+          email: "john.doe@example.com",
+          phone: "+1 (555) 123-4567",
+          dateOfBirth: "1985-06-15",
+          gender: "Male",
+          profilePicture: "/abstract-profile.png",
+          height: "175 cm",
+          weight: "75 kg",
+          bloodType: "O+",
+          allergies: "None",
+          medicalConditions: "Hypertension",
+          medications: "Lisinopril 10mg daily",
+          emergencyContactName: "Jane Doe",
+          emergencyContactPhone: "+1 (555) 987-6543",
+          emergencyContactRelationship: "Spouse",
+          accountType: "Premium",
+          memberSince: "2023-01-15",
+          lastLogin: "2023-05-10",
+          subscriptionStatus: "Active",
+          subscriptionRenewal: "2024-01-15",
+          emailNotifications: true,
+          smsNotifications: false,
+          appNotifications: true,
+          twoFactorEnabled: false,
+          emailVerified: true,
+          phoneVerified: false,
+          dataSharing: true,
+          anonymousDataCollection: true,
+          recentAssessments: [
+            { id: "a1", date: "2023-05-01", score: 85, riskLevel: "Low" },
+            { id: "a2", date: "2023-04-01", score: 78, riskLevel: "Moderate" },
+            { id: "a3", date: "2023-03-01", score: 72, riskLevel: "Moderate" },
+          ],
+          appointments: [
+            { id: "apt1", date: "2023-05-20", doctor: "Dr. Smith", purpose: "Annual Checkup" },
+            { id: "apt2", date: "2023-06-15", doctor: "Dr. Johnson", purpose: "Cardiology Consultation" },
+          ],
+          reports: [
+            { id: "r1", date: "2023-05-01", title: "Heart Health Assessment", link: "#" },
+            { id: "r2", date: "2023-04-01", title: "Blood Work Results", link: "#" },
+          ],
+        }
+
+        setUser(fallbackData)
+        setPersonalFormData({
+          name: fallbackData.name,
+          email: fallbackData.email,
+          phone: fallbackData.phone,
+          dateOfBirth: fallbackData.dateOfBirth,
+          gender: fallbackData.gender,
+        })
+
+        setHealthFormData({
+          height: fallbackData.height,
+          weight: fallbackData.weight,
+          bloodType: fallbackData.bloodType,
+          allergies: fallbackData.allergies,
+          medicalConditions: fallbackData.medicalConditions,
+          medications: fallbackData.medications,
+          emergencyContactName: fallbackData.emergencyContactName,
+          emergencyContactPhone: fallbackData.emergencyContactPhone,
+          emergencyContactRelationship: fallbackData.emergencyContactRelationship,
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
     fetchUserData()
   }, [])
 
@@ -187,14 +226,19 @@ export default function DynamicProfile() {
   // Save personal info
   const savePersonalInfo = async () => {
     try {
-      // Don't actually send any data
-      setTimeout(() => {
-        setUser((prev) => (prev ? { ...prev, ...personalFormData } : null))
-        setEditingPersonal(false)
+      // In a real app, you would send this to the server
+      // await fetch('/api/user/profile', {
+      //   method: 'PUT',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(personalFormData)
+      // });
 
-        setSuccessMessage("Personal information updated successfully")
-        setTimeout(() => setSuccessMessage(null), 3000)
-      }, 500)
+      // Update local state
+      setUser((prev) => (prev ? { ...prev, ...personalFormData } : null))
+      setEditingPersonal(false)
+
+      setSuccessMessage("Personal information updated successfully")
+      setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err) {
       setError("Failed to update personal information. Please try again.")
       setTimeout(() => setError(null), 3000)
@@ -204,14 +248,19 @@ export default function DynamicProfile() {
   // Save health info
   const saveHealthInfo = async () => {
     try {
-      // Don't actually send any data
-      setTimeout(() => {
-        setUser((prev) => (prev ? { ...prev, ...healthFormData } : null))
-        setEditingHealth(false)
+      // In a real app, you would send this to the server
+      // await fetch('/api/user/health', {
+      //   method: 'PUT',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(healthFormData)
+      // });
 
-        setSuccessMessage("Health information updated successfully")
-        setTimeout(() => setSuccessMessage(null), 3000)
-      }, 500)
+      // Update local state
+      setUser((prev) => (prev ? { ...prev, ...healthFormData } : null))
+      setEditingHealth(false)
+
+      setSuccessMessage("Health information updated successfully")
+      setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err) {
       setError("Failed to update health information. Please try again.")
       setTimeout(() => setError(null), 3000)
@@ -224,7 +273,15 @@ export default function DynamicProfile() {
     if (!file) return
 
     try {
-      // For demo, just create a local URL without uploading
+      // In a real app, you would upload the file to the server
+      // const formData = new FormData();
+      // formData.append('profilePicture', file);
+      // await fetch('/api/user/profile/upload-photo', {
+      //   method: 'POST',
+      //   body: formData
+      // });
+
+      // For demo, create a local URL
       const localUrl = URL.createObjectURL(file)
       setUser((prev) => (prev ? { ...prev, profilePicture: localUrl } : null))
 
