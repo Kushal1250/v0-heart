@@ -1,15 +1,14 @@
 import type React from "react"
-import type { Metadata } from "next"
-
-export const metadata: Metadata = {
-  title: "User Profile | Heart Disease Predictor",
-  description: "View and manage your profile information",
-}
+import { AuthCheck } from "@/components/auth-check"
 
 export default function ProfileLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  return <div className="min-h-screen bg-background">{children}</div>
+  return (
+    <AuthCheck>
+      <main className="min-h-screen bg-gray-50">{children}</main>
+    </AuthCheck>
+  )
 }
