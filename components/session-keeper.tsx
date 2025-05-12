@@ -26,11 +26,21 @@ export function SessionKeeper() {
       }
     }
 
-    // Add event listeners for user activity
-    window.addEventListener("click", refreshOnActivity)
-    window.addEventListener("keypress", refreshOnActivity)
-    window.addEventListener("scroll", refreshOnActivity)
-    window.addEventListener("mousemove", refreshOnActivity)
+    // Add event listeners for user activity - throttled to prevent excessive calls
+    let lastRefresh = Date.now()
+    const throttledRefresh = () => {
+      const now = Date.now()
+      if (now - lastRefresh > 60000) {
+        // Only refresh once per minute at most
+        lastRefresh = now
+        refreshOnActivity()
+      }
+    }
+
+    window.addEventListener("click", throttledRefresh)
+    window.addEventListener("keypress", throttledRefresh)
+    window.addEventListener("scroll", throttledRefresh)
+    window.addEventListener("mousemove", throttledRefresh)
 
     // Set up periodic check (every 5 minutes)
     const intervalId = setInterval(
@@ -44,13 +54,13 @@ export function SessionKeeper() {
 
     // Clean up event listeners and interval on unmount
     return () => {
-      window.removeEventListener("click", refreshOnActivity)
-      window.removeEventListener("keypress", refreshOnActivity)
-      window.removeEventListener("scroll", refreshOnActivity)
-      window.removeEventListener("mousemove", refreshOnActivity)
+      window.removeEventListener("click", throttledRefresh)
+      window.removeEventListener("keypress", throttledRefresh)
+      window.removeEventListener("scroll", throttledRefresh)
+      window.removeEventListener("mousemove", throttledRefresh)
       clearInterval(intervalId)
     }
-  }, [user])
+  }, [user]) // Only depend on user
 
   // This component doesn't render anything
   return null
