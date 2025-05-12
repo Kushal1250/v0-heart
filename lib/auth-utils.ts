@@ -1,26 +1,73 @@
 import { cookies } from "next/headers"
-import { sign } from "jsonwebtoken"
-import { NextResponse } from "next/server"
-import { getUserById, getSessionByToken } from "./db"
-import { logError } from "./error-logger"
-import { sendEmail } from "./email-utils"
-import { sendSMS } from "./sms-utils"
+import { v4 as uuidv4 } from "uuid"
+import {
+  getSessionByToken,
+  getUserById,
+  createVerificationCode,
+  getVerificationCode,
+  deleteVerificationCode,
+} from "@/lib/db"
+import type { NextRequest } from "next/server"
+import { sendSMS } from "@/lib/sms-utils"
+import { logError } from "@/lib/error-logger"
+import { sendEmail } from "@/lib/email-utils"
 
-const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY || "fallback_jwt_secret"
-
-// Function to get the session token from cookies
 export function getSessionToken(): string | undefined {
   return cookies().get("session")?.value
 }
 
-// Function to get the current user from the session token
+export async function getUserIdFromToken(token: string): Promise<string | null> {
+  try {
+    // In a real application, you would verify the token and extract the user ID
+    const session = await getSessionByToken(token)
+    return session?.user_id || null
+  } catch (error) {
+    console.error("Error getting user ID from token:", error)
+    return null
+  }
+}
+
+export function generateToken(): string {
+  return uuidv4()
+}
+
+export function isValidEmail(email: string): boolean {
+  // Basic email format validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
+}
+
+// Add this function if it doesn't exist already
+export function isStrongPassword(password: string): boolean {
+  // Password must be at least 8 characters with uppercase, lowercase, and numbers
+  return password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password)
+}
+
+export function createResponseWithCookie(data: any, token: string): any {
+  const response = new Response(JSON.stringify(data), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  })
+
+  // Set cookie with proper configuration
+  response.headers.set(
+    "Set-Cookie",
+    `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`, // 24 hours
+  )
+
+  return response
+}
+
+export function clearSessionCookie(): void {
+  cookies().delete("session")
+}
+
+// Add back the getCurrentUser function that was missing
 export async function getCurrentUser(): Promise<{
   id: string
   email: string
   name: string | null
   role: string
-  profile_picture?: string
-  phone?: string
 } | null> {
   try {
     const token = getSessionToken()
@@ -51,17 +98,76 @@ export async function getCurrentUser(): Promise<{
   }
 }
 
-// Alias for getCurrentUser to match the expected export
-export const getAuthenticatedUser = getCurrentUser
+export async function verifyAdminSession(request: Request): Promise<{
+  id: string
+  email: string
+  name: string | null
+  role: string
+} | null> {
+  const sessionToken = getSessionToken()
+  if (!sessionToken) {
+    return null
+  }
 
-// Function to get the user from the session token
+  const session = await getSessionByToken(sessionToken)
+  if (!session) {
+    return null
+  }
+
+  const user = await getUserById(session.user_id)
+  if (!user || user.role !== "admin") {
+    return null
+  }
+
+  return user
+}
+
+/**
+ * Extracts user information from an incoming request
+ */
+export async function getUserFromRequest(request: Request | NextRequest) {
+  try {
+    // Get the session token from the cookie
+    const cookieStore = cookies()
+    const sessionToken = cookieStore.get("session")?.value
+
+    if (!sessionToken) {
+      console.log("No session token found in request")
+      return null
+    }
+
+    // Get the session from the database
+    const session = await getSessionByToken(sessionToken)
+
+    if (!session) {
+      console.log("No valid session found for token")
+      return null
+    }
+
+    // Get the user from the database
+    const user = await getUserById(session.user_id)
+
+    if (!user) {
+      console.log("No user found for session")
+      return null
+    }
+
+    return user
+  } catch (error) {
+    console.error("Error getting user from request:", error)
+    return null
+  }
+}
+
+/**
+ * Gets the user from the session token
+ * This is the missing export that was causing the deployment error
+ */
 export async function getUserFromSession(sessionToken: string | undefined): Promise<{
   id: string
   email: string
   name: string | null
   role: string
-  profile_picture?: string
-  phone?: string
 } | null> {
   try {
     if (!sessionToken) {
@@ -83,109 +189,6 @@ export async function getUserFromSession(sessionToken: string | undefined): Prom
     console.error("Error getting user from session:", error)
     return null
   }
-}
-
-// Function to get the user from the request
-export async function getUserFromRequest(request: Request) {
-  const token = request.headers.get("Authorization")?.split(" ")[1] || cookies().get("session")?.value
-
-  if (!token) {
-    return null
-  }
-
-  try {
-    const session = await getSessionByToken(token)
-    if (!session) {
-      return null
-    }
-
-    const user = await getUserById(session.user_id)
-    return user
-  } catch (error) {
-    console.error("Error in getUserFromRequest:", error)
-    return null
-  }
-}
-
-// Function to verify admin session
-export async function verifyAdminSession(request: Request) {
-  const token = cookies().get("session")?.value
-
-  if (!token) {
-    return null
-  }
-
-  try {
-    const session = await getSessionByToken(token)
-    if (!session) {
-      return null
-    }
-
-    const user = await getUserById(session.user_id)
-    if (!user || user.role !== "admin") {
-      return null
-    }
-
-    return user
-  } catch (error) {
-    console.error("Error verifying admin session:", error)
-    return null
-  }
-}
-
-// Function to generate a JWT token
-export function generateToken(payload: any, expiresIn = "7d"): string {
-  return sign(payload, JWT_SECRET_KEY, { expiresIn })
-}
-
-// Function to create a response with a session cookie
-export function createResponseWithCookie(data: any, token: string) {
-  const response = NextResponse.json(data)
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
-
-  response.cookies.set({
-    name: "session",
-    value: token,
-    httpOnly: true,
-    path: "/",
-    expires: expiresAt,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-  })
-
-  return response
-}
-
-// Function to clear the session cookie
-export function clearSessionCookie() {
-  cookies().delete("session")
-  cookies().delete("token")
-  cookies().delete("is_admin")
-}
-
-// Function to check if an email address is in a valid format
-export function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email)
-}
-
-// Function to check if a password meets complexity requirements
-export function isStrongPassword(password: string): boolean {
-  // Password must be at least 8 characters with uppercase, lowercase, and numbers
-  return password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password)
-}
-
-// Function to check if the user is an admin
-export function isAdmin(user: { role?: string } | string | null | undefined): boolean {
-  if (!user) return false
-
-  // If user is a string, assume it's the role
-  if (typeof user === "string") {
-    return user === "admin"
-  }
-
-  // Otherwise, check the role property
-  return user.role === "admin"
 }
 
 /**
@@ -338,15 +341,104 @@ export async function sendVerificationCode(
   }
 }
 
-// Function to create a verification code in the database
-async function createVerificationCode(identifier: string, code: string): Promise<void> {
-  // This function would typically insert the code into a database
-  // For this example, we'll assume it's implemented elsewhere
-  console.log(`Creating verification code for ${identifier}: ${code}`)
+/**
+ * Verifies a one-time password (OTP)
+ * @param identifier Email or phone number
+ * @param code The verification code
+ */
+export async function verifyOTP(
+  identifier: string,
+  code: string,
+): Promise<{
+  success: boolean
+  message: string
+}> {
+  try {
+    // Get the verification code from the database
+    const verificationCode = await getVerificationCode(identifier)
 
-  // In a real implementation, you would do something like:
-  // await db.query(`
-  //   INSERT INTO verification_codes (identifier, code, expires_at)
-  //   VALUES ($1, $2, NOW() + INTERVAL '15 minutes')
-  // `, [identifier, code])
+    // Check if the code exists
+    if (!verificationCode) {
+      return {
+        success: false,
+        message: "Verification code not found or expired. Please request a new code.",
+      }
+    }
+
+    // Check if the code has expired
+    if (new Date() > new Date(verificationCode.expires_at)) {
+      await deleteVerificationCode(identifier)
+      return {
+        success: false,
+        message: "Verification code has expired. Please request a new code.",
+      }
+    }
+
+    // Check if the code matches
+    if (verificationCode.code !== code) {
+      return {
+        success: false,
+        message: "Invalid verification code. Please try again.",
+      }
+    }
+
+    // Delete the code after successful verification
+    await deleteVerificationCode(identifier)
+
+    return {
+      success: true,
+      message: "Verification successful.",
+    }
+  } catch (error) {
+    await logError("verifyOTP", error, { identifier })
+    return {
+      success: false,
+      message: "An error occurred while verifying the code.",
+    }
+  }
+}
+
+/**
+ * Resends a verification code
+ * @param identifier Email or phone number
+ * @param method 'email' or 'sms'
+ */
+export async function resendVerificationCode(
+  identifier: string,
+  method: "email" | "sms",
+): Promise<{
+  success: boolean
+  message: string
+  previewUrl?: string
+}> {
+  try {
+    // Delete any existing verification code
+    await deleteVerificationCode(identifier)
+
+    // Send a new verification code
+    return await sendVerificationCode(identifier, method)
+  } catch (error) {
+    await logError("resendVerificationCode", error, { identifier, method })
+    return {
+      success: false,
+      message: "An error occurred while resending the verification code.",
+    }
+  }
+}
+
+/**
+ * Checks if a user has admin privileges
+ * @param user User object or user role string
+ * @returns Boolean indicating if the user is an admin
+ */
+export function isAdmin(user: { role?: string } | string | null | undefined): boolean {
+  if (!user) return false
+
+  // If user is a string, assume it's the role
+  if (typeof user === "string") {
+    return user === "admin"
+  }
+
+  // Otherwise, check the role property
+  return user.role === "admin"
 }
