@@ -1,15 +1,6 @@
 import type React from "react"
-import type { Metadata } from "next"
+import "./profile.css"
 
-export const metadata: Metadata = {
-  title: "User Profile | Heart Disease Predictor",
-  description: "View and manage your profile information",
-}
-
-export default function ProfileLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  return <div className="min-h-screen bg-background">{children}</div>
+export default function ProfileLayout({ children }: { children: React.ReactNode }) {
+  return <div className="profile-layout">{children}</div>
 }

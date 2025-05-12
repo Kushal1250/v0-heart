@@ -2,8 +2,9 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth-utils"
 import { getUserById, updateUserProfile } from "@/lib/db"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    console.log("GET /api/user/profile - Headers:", JSON.stringify(Object.fromEntries(request.headers.entries())))
     console.log("GET /api/user/profile - Starting request")
     const currentUser = await getCurrentUser()
 
@@ -58,6 +59,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const data = await request.json()
+    console.log("PUT /api/user/profile - Request data:", JSON.stringify(data))
     console.log(`PUT /api/user/profile - Received data:`, data)
 
     // Validate input data
