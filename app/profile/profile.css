@@ -52,22 +52,3 @@
   transform: translateX(-50%);
   z-index: 10;
 }
-
-/* Profile page specific styles */
-.profile-bg-animation {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 100%);
-  z-index: -1;
-}
-
-.profile-hover-item {
-  transition: all 0.2s ease-in-out;
-}
-
-.profile-hover-item:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-}
