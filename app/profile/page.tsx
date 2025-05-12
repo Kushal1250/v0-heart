@@ -42,6 +42,7 @@ import {
   FileText,
   CalendarIcon,
   TrendingUp,
+  LogOut,
 } from "lucide-react"
 import { formatDistanceToNow, format } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
@@ -231,12 +232,13 @@ const HeartHealthRoutine = () => {
 }
 
 export default function ProfilePage() {
-  const { user, isLoading, updateUserProfile } = useAuth()
+  const { user, isLoading, logout, updateUserProfile } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
   const [activeTab, setActiveTab] = useState("personal")
   const [useSimpleUploader, setUseSimpleUploader] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   // Profile data state
   const [profileData, setProfileData] = useState({
@@ -265,16 +267,16 @@ export default function ProfilePage() {
     lastLogin: "",
     subscriptionStatus: "Free",
     subscriptionRenewal: "",
-    emailNotifications: true,
+    emailNotifications: false,
     smsNotifications: false,
-    appNotifications: true,
+    appNotifications: false,
 
     // Privacy & Security
     twoFactorEnabled: false,
     emailVerified: false,
     phoneVerified: false,
-    dataSharing: true,
-    anonymousDataCollection: true,
+    dataSharing: false,
+    anonymousDataCollection: false,
 
     // Activity Summary
     recentAssessments: [],
@@ -341,124 +343,45 @@ export default function ProfilePage() {
 
     setIsFetchingProfile(true)
     try {
-      console.log("Fetching user profile...")
-      const response = await fetch("/api/user/profile", {
-        method: "GET",
-        headers: {
-          "Cache-Control": "no-cache",
-          Pragma: "no-cache",
-        },
-        cache: "no-store",
-      })
+      // Simulate loading without fetching real data
+      setTimeout(() => {
+        setIsFetchingProfile(false)
 
-      console.log("Profile response status:", response.status)
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error("Profile fetch error:", errorData)
-        throw new Error(errorData.message || "Failed to fetch profile data")
-      }
-
-      const data = await response.json()
-      console.log("Profile data received:", data)
-
-      // Update profile data with fetched data
-      setProfileData((prevData) => ({
-        ...prevData,
-        name: data.name || user?.name || "",
-        email: data.email || user?.email || "",
-        phone: data.phone || user?.phone || "",
-        profile_picture: data.profile_picture || user?.profile_picture || "",
-        createdAt: data.created_at || "",
-        // Add any other fields that might be returned from the API
-      }))
-
-      // Also fetch health data if available
-      try {
-        const healthResponse = await fetch("/api/user/health-metrics", {
-          method: "GET",
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-          cache: "no-store",
-        })
-
-        if (healthResponse.ok) {
-          const healthData = await healthResponse.json()
+        // Just update with empty/placeholder values
+        if (user) {
           setProfileData((prevData) => ({
             ...prevData,
-            height: healthData.height || "",
-            weight: healthData.weight || "",
-            bloodType: healthData.bloodType || "",
-            // Add other health fields
+            name: user.name || "",
+            email: user.email || "",
+            phone: user.phone || "",
+            profile_picture: user.profile_picture || "",
           }))
+
+          setFormData({
+            name: user.name || "",
+            phone: user.phone || "",
+            dateOfBirth: "",
+            gender: "",
+            height: "",
+            weight: "",
+            bloodType: "",
+            allergies: "",
+            medicalConditions: "",
+            medications: "",
+            emergencyContactName: "",
+            emergencyContactPhone: "",
+            emergencyContactRelation: "",
+          })
         }
-      } catch (healthError) {
-        console.error("Error fetching health data:", healthError)
-        // Don't throw error here, just log it
-      }
 
-      // Also fetch user predictions/assessments if available
-      try {
-        const predictionsResponse = await fetch("/api/user/predictions", {
-          method: "GET",
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-          cache: "no-store",
-        })
-
-        if (predictionsResponse.ok) {
-          const predictionsData = await predictionsResponse.json()
-
-          // Format the predictions data for the UI
-          const formattedAssessments = predictionsData.map((pred: any) => ({
-            id: pred.id,
-            date: pred.created_at,
-            score: Math.round(pred.result * 100),
-            risk: getRiskLevel(pred.result * 100),
-          }))
-
-          // Extract scores for the chart
-          const scores = formattedAssessments.map((a: any) => a.score).reverse()
-
-          setProfileData((prevData) => ({
-            ...prevData,
-            recentAssessments: formattedAssessments,
-            heartHealthScores: scores,
-          }))
-        }
-      } catch (predictionsError) {
-        console.error("Error fetching predictions data:", predictionsError)
-        // Don't throw error here, just log it
-      }
-
-      // Initialize form data with profile data
-      setFormData({
-        name: data.name || user?.name || "",
-        phone: data.phone || user?.phone || "",
-        dateOfBirth: profileData.dateOfBirth,
-        gender: profileData.gender,
-        height: profileData.height,
-        weight: profileData.weight,
-        bloodType: profileData.bloodType,
-        allergies: profileData.allergies,
-        medicalConditions: profileData.medicalConditions,
-        medications: profileData.medications,
-        emergencyContactName: profileData.emergencyContactName,
-        emergencyContactPhone: profileData.emergencyContactPhone,
-        emergencyContactRelation: profileData.emergencyContactRelation,
-      })
-
-      // Clear any existing error
-      setAlert({ type: null, message: "" })
+        setAlert({ type: null, message: "" })
+      }, 500)
     } catch (error) {
       console.error("Error fetching profile:", error)
       setAlert({
         type: "error",
         message: "Failed to load profile data. Please try again later.",
       })
-    } finally {
       setIsFetchingProfile(false)
     }
   }
@@ -518,80 +441,50 @@ export default function ProfilePage() {
     setAlert({ type: null, message: "" })
 
     try {
-      console.log("Submitting profile update:", formData)
-
-      // Send the update to the API
-      const response = await fetch("/api/user/profile", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          phone: formData.phone,
-          // Add other fields as needed
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || "Failed to update profile")
-      }
-
-      const updatedProfile = await response.json()
-
-      // Update the profile data state
-      setProfileData((prev) => ({
-        ...prev,
-        name: updatedProfile.name || formData.name,
-        phone: updatedProfile.phone || formData.phone,
-        // Update other fields from form data
-        dateOfBirth: formData.dateOfBirth,
-        gender: formData.gender,
-        height: formData.height,
-        weight: formData.weight,
-        bloodType: formData.bloodType,
-        allergies: formData.allergies,
-        medicalConditions: formData.medicalConditions,
-        medications: formData.medications,
-        emergencyContactName: formData.emergencyContactName,
-        emergencyContactPhone: formData.emergencyContactPhone,
-        emergencyContactRelation: formData.emergencyContactRelation,
-      }))
-
-      // Update the auth context if available
-      if (updateUserProfile) {
-        updateUserProfile({
-          name: formData.name,
-          phone: formData.phone,
-        })
-      }
-
-      setIsEditing(false)
-      setAlert({
-        type: "success",
-        message: "Profile updated successfully!",
-      })
-      toast({
-        title: "Success",
-        description: "Your profile has been updated successfully!",
-      })
-
-      // Clear alert after 3 seconds
+      // Simulate a submission without sending real data
       setTimeout(() => {
-        setAlert({ type: null, message: "" })
-      }, 3000)
+        // Update local state
+        setProfileData((prev) => ({
+          ...prev,
+          name: formData.name,
+          phone: formData.phone,
+          dateOfBirth: formData.dateOfBirth,
+          gender: formData.gender,
+        }))
+
+        // Update auth context if available
+        if (updateUserProfile) {
+          updateUserProfile({
+            name: formData.name,
+            phone: formData.phone,
+          })
+        }
+
+        setIsEditing(false)
+        setIsSubmitting(false)
+        setAlert({
+          type: "success",
+          message: "Profile updated successfully!",
+        })
+        toast({
+          title: "Success",
+          description: "Your profile has been updated successfully!",
+        })
+
+        setTimeout(() => {
+          setAlert({ type: null, message: "" })
+        }, 3000)
+      }, 1000)
     } catch (error: any) {
       setAlert({
         type: "error",
-        message: error.message || "An error occurred while updating your profile",
+        message: "An error occurred while updating your profile",
       })
       toast({
         title: "Error",
-        description: error.message || "An error occurred while updating your profile",
+        description: "An error occurred while updating your profile",
         variant: "destructive",
       })
-    } finally {
       setIsSubmitting(false)
     }
   }
@@ -627,6 +520,27 @@ export default function ProfilePage() {
     // In a real app, you would also send this update to the API
   }
 
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true)
+      await logout()
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account.",
+      })
+      router.push("/")
+    } catch (error) {
+      console.error("Logout error:", error)
+      toast({
+        title: "Error",
+        description: "An error occurred during logout. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="container mx-auto py-10">
@@ -634,7 +548,7 @@ export default function ProfilePage() {
           <CardContent className="pt-6">
             <div className="flex flex-col items-center justify-center space-y-4 py-8">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-              <p className="text-sm text-muted-foreground mt-4">Loading profile...</p>
+              <p className="text-sm text-muted-foreground mt-4">Loading account information...</p>
             </div>
           </CardContent>
         </Card>
@@ -1465,6 +1379,27 @@ export default function ProfilePage() {
               </TabsContent>
             </Tabs>
           )}
+        </CardContent>
+        <CardContent className="flex flex-col items-center space-y-6 pt-6">
+          <Button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="w-full max-w-xs"
+            variant="destructive"
+            size="lg"
+          >
+            {isLoggingOut ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Logging out...
+              </>
+            ) : (
+              <>
+                <LogOut className="mr-2 h-4 w-4" />
+                Log out
+              </>
+            )}
+          </Button>
         </CardContent>
       </Card>
     </div>
