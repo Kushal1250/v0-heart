@@ -7,6 +7,19 @@ export const sql = neon(process.env.DATABASE_URL!)
 // Export db as an alias for sql for backward compatibility
 export const db = sql
 
+// Define the User type
+export interface User {
+  id: string
+  email: string
+  name: string | null
+  password?: string
+  role: string
+  created_at: string
+  provider?: string
+  phone?: string
+  profile_picture?: string
+}
+
 // Initialize database tables
 export async function initDatabase() {
   try {
@@ -534,6 +547,13 @@ export async function verifyOTP(userId: string, otp: string) {
   }
 }
 
+/**
+ * Create a prediction for a user
+ * @param userId User ID
+ * @param result Prediction result
+ * @param predictionData Additional prediction data
+ * @returns The created prediction
+ */
 export async function createPrediction(userId: string, result: any, predictionData: Record<string, any>): Promise<any> {
   try {
     if (!userId) {
@@ -559,6 +579,10 @@ export async function createPrediction(userId: string, result: any, predictionDa
   }
 }
 
+/**
+ * Get all predictions
+ * @returns Array of all predictions
+ */
 export async function getAllPredictions() {
   try {
     const predictions = await sql`
@@ -574,6 +598,11 @@ export async function getAllPredictions() {
   }
 }
 
+/**
+ * Get predictions for a specific user
+ * @param userId User ID
+ * @returns Array of predictions for the user
+ */
 export async function getPredictionsByUserId(userId: string) {
   try {
     if (!userId) {
@@ -597,6 +626,11 @@ export async function getPredictionsByUserId(userId: string) {
   }
 }
 
+/**
+ * Get a prediction by ID
+ * @param id Prediction ID
+ * @returns Prediction object or null
+ */
 export async function getPredictionById(id: string) {
   try {
     if (!id) {
