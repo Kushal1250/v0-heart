@@ -231,12 +231,13 @@ const HeartHealthRoutine = () => {
 }
 
 export default function ProfilePage() {
-  const { user, isLoading, updateUserProfile } = useAuth()
+  const { user, isLoading, logout, updateUserProfile } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
   const [activeTab, setActiveTab] = useState("personal")
   const [useSimpleUploader, setUseSimpleUploader] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   // Profile data state
   const [profileData, setProfileData] = useState({
@@ -518,6 +519,26 @@ export default function ProfilePage() {
     // In a real app, you would also send this update to the API
   }
 
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true)
+      await logout()
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account.",
+      })
+      router.push("/")
+    } catch (error) {
+      console.error("Logout error:", error)
+      setAlert({
+        type: "error",
+        message: "An error occurred during logout. Please try again.",
+      })
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="container mx-auto py-10">
@@ -525,7 +546,7 @@ export default function ProfilePage() {
           <CardContent className="pt-6">
             <div className="flex flex-col items-center justify-center space-y-4 py-8">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-              <p className="text-sm text-muted-foreground mt-4">Loading profile...</p>
+              <p className="text-sm text-muted-foreground mt-4">Loading account information...</p>
             </div>
           </CardContent>
         </Card>
