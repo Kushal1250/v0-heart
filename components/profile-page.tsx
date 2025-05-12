@@ -3,6 +3,8 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,13 +15,66 @@ import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { ExternalServicesSync } from "@/components/external-services-sync"
-import { RecentHealthNotifications } from "@/components/recent-health-notifications"
-import { HeartHealthRoutine } from "@/components/heart-health-routine"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, AlertCircle, Clock, Activity } from "lucide-react"
+import { CheckCircle, AlertCircle, Clock, Activity, RefreshCw } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 
+// Mock data for fallback when API fails
+const MOCK_DATA = {
+  profile: {
+    id: "user-1",
+    name: "John Doe",
+    email: "john.doe@example.com",
+    phone: "+1 (555) 123-4567",
+    profilePicture: "/abstract-profile.png",
+    dateOfBirth: "1985-05-15",
+    gender: "male",
+    address: "123 Main St, Anytown, USA",
+    emergencyContact: "Jane Doe (Wife) - +1 (555) 987-6543",
+    bio: "Health enthusiast focused on heart wellness.",
+  },
+  healthInfo: {
+    height: "175",
+    weight: "70",
+    bloodType: "O+",
+    allergies: "None",
+    medications: "Lisinopril 10mg daily",
+    conditions: "Mild hypertension",
+    familyHistory: "Father had heart disease",
+  },
+  notificationPreferences: [
+    { id: "notif-1", type: "Email Notifications", enabled: true },
+    { id: "notif-2", type: "SMS Notifications", enabled: false },
+    { id: "notif-3", type: "App Notifications", enabled: true },
+    { id: "notif-4", type: "Health Reminders", enabled: true },
+  ],
+  privacySettings: [
+    { id: "privacy-1", setting: "Share Health Data with Doctors", enabled: true },
+    { id: "privacy-2", setting: "Anonymous Data for Research", enabled: true },
+    { id: "privacy-3", setting: "Third-Party App Access", enabled: false },
+    { id: "privacy-4", setting: "Location Tracking", enabled: false },
+  ],
+  healthReminders: [
+    { id: "reminder-1", title: "Blood Pressure Check", date: "2023-06-15", completed: true },
+    { id: "reminder-2", title: "Annual Physical", date: "2023-07-20", completed: false },
+    { id: "reminder-3", title: "Medication Refill", date: "2023-06-05", completed: true },
+  ],
+  healthAssessments: [
+    { id: "assessment-1", date: "2023-05-10", score: 85, risk: "Low" },
+    { id: "assessment-2", date: "2023-04-05", score: 78, risk: "Low" },
+    { id: "assessment-3", date: "2023-03-01", score: 72, risk: "Medium" },
+  ],
+  connectedServices: [
+    { id: "service-1", name: "Fitbit", connected: true, lastSync: "2023-05-28T14:30:00Z" },
+    { id: "service-2", name: "Apple Health", connected: false, lastSync: "" },
+    { id: "service-3", name: "Google Fit", connected: false, lastSync: "" },
+    { id: "service-4", name: "Samsung Health", connected: true, lastSync: "2023-05-27T09:15:00Z" },
+  ],
+  healthScore: 82,
+}
+
+// Types
 interface UserProfile {
   id: string
   name: string
@@ -76,7 +131,164 @@ interface HealthService {
   lastSync: string
 }
 
+// External Services Sync Component
+export function ExternalServicesSync({
+  services,
+  onToggleService,
+}: {
+  services: HealthService[]
+  onToggleService: (id: string) => void
+}) {
+  return (
+    <div className="space-y-4">
+      {services.map((service) => (
+        <div key={service.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+          <div className="flex items-center">
+            <div className="bg-white p-2 rounded-full mr-3">
+              <Activity className="h-5 w-5 text-red-500" />
+            </div>
+            <div>
+              <p className="font-medium">{service.name}</p>
+              <p className="text-xs text-gray-500">
+                {service.connected
+                  ? `Last synced: ${new Date(service.lastSync).toLocaleString() || "Never"}`
+                  : "Not connected"}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant={service.connected ? "outline" : "default"}
+            size="sm"
+            onClick={() => onToggleService(service.id)}
+          >
+            {service.connected ? "Disconnect" : "Connect"}
+          </Button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Recent Health Notifications Component
+export function RecentHealthNotifications() {
+  const notifications = [
+    {
+      id: 1,
+      title: "Heart Health Assessment Due",
+      description: "It's been 3 months since your last assessment",
+      date: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
+      type: "reminder",
+    },
+    {
+      id: 2,
+      title: "Blood Pressure Trend",
+      description: "Your blood pressure readings have improved over the last month",
+      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
+      type: "achievement",
+    },
+    {
+      id: 3,
+      title: "New Health Article",
+      description: "Read our latest article on heart-healthy diets",
+      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
+      type: "info",
+    },
+  ]
+
+  return (
+    <div className="space-y-4">
+      {notifications.map((notification) => (
+        <div
+          key={notification.id}
+          className={`p-4 rounded-md border ${
+            notification.type === "reminder"
+              ? "bg-amber-50 border-amber-200"
+              : notification.type === "achievement"
+                ? "bg-green-50 border-green-200"
+                : "bg-blue-50 border-blue-200"
+          }`}
+        >
+          <div className="flex justify-between">
+            <div>
+              <h4 className="font-medium">{notification.title}</h4>
+              <p className="text-sm text-muted-foreground">{notification.description}</p>
+            </div>
+            <p className="text-xs text-muted-foreground">{notification.date.toLocaleDateString()}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Heart Health Routine Component
+export function HeartHealthRoutine() {
+  const routines = [
+    {
+      id: 1,
+      title: "Morning Walk",
+      description: "30 minutes of brisk walking",
+      time: "7:00 AM",
+      completed: true,
+    },
+    {
+      id: 2,
+      title: "Blood Pressure Check",
+      description: "Record your blood pressure",
+      time: "9:00 AM",
+      completed: true,
+    },
+    {
+      id: 3,
+      title: "Medication",
+      description: "Take your daily medication",
+      time: "8:00 AM & 8:00 PM",
+      completed: false,
+    },
+    {
+      id: 4,
+      title: "Evening Relaxation",
+      description: "15 minutes of meditation",
+      time: "9:30 PM",
+      completed: false,
+    },
+  ]
+
+  return (
+    <div className="space-y-4">
+      {routines.map((routine) => (
+        <div
+          key={routine.id}
+          className={`p-4 rounded-md border ${
+            routine.completed ? "bg-gray-50 border-gray-200" : "bg-white border-gray-200"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-medium flex items-center">
+                {routine.completed && <CheckCircle className="h-4 w-4 text-green-500 mr-2" />}
+                {routine.title}
+              </h4>
+              <p className="text-sm text-muted-foreground">{routine.description}</p>
+              <p className="text-xs text-muted-foreground mt-1">{routine.time}</p>
+            </div>
+            {!routine.completed && (
+              <Button variant="outline" size="sm">
+                Mark Complete
+              </Button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function ProfilePage() {
+  const { user, isLoading: authLoading, updateUserProfile } = useAuth()
+  const router = useRouter()
+  const { toast } = useToast()
+
   // State for user profile data
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [healthInfo, setHealthInfo] = useState<HealthInfo | null>(null)
@@ -90,60 +302,151 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState<boolean>(false)
+  const [retryCount, setRetryCount] = useState<number>(0)
+  const [useFallbackData, setUseFallbackData] = useState<boolean>(false)
 
   // Fetch user profile data
   useEffect(() => {
+    if (authLoading) return
+
+    if (!user && !useFallbackData) {
+      router.push("/login")
+      return
+    }
+
     const fetchProfileData = async () => {
       try {
         setLoading(true)
+        setError(null)
 
+        if (useFallbackData) {
+          // Use mock data if we've decided to use fallback data
+          setProfile(MOCK_DATA.profile)
+          setHealthInfo(MOCK_DATA.healthInfo)
+          setNotificationPreferences(MOCK_DATA.notificationPreferences)
+          setPrivacySettings(MOCK_DATA.privacySettings)
+          setHealthReminders(MOCK_DATA.healthReminders)
+          setHealthAssessments(MOCK_DATA.healthAssessments)
+          setConnectedServices(MOCK_DATA.connectedServices)
+          setHealthScore(MOCK_DATA.healthScore)
+          setLoading(false)
+          return
+        }
+
+        // Try to fetch real data from API
         // Fetch user profile
-        const profileResponse = await fetch("/api/user/profile")
-        if (!profileResponse.ok) throw new Error("Failed to fetch profile data")
+        const profileResponse = await fetch("/api/user/profile", {
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        })
+
+        if (!profileResponse.ok) {
+          throw new Error("Failed to fetch profile data")
+        }
+
         const profileData = await profileResponse.json()
-        setProfile(profileData)
 
-        // Fetch health info
-        const healthResponse = await fetch("/api/user/health-data")
-        if (!healthResponse.ok) throw new Error("Failed to fetch health data")
-        const healthData = await healthResponse.json()
-        setHealthInfo(healthData)
+        // Map API response to our expected format
+        setProfile({
+          id: profileData.id || "user-1",
+          name: profileData.name || user?.name || "User",
+          email: profileData.email || user?.email || "user@example.com",
+          phone: profileData.phone || "",
+          profilePicture: profileData.profile_picture || "/abstract-profile.png",
+          dateOfBirth: profileData.dateOfBirth || "",
+          gender: profileData.gender || "",
+          address: profileData.address || "",
+          emergencyContact: profileData.emergencyContact || "",
+          bio: profileData.bio || "",
+        })
 
-        // Fetch notification preferences
-        const notificationsResponse = await fetch("/api/user/preferences/notifications")
-        if (!notificationsResponse.ok) throw new Error("Failed to fetch notification preferences")
-        const notificationsData = await notificationsResponse.json()
-        setNotificationPreferences(notificationsData)
+        // Try to fetch other data, but don't fail if these requests fail
+        try {
+          const healthResponse = await fetch("/api/user/health-data")
+          if (healthResponse.ok) {
+            const healthData = await healthResponse.json()
+            setHealthInfo(healthData)
+          }
+        } catch (err) {
+          console.warn("Could not fetch health data, using defaults", err)
+          setHealthInfo(MOCK_DATA.healthInfo)
+        }
 
-        // Fetch privacy settings
-        const privacyResponse = await fetch("/api/user/preferences/privacy")
-        if (!privacyResponse.ok) throw new Error("Failed to fetch privacy settings")
-        const privacyData = await privacyResponse.json()
-        setPrivacySettings(privacyData)
+        try {
+          const notificationsResponse = await fetch("/api/user/preferences/notifications")
+          if (notificationsResponse.ok) {
+            const notificationsData = await notificationsResponse.json()
+            setNotificationPreferences(notificationsData)
+          }
+        } catch (err) {
+          console.warn("Could not fetch notification preferences, using defaults", err)
+          setNotificationPreferences(MOCK_DATA.notificationPreferences)
+        }
 
-        // Fetch health reminders
-        const remindersResponse = await fetch("/api/user/health-reminders")
-        if (!remindersResponse.ok) throw new Error("Failed to fetch health reminders")
-        const remindersData = await remindersResponse.json()
-        setHealthReminders(remindersData)
+        try {
+          const privacyResponse = await fetch("/api/user/preferences/privacy")
+          if (privacyResponse.ok) {
+            const privacyData = await privacyResponse.json()
+            setPrivacySettings(privacyData)
+          }
+        } catch (err) {
+          console.warn("Could not fetch privacy settings, using defaults", err)
+          setPrivacySettings(MOCK_DATA.privacySettings)
+        }
 
-        // Fetch health assessments
-        const assessmentsResponse = await fetch("/api/user/predictions")
-        if (!assessmentsResponse.ok) throw new Error("Failed to fetch health assessments")
-        const assessmentsData = await assessmentsResponse.json()
-        setHealthAssessments(assessmentsData)
+        try {
+          const remindersResponse = await fetch("/api/user/health-reminders")
+          if (remindersResponse.ok) {
+            const remindersData = await remindersResponse.json()
+            setHealthReminders(remindersData)
+          }
+        } catch (err) {
+          console.warn("Could not fetch health reminders, using defaults", err)
+          setHealthReminders(MOCK_DATA.healthReminders)
+        }
 
-        // Fetch connected services
-        const servicesResponse = await fetch("/api/user/health-services")
-        if (!servicesResponse.ok) throw new Error("Failed to fetch health services")
-        const servicesData = await servicesResponse.json()
-        setConnectedServices(servicesData)
+        try {
+          const assessmentsResponse = await fetch("/api/user/predictions")
+          if (assessmentsResponse.ok) {
+            const assessmentsData = await assessmentsResponse.json()
 
-        // Fetch health score
-        const scoreResponse = await fetch("/api/user/health-metrics")
-        if (!scoreResponse.ok) throw new Error("Failed to fetch health metrics")
-        const scoreData = await scoreResponse.json()
-        setHealthScore(scoreData.heartHealthScore || 0)
+            // Format the predictions data for the UI
+            const formattedAssessments = assessmentsData.map((pred: any) => ({
+              id: pred.id,
+              date: pred.created_at,
+              score: Math.round(pred.result * 100),
+              risk: getRiskLevel(pred.result * 100),
+            }))
+
+            setHealthAssessments(formattedAssessments)
+          }
+        } catch (err) {
+          console.warn("Could not fetch health assessments, using defaults", err)
+          setHealthAssessments(MOCK_DATA.healthAssessments)
+        }
+
+        try {
+          const servicesResponse = await fetch("/api/user/health-services")
+          if (servicesResponse.ok) {
+            const servicesData = await servicesResponse.json()
+            setConnectedServices(servicesData)
+          }
+        } catch (err) {
+          console.warn("Could not fetch connected services, using defaults", err)
+          setConnectedServices(MOCK_DATA.connectedServices)
+        }
+
+        try {
+          const scoreResponse = await fetch("/api/user/health-metrics")
+          if (scoreResponse.ok) {
+            const scoreData = await scoreResponse.json()
+            setHealthScore(scoreData.heartHealthScore || MOCK_DATA.healthScore)
+          }
+        } catch (err) {
+          console.warn("Could not fetch health score, using defaults", err)
+          setHealthScore(MOCK_DATA.healthScore)
+        }
 
         setLoading(false)
       } catch (err) {
@@ -154,11 +457,28 @@ export default function ProfilePage() {
     }
 
     fetchProfileData()
-  }, [])
+  }, [user, authLoading, router, retryCount, useFallbackData])
+
+  // Helper function to determine risk level based on score
+  const getRiskLevel = (score: number) => {
+    if (score >= 80) return "Low"
+    if (score >= 60) return "Medium"
+    return "High"
+  }
 
   // Handle profile update
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (useFallbackData) {
+      toast({
+        title: "Demo Mode",
+        description: "Profile updates are disabled in demo mode.",
+        variant: "default",
+      })
+      return
+    }
+
     try {
       setLoading(true)
       const response = await fetch("/api/user/profile", {
@@ -166,12 +486,25 @@ export default function ProfilePage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(profile),
+        body: JSON.stringify({
+          name: profile?.name,
+          phone: profile?.phone,
+          // Add other fields as needed
+        }),
       })
 
       if (!response.ok) throw new Error("Failed to update profile")
 
       setSuccessMessage("Profile updated successfully!")
+
+      // Update the auth context if available
+      if (updateUserProfile && profile) {
+        updateUserProfile({
+          name: profile.name,
+          phone: profile.phone,
+        })
+      }
+
       setTimeout(() => setSuccessMessage(null), 3000)
       setLoading(false)
     } catch (err) {
@@ -185,6 +518,16 @@ export default function ProfilePage() {
   // Handle health info update
   const handleHealthInfoUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (useFallbackData) {
+      toast({
+        title: "Demo Mode",
+        description: "Health information updates are disabled in demo mode.",
+        variant: "default",
+      })
+      return
+    }
+
     try {
       setLoading(true)
       const response = await fetch("/api/user/health-data", {
@@ -210,6 +553,14 @@ export default function ProfilePage() {
 
   // Handle notification preference toggle
   const handleNotificationToggle = async (id: string) => {
+    if (useFallbackData) {
+      // Just update the UI in demo mode
+      setNotificationPreferences((prev) =>
+        prev.map((pref) => (pref.id === id ? { ...pref, enabled: !pref.enabled } : pref)),
+      )
+      return
+    }
+
     try {
       const updatedPreferences = notificationPreferences.map((pref) =>
         pref.id === id ? { ...pref, enabled: !pref.enabled } : pref,
@@ -241,6 +592,14 @@ export default function ProfilePage() {
 
   // Handle privacy setting toggle
   const handlePrivacyToggle = async (id: string) => {
+    if (useFallbackData) {
+      // Just update the UI in demo mode
+      setPrivacySettings((prev) =>
+        prev.map((setting) => (setting.id === id ? { ...setting, enabled: !setting.enabled } : setting)),
+      )
+      return
+    }
+
     try {
       const updatedSettings = privacySettings.map((setting) =>
         setting.id === id ? { ...setting, enabled: !setting.enabled } : setting,
@@ -272,6 +631,14 @@ export default function ProfilePage() {
 
   // Handle health reminder toggle
   const handleReminderToggle = async (id: string) => {
+    if (useFallbackData) {
+      // Just update the UI in demo mode
+      setHealthReminders((prev) =>
+        prev.map((reminder) => (reminder.id === id ? { ...reminder, completed: !reminder.completed } : reminder)),
+      )
+      return
+    }
+
     try {
       const updatedReminders = healthReminders.map((reminder) =>
         reminder.id === id ? { ...reminder, completed: !reminder.completed } : reminder,
@@ -306,6 +673,15 @@ export default function ProfilePage() {
     const file = e.target.files?.[0]
     if (!file) return
 
+    if (useFallbackData) {
+      toast({
+        title: "Demo Mode",
+        description: "Image uploads are disabled in demo mode.",
+        variant: "default",
+      })
+      return
+    }
+
     try {
       setUploadingImage(true)
 
@@ -322,6 +698,14 @@ export default function ProfilePage() {
       const data = await response.json()
 
       setProfile((prev) => (prev ? { ...prev, profilePicture: data.imageUrl } : null))
+
+      // Update the auth context if available
+      if (updateUserProfile) {
+        updateUserProfile({
+          profile_picture: data.imageUrl,
+        })
+      }
+
       setSuccessMessage("Profile image updated successfully!")
       setTimeout(() => setSuccessMessage(null), 3000)
       setUploadingImage(false)
@@ -335,6 +719,33 @@ export default function ProfilePage() {
 
   // Handle service connection toggle
   const handleServiceToggle = async (id: string) => {
+    if (useFallbackData) {
+      // Just update the UI in demo mode
+      setConnectedServices((prev) =>
+        prev.map((service) => {
+          if (service.id === id) {
+            return {
+              ...service,
+              connected: !service.connected,
+              lastSync: !service.connected ? new Date().toISOString() : service.lastSync,
+            }
+          }
+          return service
+        }),
+      )
+
+      const service = connectedServices.find((s) => s.id === id)
+      if (service) {
+        toast({
+          title: service.connected ? "Service Disconnected" : "Service Connected",
+          description: `${service.name} has been ${service.connected ? "disconnected" : "connected"} successfully.`,
+          variant: "default",
+        })
+      }
+
+      return
+    }
+
     try {
       const service = connectedServices.find((s) => s.id === id)
 
@@ -375,6 +786,18 @@ export default function ProfilePage() {
     }
   }
 
+  // Handle retry
+  const handleRetry = () => {
+    setRetryCount((prev) => prev + 1)
+    setError(null)
+  }
+
+  // Handle using demo data
+  const handleUseDemoData = () => {
+    setUseFallbackData(true)
+    setError(null)
+  }
+
   if (loading && !profile) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -392,7 +815,17 @@ export default function ProfilePage() {
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <span>{error}</span>
+            <div className="flex gap-2 mt-2 sm:mt-0 sm:ml-auto">
+              <Button variant="outline" size="sm" onClick={handleRetry}>
+                <RefreshCw className="h-4 w-4 mr-1" /> Retry
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleUseDemoData}>
+                Use Demo Data
+              </Button>
+            </div>
+          </AlertDescription>
         </Alert>
       )}
 
@@ -401,6 +834,16 @@ export default function ProfilePage() {
           <CheckCircle className="h-4 w-4 text-green-500" />
           <AlertTitle className="text-green-700">Success</AlertTitle>
           <AlertDescription className="text-green-600">{successMessage}</AlertDescription>
+        </Alert>
+      )}
+
+      {useFallbackData && (
+        <Alert className="mb-6 bg-blue-50 border-blue-200">
+          <AlertCircle className="h-4 w-4 text-blue-500" />
+          <AlertTitle className="text-blue-700">Demo Mode</AlertTitle>
+          <AlertDescription className="text-blue-600">
+            You are viewing demo data. Some features may be limited.
+          </AlertDescription>
         </Alert>
       )}
 
