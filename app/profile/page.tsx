@@ -42,6 +42,7 @@ import {
   FileText,
   CalendarIcon,
   TrendingUp,
+  LogOut,
 } from "lucide-react"
 import { formatDistanceToNow, format } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
@@ -530,9 +531,10 @@ export default function ProfilePage() {
       router.push("/")
     } catch (error) {
       console.error("Logout error:", error)
-      setAlert({
-        type: "error",
-        message: "An error occurred during logout. Please try again.",
+      toast({
+        title: "Error",
+        description: "An error occurred during logout. Please try again.",
+        variant: "destructive",
       })
     } finally {
       setIsLoggingOut(false)
@@ -1377,6 +1379,27 @@ export default function ProfilePage() {
               </TabsContent>
             </Tabs>
           )}
+        </CardContent>
+        <CardContent className="flex flex-col items-center space-y-6 pt-6">
+          <Button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="w-full max-w-xs"
+            variant="destructive"
+            size="lg"
+          >
+            {isLoggingOut ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Logging out...
+              </>
+            ) : (
+              <>
+                <LogOut className="mr-2 h-4 w-4" />
+                Log out
+              </>
+            )}
+          </Button>
         </CardContent>
       </Card>
     </div>
