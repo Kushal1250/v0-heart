@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -21,7 +22,9 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
-  const { login } = useAuth()
+  // Safely access the login function from auth context
+  const auth = useAuth()
+  const login = auth?.login
 
   // Load saved credentials when the component mounts
   useEffect(() => {
@@ -54,6 +57,12 @@ export default function LoginPage() {
       return
     }
 
+    // Validate login function exists
+    if (!login) {
+      setError("Authentication service unavailable")
+      return
+    }
+
     setIsLoading(true)
 
     // Save or clear credentials based on remember me checkbox
@@ -78,13 +87,19 @@ export default function LoginPage() {
         // Redirect to the new home page
         router.push("/home")
       } else {
-        setError(result.message)
+        setError(result.message || "Login failed")
       }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred")
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Handle mock login for development/testing
+  const handleMockLogin = () => {
+    sessionStorage.setItem("loginSuccess", "true")
+    router.push("/home")
   }
 
   return (
@@ -187,6 +202,12 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Logging in..." : "Login"}
             </Button>
+
+            {process.env.NODE_ENV === "development" && (
+              <Button type="button" variant="outline" className="w-full mt-2" onClick={handleMockLogin}>
+                Development: Skip Login
+              </Button>
+            )}
           </form>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
