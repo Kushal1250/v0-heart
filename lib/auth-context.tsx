@@ -54,11 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      // Don't set loading state if we already have user data
-      if (!user) {
-        setIsLoading(true)
-      }
-
+      setIsLoading(true)
       try {
         // Check for admin cookie first
         const isAdminCookie = document.cookie.includes("is_admin=true")
@@ -111,21 +107,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (response.ok) {
           const userData = await response.json()
-          if (userData.authenticated) {
-            setUser(userData.user)
-            setIsAdmin(userData.user.role === "admin")
-            setLastRefresh(now)
+          setUser(userData)
+          setIsAdmin(userData.role === "admin")
+          setLastRefresh(now)
 
-            // Cache the user data with a 4-hour expiry
-            localStorage.setItem("user", JSON.stringify(userData.user))
-            localStorage.setItem("userExpiry", (new Date().getTime() + 4 * 60 * 60 * 1000).toString())
-          } else {
-            setUser(null)
-            setIsAdmin(false)
-            // Clear any stale data
-            localStorage.removeItem("user")
-            localStorage.removeItem("userExpiry")
-          }
+          // Cache the user data with a 4-hour expiry (increased from 2 hours)
+          localStorage.setItem("user", JSON.stringify(userData))
+          localStorage.setItem("userExpiry", (new Date().getTime() + 4 * 60 * 60 * 1000).toString())
         } else {
           setUser(null)
           setIsAdmin(false)
@@ -168,8 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    // Only check auth status once on mount
-    checkAuthStatus(false)
+    checkAuthStatus()
 
     // Set up a timer to refresh the session every 25 minutes
     const intervalId = setInterval(
@@ -180,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ) // 25 minutes
 
     return () => clearInterval(intervalId)
-  }, []) // Remove checkAuthStatus from dependencies
+  }, [checkAuthStatus])
 
   const login = async (email: string, password: string, phone: string, rememberMe = false) => {
     try {
