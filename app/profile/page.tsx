@@ -53,6 +53,7 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [isFetchingProfile, setIsFetchingProfile] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false)
 
   // Profile data state
   const [profileData, setProfileData] = useState({
@@ -113,30 +114,32 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!isLoading && !user) {
       router.push("/login")
-    } else if (user) {
-      // Fetch user profile data
+    } else if (user && !initialDataLoaded) {
+      // Only fetch profile data once when user is loaded and data hasn't been loaded yet
       fetchUserProfile()
     }
-  }, [user, isLoading, router])
+  }, [user, isLoading, router, initialDataLoaded])
 
-  // Update profile data when user data changes
+  // Update form data when profile data changes
   useEffect(() => {
-    if (user) {
-      setProfileData((prevData) => ({
-        ...prevData,
-        name: user.name || "",
-        email: user.email || "",
-        phone: user.phone || "",
-        profile_picture: user.profile_picture || "",
-      }))
-
-      setFormData((prevForm) => ({
-        ...prevForm,
-        name: user.name || "",
-        phone: user.phone || "",
-      }))
+    if (user && !isEditing) {
+      setFormData({
+        name: profileData.name || user.name || "",
+        phone: profileData.phone || user.phone || "",
+        dateOfBirth: profileData.dateOfBirth || "",
+        gender: profileData.gender || "",
+        height: profileData.height || "",
+        weight: profileData.weight || "",
+        bloodType: profileData.bloodType || "",
+        allergies: profileData.allergies || "",
+        medicalConditions: profileData.medicalConditions || "",
+        medications: profileData.medications || "",
+        emergencyContactName: profileData.emergencyContactName || "",
+        emergencyContactPhone: profileData.emergencyContactPhone || "",
+        emergencyContactRelation: profileData.emergencyContactRelation || "",
+      })
     }
-  }, [user])
+  }, [profileData, user, isEditing])
 
   const fetchUserProfile = async () => {
     if (isFetchingProfile) return
@@ -144,35 +147,49 @@ export default function ProfilePage() {
     setIsFetchingProfile(true)
     try {
       console.log("Fetching user profile...")
-      const response = await fetch("/api/user/profile", {
-        method: "GET",
-        headers: {
-          "Cache-Control": "no-cache",
-        },
-        cache: "no-store",
-      })
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error("Profile fetch error:", errorData)
-        throw new Error(errorData.message || "Failed to fetch profile data")
+      // Update basic user info from auth context first
+      if (user) {
+        setProfileData((prev) => ({
+          ...prev,
+          name: user.name || "",
+          email: user.email || "",
+          phone: user.phone || "",
+          profile_picture: user.profile_picture || "",
+        }))
       }
 
-      const data = await response.json()
-      console.log("Profile data received:", data)
+      // Try to fetch additional profile data from API
+      try {
+        const response = await fetch("/api/user/profile", {
+          method: "GET",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+          cache: "no-store",
+        })
 
-      // Update profile data with fetched data
-      setProfileData((prevData) => ({
-        ...prevData,
-        name: data.name || user?.name || "",
-        email: data.email || user?.email || "",
-        phone: data.phone || user?.phone || "",
-        profile_picture: data.profile_picture || user?.profile_picture || "",
-        createdAt: data.createdAt || "",
-        // Add any other fields that might be returned from the API
-      }))
+        if (response.ok) {
+          const data = await response.json()
+          console.log("Profile data received:", data)
 
-      // Also fetch health data if available
+          // Update profile data with fetched data
+          setProfileData((prev) => ({
+            ...prev,
+            name: data.name || user?.name || prev.name,
+            email: data.email || user?.email || prev.email,
+            phone: data.phone || user?.phone || prev.phone,
+            profile_picture: data.profile_picture || user?.profile_picture || prev.profile_picture,
+            createdAt: data.created_at || prev.createdAt,
+            // Add any other fields that might be returned from the API
+          }))
+        }
+      } catch (error) {
+        console.error("Error fetching profile data:", error)
+        // Continue with other data fetching even if this fails
+      }
+
+      // Try to fetch health data
       try {
         const healthResponse = await fetch("/api/user/health-metrics", {
           method: "GET",
@@ -184,11 +201,11 @@ export default function ProfilePage() {
 
         if (healthResponse.ok) {
           const healthData = await healthResponse.json()
-          setProfileData((prevData) => ({
-            ...prevData,
-            height: healthData.height || "",
-            weight: healthData.weight || "",
-            bloodType: healthData.bloodType || "",
+          setProfileData((prev) => ({
+            ...prev,
+            height: healthData.height || prev.height,
+            weight: healthData.weight || prev.weight,
+            bloodType: healthData.bloodType || prev.bloodType,
             // Add other health fields
           }))
         }
@@ -196,7 +213,7 @@ export default function ProfilePage() {
         console.error("Error fetching health data:", healthError)
       }
 
-      // Also fetch user predictions/assessments if available
+      // Try to fetch user predictions/assessments
       try {
         const predictionsResponse = await fetch("/api/user/predictions", {
           method: "GET",
@@ -220,8 +237,8 @@ export default function ProfilePage() {
           // Extract scores for the chart
           const scores = formattedAssessments.map((a: any) => a.score).reverse()
 
-          setProfileData((prevData) => ({
-            ...prevData,
+          setProfileData((prev) => ({
+            ...prev,
             recentAssessments: formattedAssessments,
             heartHealthScores: scores,
           }))
@@ -230,27 +247,13 @@ export default function ProfilePage() {
         console.error("Error fetching predictions data:", predictionsError)
       }
 
-      // Initialize form data with profile data
-      setFormData({
-        name: data.name || user?.name || "",
-        phone: data.phone || user?.phone || "",
-        dateOfBirth: profileData.dateOfBirth,
-        gender: profileData.gender,
-        height: profileData.height,
-        weight: profileData.weight,
-        bloodType: profileData.bloodType,
-        allergies: profileData.allergies,
-        medicalConditions: profileData.medicalConditions,
-        medications: profileData.medications,
-        emergencyContactName: profileData.emergencyContactName,
-        emergencyContactPhone: profileData.emergencyContactPhone,
-        emergencyContactRelation: profileData.emergencyContactRelation,
-      })
-
       // Clear any existing error
       setAlert({ type: null, message: "" })
+
+      // Mark initial data as loaded to prevent repeated fetching
+      setInitialDataLoaded(true)
     } catch (error) {
-      console.error("Error fetching profile:", error)
+      console.error("Error in profile data fetching:", error)
       setAlert({
         type: "error",
         message: "Failed to load profile data. Please try again later.",
@@ -462,14 +465,17 @@ export default function ProfilePage() {
                 />
                 <AvatarFallback>{profileData.name?.[0]?.toUpperCase() || "U"}</AvatarFallback>
               </Avatar>
-              <SimpleProfileUpload
-                currentImage={profileData.profile_picture || null}
-                onImageUpdate={handleProfileImageUpdate}
-              />
+              {/* Only render the upload component if we have a user */}
+              {user && (
+                <SimpleProfileUpload
+                  currentImage={profileData.profile_picture || null}
+                  onImageUpdate={handleProfileImageUpdate}
+                />
+              )}
             </div>
           </div>
 
-          {isFetchingProfile && !alert.type ? (
+          {isFetchingProfile && !initialDataLoaded ? (
             <div className="flex flex-col items-center justify-center py-8">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
               <p className="text-sm text-muted-foreground mt-4">Loading profile data...</p>
@@ -978,8 +984,10 @@ export default function ProfilePage() {
                         <Button
                           variant="destructive"
                           onClick={() => {
-                            logout()
-                            router.push("/")
+                            if (logout) {
+                              logout()
+                              router.push("/")
+                            }
                           }}
                         >
                           Log Out
