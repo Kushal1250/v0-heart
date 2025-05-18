@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
@@ -44,224 +43,55 @@ import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
 import { SimpleProfileUpload } from "@/components/simple-profile-upload"
 
+// Define default empty profile structure
+const defaultProfile = {
+  name: "",
+  email: "",
+  phone: "",
+  dateOfBirth: "",
+  gender: "",
+  profile_picture: "",
+  createdAt: "",
+  height: "",
+  weight: "",
+  bloodType: "",
+  allergies: "",
+  medicalConditions: "",
+  medications: "",
+  emergencyContactName: "",
+  emergencyContactPhone: "",
+  emergencyContactRelation: "",
+  emailVerified: false,
+  phoneVerified: false,
+  twoFactorEnabled: false,
+  dataSharing: true,
+  anonymousDataCollection: true,
+  emailNotifications: true,
+  smsNotifications: false,
+  appNotifications: true,
+  accountType: "Standard",
+  subscriptionStatus: "Free",
+  lastLogin: "",
+  recentAssessments: [],
+  heartHealthScores: [],
+}
+
 export default function ProfilePage() {
   const { user, isLoading, updateUserProfile, logout } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
+  // Component states
   const [activeTab, setActiveTab] = useState("personal")
   const [isEditing, setIsEditing] = useState(false)
   const [isFetchingProfile, setIsFetchingProfile] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [initialDataLoaded, setInitialDataLoaded] = useState(false)
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false)
 
-  // Profile data state
-  const [profileData, setProfileData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    dateOfBirth: "",
-    gender: "",
-    profile_picture: "",
-    createdAt: "",
-    height: "",
-    weight: "",
-    bloodType: "",
-    allergies: "",
-    medicalConditions: "",
-    medications: "",
-    emergencyContactName: "",
-    emergencyContactPhone: "",
-    emergencyContactRelation: "",
-    emailVerified: false,
-    phoneVerified: false,
-    twoFactorEnabled: false,
-    dataSharing: true,
-    anonymousDataCollection: true,
-    emailNotifications: true,
-    smsNotifications: false,
-    appNotifications: true,
-    accountType: "Standard",
-    subscriptionStatus: "Free",
-    lastLogin: "",
-    recentAssessments: [],
-    heartHealthScores: [],
-  })
-
-  // Form data for editing
-  const [formData, setFormData] = useState({
-    name: "",
-    phone: "",
-    dateOfBirth: "",
-    gender: "",
-    height: "",
-    weight: "",
-    bloodType: "",
-    allergies: "",
-    medicalConditions: "",
-    medications: "",
-    emergencyContactName: "",
-    emergencyContactPhone: "",
-    emergencyContactRelation: "",
-  })
-
-  const [alert, setAlert] = useState<{
-    type: "success" | "error" | null
-    message: string
-  }>({ type: null, message: "" })
-
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login")
-    } else if (user && !initialDataLoaded) {
-      // Only fetch profile data once when user is loaded and data hasn't been loaded yet
-      fetchUserProfile()
-    }
-  }, [user, isLoading, router, initialDataLoaded])
-
-  // Update form data when profile data changes
-  useEffect(() => {
-    if (user && !isEditing) {
-      setFormData({
-        name: profileData.name || user.name || "",
-        phone: profileData.phone || user.phone || "",
-        dateOfBirth: profileData.dateOfBirth || "",
-        gender: profileData.gender || "",
-        height: profileData.height || "",
-        weight: profileData.weight || "",
-        bloodType: profileData.bloodType || "",
-        allergies: profileData.allergies || "",
-        medicalConditions: profileData.medicalConditions || "",
-        medications: profileData.medications || "",
-        emergencyContactName: profileData.emergencyContactName || "",
-        emergencyContactPhone: profileData.emergencyContactPhone || "",
-        emergencyContactRelation: profileData.emergencyContactRelation || "",
-      })
-    }
-  }, [profileData, user, isEditing])
-
-  const fetchUserProfile = async () => {
-    if (isFetchingProfile) return
-
-    setIsFetchingProfile(true)
-    try {
-      console.log("Fetching user profile...")
-
-      // Update basic user info from auth context first
-      if (user) {
-        setProfileData((prev) => ({
-          ...prev,
-          name: user.name || "",
-          email: user.email || "",
-          phone: user.phone || "",
-          profile_picture: user.profile_picture || "",
-        }))
-      }
-
-      // Try to fetch additional profile data from API
-      try {
-        const response = await fetch("/api/user/profile", {
-          method: "GET",
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-          cache: "no-store",
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          console.log("Profile data received:", data)
-
-          // Update profile data with fetched data
-          setProfileData((prev) => ({
-            ...prev,
-            name: data.name || user?.name || prev.name,
-            email: data.email || user?.email || prev.email,
-            phone: data.phone || user?.phone || prev.phone,
-            profile_picture: data.profile_picture || user?.profile_picture || prev.profile_picture,
-            createdAt: data.created_at || prev.createdAt,
-            // Add any other fields that might be returned from the API
-          }))
-        }
-      } catch (error) {
-        console.error("Error fetching profile data:", error)
-        // Continue with other data fetching even if this fails
-      }
-
-      // Try to fetch health data
-      try {
-        const healthResponse = await fetch("/api/user/health-metrics", {
-          method: "GET",
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-          cache: "no-store",
-        })
-
-        if (healthResponse.ok) {
-          const healthData = await healthResponse.json()
-          setProfileData((prev) => ({
-            ...prev,
-            height: healthData.height || prev.height,
-            weight: healthData.weight || prev.weight,
-            bloodType: healthData.bloodType || prev.bloodType,
-            // Add other health fields
-          }))
-        }
-      } catch (healthError) {
-        console.error("Error fetching health data:", healthError)
-      }
-
-      // Try to fetch user predictions/assessments
-      try {
-        const predictionsResponse = await fetch("/api/user/predictions", {
-          method: "GET",
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-          cache: "no-store",
-        })
-
-        if (predictionsResponse.ok) {
-          const predictionsData = await predictionsResponse.json()
-
-          // Format the predictions data for the UI
-          const formattedAssessments = predictionsData.map((pred: any) => ({
-            id: pred.id,
-            date: pred.created_at,
-            score: Math.round(pred.result * 100),
-            risk: getRiskLevel(pred.result * 100),
-          }))
-
-          // Extract scores for the chart
-          const scores = formattedAssessments.map((a: any) => a.score).reverse()
-
-          setProfileData((prev) => ({
-            ...prev,
-            recentAssessments: formattedAssessments,
-            heartHealthScores: scores,
-          }))
-        }
-      } catch (predictionsError) {
-        console.error("Error fetching predictions data:", predictionsError)
-      }
-
-      // Clear any existing error
-      setAlert({ type: null, message: "" })
-
-      // Mark initial data as loaded to prevent repeated fetching
-      setInitialDataLoaded(true)
-    } catch (error) {
-      console.error("Error in profile data fetching:", error)
-      setAlert({
-        type: "error",
-        message: "Failed to load profile data. Please try again later.",
-      })
-    } finally {
-      setIsFetchingProfile(false)
-    }
-  }
+  // Data states
+  const [profileData, setProfileData] = useState(defaultProfile)
+  const [formData, setFormData] = useState(defaultProfile)
+  const [alert, setAlert] = useState({ type: null as "success" | "error" | null, message: "" })
 
   // Helper function to determine risk level based on score
   const getRiskLevel = (score: number) => {
@@ -270,6 +100,123 @@ export default function ProfilePage() {
     return "High"
   }
 
+  // Handle fetch user profile data - defined with useCallback to prevent recreation on each render
+  const fetchUserProfile = useCallback(async () => {
+    if (isFetchingProfile || !user) return
+
+    setIsFetchingProfile(true)
+
+    try {
+      console.log("Fetching profile data...")
+
+      // Start with data from auth context
+      const baseProfile = {
+        ...defaultProfile,
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        profile_picture: user.profile_picture || "",
+      }
+
+      // Initialize with this data
+      setProfileData(baseProfile)
+
+      // Try to fetch additional profile data
+      const profilePromise = fetch("/api/user/profile")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data) {
+            setProfileData((prev) => ({
+              ...prev,
+              name: data.name || prev.name,
+              email: data.email || prev.email,
+              phone: data.phone || prev.phone,
+              profile_picture: data.profile_picture || prev.profile_picture,
+              createdAt: data.created_at || prev.createdAt,
+            }))
+          }
+        })
+        .catch((err) => console.error("Error fetching profile:", err))
+
+      // Try to fetch health data in parallel
+      const healthPromise = fetch("/api/user/health-metrics")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data) {
+            setProfileData((prev) => ({
+              ...prev,
+              height: data.height || prev.height,
+              weight: data.weight || prev.weight,
+              bloodType: data.bloodType || prev.bloodType,
+            }))
+          }
+        })
+        .catch((err) => console.error("Error fetching health metrics:", err))
+
+      // Try to fetch prediction data in parallel
+      const predictionsPromise = fetch("/api/user/predictions")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data && Array.isArray(data)) {
+            const formattedAssessments = data.map((pred) => ({
+              id: pred.id,
+              date: pred.created_at,
+              score: Math.round(pred.result * 100),
+              risk: getRiskLevel(Math.round(pred.result * 100)),
+            }))
+
+            const scores = formattedAssessments.map((a) => a.score).reverse()
+
+            setProfileData((prev) => ({
+              ...prev,
+              recentAssessments: formattedAssessments,
+              heartHealthScores: scores,
+            }))
+          }
+        })
+        .catch((err) => console.error("Error fetching predictions:", err))
+
+      // Wait for all promises to settle (whether fulfilled or rejected)
+      await Promise.allSettled([profilePromise, healthPromise, predictionsPromise])
+
+      // Clear any errors
+      setAlert({ type: null, message: "" })
+    } catch (error) {
+      console.error("Error in profile data loading:", error)
+      setAlert({
+        type: "error",
+        message: "Failed to load some profile data. Please try again later.",
+      })
+    } finally {
+      setIsFetchingProfile(false)
+      setHasAttemptedLoad(true)
+    }
+  }, [user])
+
+  // Update form data when profile data changes and we're not editing
+  useEffect(() => {
+    if (!isEditing) {
+      setFormData({
+        ...profileData,
+      })
+    }
+  }, [profileData, isEditing])
+
+  // Initial load and auth check effect
+  useEffect(() => {
+    // Redirect if not logged in
+    if (!isLoading && !user) {
+      router.push("/login")
+      return
+    }
+
+    // Load profile data once user is available and we haven't already tried
+    if (user && !hasAttemptedLoad && !isFetchingProfile) {
+      fetchUserProfile()
+    }
+  }, [user, isLoading, router, hasAttemptedLoad, fetchUserProfile, isFetchingProfile])
+
+  // Form handlers
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({
@@ -291,19 +238,17 @@ export default function ProfilePage() {
     setAlert({ type: null, message: "" })
 
     try {
-      console.log("Submitting profile update:", formData)
+      // Only send required fields to the API to reduce payload size
+      const updatePayload = {
+        name: formData.name,
+        phone: formData.phone,
+        // Add other fields as needed
+      }
 
-      // Send the update to the API
       const response = await fetch("/api/user/profile", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          phone: formData.phone,
-          // Add other fields as needed
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatePayload),
       })
 
       if (!response.ok) {
@@ -311,28 +256,18 @@ export default function ProfilePage() {
         throw new Error(errorData.message || "Failed to update profile")
       }
 
+      // Get updated data from response
       const updatedProfile = await response.json()
 
-      // Update the profile data state
+      // Update profile with all form data and any returned data from API
       setProfileData((prev) => ({
         ...prev,
+        ...formData,
         name: updatedProfile.name || formData.name,
         phone: updatedProfile.phone || formData.phone,
-        // Update other fields from form data
-        dateOfBirth: formData.dateOfBirth,
-        gender: formData.gender,
-        height: formData.height,
-        weight: formData.weight,
-        bloodType: formData.bloodType,
-        allergies: formData.allergies,
-        medicalConditions: formData.medicalConditions,
-        medications: formData.medications,
-        emergencyContactName: formData.emergencyContactName,
-        emergencyContactPhone: formData.emergencyContactPhone,
-        emergencyContactRelation: formData.emergencyContactRelation,
       }))
 
-      // Update the auth context if available
+      // Update auth context if available
       if (updateUserProfile) {
         updateUserProfile({
           name: formData.name,
@@ -345,6 +280,7 @@ export default function ProfilePage() {
         type: "success",
         message: "Profile updated successfully!",
       })
+
       toast({
         title: "Success",
         description: "Your profile has been updated successfully!",
@@ -359,6 +295,7 @@ export default function ProfilePage() {
         type: "error",
         message: error.message || "An error occurred while updating your profile",
       })
+
       toast({
         title: "Error",
         description: error.message || "An error occurred while updating your profile",
@@ -375,27 +312,34 @@ export default function ProfilePage() {
       profile_picture: imageUrl,
     }))
 
-    // Update the auth context if available
+    // Update auth context if available
     if (updateUserProfile) {
-      updateUserProfile({
-        profile_picture: imageUrl,
-      })
+      updateUserProfile({ profile_picture: imageUrl })
     }
   }
 
   const handleToggleChange = (setting: string) => {
-    setProfileData((prev) => ({
-      ...prev,
-      [setting]: !prev[setting as keyof typeof prev],
-    }))
+    const currentValue = profileData[setting as keyof typeof profileData]
 
-    // In a real app, you would also send this update to the API
-    toast({
-      title: "Setting updated",
-      description: `${setting} has been ${profileData[setting as keyof typeof profileData] ? "disabled" : "enabled"}.`,
-    })
+    // Only proceed if the setting is a boolean
+    if (typeof currentValue === "boolean") {
+      const newValue = !currentValue
+
+      setProfileData((prev) => ({
+        ...prev,
+        [setting]: newValue,
+      }))
+
+      toast({
+        title: "Setting updated",
+        description: `${setting} has been ${newValue ? "enabled" : "disabled"}.`,
+      })
+
+      // In a real app, you would also send this update to the API
+    }
   }
 
+  // Show loading state while auth is loading
   if (isLoading) {
     return (
       <div className="container mx-auto py-10">
@@ -465,7 +409,6 @@ export default function ProfilePage() {
                 />
                 <AvatarFallback>{profileData.name?.[0]?.toUpperCase() || "U"}</AvatarFallback>
               </Avatar>
-              {/* Only render the upload component if we have a user */}
               {user && (
                 <SimpleProfileUpload
                   currentImage={profileData.profile_picture || null}
@@ -475,7 +418,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {isFetchingProfile && !initialDataLoaded ? (
+          {isFetchingProfile ? (
             <div className="flex flex-col items-center justify-center py-8">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
               <p className="text-sm text-muted-foreground mt-4">Loading profile data...</p>
@@ -556,7 +499,12 @@ export default function ProfilePage() {
                     </div>
 
                     <div className="flex justify-end space-x-2 pt-2">
-                      <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isSubmitting}>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsEditing(false)}
+                        disabled={isSubmitting}
+                        type="button"
+                      >
                         Cancel
                       </Button>
                       <Button type="submit" disabled={isSubmitting}>
@@ -743,7 +691,12 @@ export default function ProfilePage() {
                     </div>
 
                     <div className="flex justify-end space-x-2 pt-4">
-                      <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isSubmitting}>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsEditing(false)}
+                        disabled={isSubmitting}
+                        type="button"
+                      >
                         Cancel
                       </Button>
                       <Button type="submit" disabled={isSubmitting}>
@@ -859,7 +812,12 @@ export default function ProfilePage() {
                           >
                             {profileData.twoFactorEnabled ? "Enabled" : "Disabled"}
                           </span>
-                          <Button variant="outline" size="sm" onClick={() => handleToggleChange("twoFactorEnabled")}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleToggleChange("twoFactorEnabled")}
+                            type="button"
+                          >
                             {profileData.twoFactorEnabled ? "Disable" : "Enable"}
                           </Button>
                         </div>
@@ -885,6 +843,7 @@ export default function ProfilePage() {
                                   description: "Please check your inbox for the verification link.",
                                 })
                               }}
+                              type="button"
                             >
                               Verify Email
                             </Button>
@@ -912,6 +871,7 @@ export default function ProfilePage() {
                                   description: "Please check your phone for the verification code.",
                                 })
                               }}
+                              type="button"
                             >
                               Verify Phone
                             </Button>
@@ -935,7 +895,7 @@ export default function ProfilePage() {
                           </p>
                         </div>
                         <Switch
-                          checked={profileData.dataSharing}
+                          checked={!!profileData.dataSharing}
                           onCheckedChange={() => handleToggleChange("dataSharing")}
                         />
                       </div>
@@ -948,7 +908,7 @@ export default function ProfilePage() {
                           </p>
                         </div>
                         <Switch
-                          checked={profileData.anonymousDataCollection}
+                          checked={!!profileData.anonymousDataCollection}
                           onCheckedChange={() => handleToggleChange("anonymousDataCollection")}
                         />
                       </div>
@@ -967,7 +927,9 @@ export default function ProfilePage() {
                           <p className="text-sm text-gray-500">Update your password to keep your account secure</p>
                         </div>
                         <Link href="/change-password">
-                          <Button variant="outline">Change Password</Button>
+                          <Button variant="outline" type="button">
+                            Change Password
+                          </Button>
                         </Link>
                       </div>
                     </div>
@@ -989,6 +951,7 @@ export default function ProfilePage() {
                               router.push("/")
                             }
                           }}
+                          type="button"
                         >
                           Log Out
                         </Button>
