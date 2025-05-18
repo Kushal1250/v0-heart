@@ -1,18 +1,19 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useCallback } from "react"
+
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   AlertCircle,
   CheckCircle2,
@@ -25,6 +26,7 @@ import {
   Loader2,
   Heart,
   Shield,
+  Bell,
   UserCog,
   Activity,
   Ruler,
@@ -33,65 +35,460 @@ import {
   AlertTriangle,
   Pill,
   UserPlus,
+  CreditCard,
+  Clock,
   BadgeCheck,
   Lock,
   FileText,
+  CalendarIcon,
   TrendingUp,
 } from "lucide-react"
 import { formatDistanceToNow, format } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
+import { ProfileImageUpload } from "@/components/profile-image-upload"
 import { SimpleProfileUpload } from "@/components/simple-profile-upload"
 
-// Define default empty profile structure
-const defaultProfile = {
-  name: "",
-  email: "",
-  phone: "",
-  dateOfBirth: "",
-  gender: "",
-  profile_picture: "",
-  createdAt: "",
-  height: "",
-  weight: "",
-  bloodType: "",
-  allergies: "",
-  medicalConditions: "",
-  medications: "",
-  emergencyContactName: "",
-  emergencyContactPhone: "",
-  emergencyContactRelation: "",
-  emailVerified: false,
-  phoneVerified: false,
-  twoFactorEnabled: false,
-  dataSharing: true,
-  anonymousDataCollection: true,
-  emailNotifications: true,
-  smsNotifications: false,
-  appNotifications: true,
-  accountType: "Standard",
-  subscriptionStatus: "Free",
-  lastLogin: "",
-  recentAssessments: [],
-  heartHealthScores: [],
+// Define the HealthService type
+type HealthService = {
+  id: string
+  name: string
+  icon: React.ReactNode
+  connected: boolean
+}
+
+// External Services Sync Component
+const ExternalServicesSync = ({
+  connectedServices,
+  onConnect,
+  onDisconnect,
+}: {
+  connectedServices: HealthService[]
+  onConnect: (service: HealthService) => void
+  onDisconnect: (serviceId: string) => void
+}) => {
+  const availableServices: HealthService[] = [
+    { id: "fitbit", name: "Fitbit", icon: <Activity className="h-5 w-5" />, connected: false },
+    { id: "apple-health", name: "Apple Health", icon: <Heart className="h-5 w-5" />, connected: false },
+    { id: "google-fit", name: "Google Fit", icon: <Activity className="h-5 w-5" />, connected: false },
+    { id: "samsung-health", name: "Samsung Health", icon: <Heart className="h-5 w-5" />, connected: false },
+  ]
+
+  // Update connected status based on connectedServices
+  const services = availableServices.map((service) => ({
+    ...service,
+    connected: connectedServices.some((cs) => cs.id === service.id),
+  }))
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {services.map((service) => (
+        <div
+          key={service.id}
+          className="bg-gray-50 p-4 rounded-md border border-gray-200 flex justify-between items-center"
+        >
+          <div className="flex items-center gap-3">
+            <div className="bg-white p-2 rounded-full">{service.icon}</div>
+            <div>
+              <p className="font-medium">{service.name}</p>
+              <p className="text-xs text-muted-foreground">{service.connected ? "Connected" : "Not connected"}</p>
+            </div>
+          </div>
+          <Button
+            variant={service.connected ? "outline" : "default"}
+            size="sm"
+            onClick={() => (service.connected ? onDisconnect(service.id) : onConnect(service))}
+          >
+            {service.connected ? "Disconnect" : "Connect"}
+          </Button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Recent Health Notifications Component
+const RecentHealthNotifications = ({ hasPendingHealth }: { hasPendingHealth: boolean }) => {
+  const notifications = [
+    {
+      id: 1,
+      title: "Heart Health Assessment Due",
+      description: "It's been 3 months since your last assessment",
+      date: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
+      type: "reminder",
+    },
+    {
+      id: 2,
+      title: "Blood Pressure Trend",
+      description: "Your blood pressure readings have improved over the last month",
+      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
+      type: "achievement",
+    },
+    {
+      id: 3,
+      title: "New Health Article",
+      description: "Read our latest article on heart-healthy diets",
+      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
+      type: "info",
+    },
+  ]
+
+  return (
+    <div className="space-y-4">
+      {notifications.length > 0 ? (
+        notifications.map((notification) => (
+          <div
+            key={notification.id}
+            className={`p-4 rounded-md border ${
+              notification.type === "reminder"
+                ? "bg-amber-50 border-amber-200"
+                : notification.type === "achievement"
+                  ? "bg-green-50 border-green-200"
+                  : "bg-blue-50 border-blue-200"
+            }`}
+          >
+            <div className="flex justify-between">
+              <div>
+                <h4 className="font-medium">{notification.title}</h4>
+                <p className="text-sm text-muted-foreground">{notification.description}</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {formatDistanceToNow(notification.date, { addSuffix: true })}
+              </p>
+            </div>
+          </div>
+        ))
+      ) : (
+        <div className="text-center py-8 bg-gray-50 rounded-md border border-gray-200">
+          <p className="text-muted-foreground">No notifications at this time</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Heart Health Routine Component
+const HeartHealthRoutine = () => {
+  const routines = [
+    {
+      id: 1,
+      title: "Morning Walk",
+      description: "30 minutes of brisk walking",
+      time: "7:00 AM",
+      completed: true,
+    },
+    {
+      id: 2,
+      title: "Blood Pressure Check",
+      description: "Record your blood pressure",
+      time: "9:00 AM",
+      completed: true,
+    },
+    {
+      id: 3,
+      title: "Medication",
+      description: "Take your daily medication",
+      time: "8:00 AM & 8:00 PM",
+      completed: false,
+    },
+    {
+      id: 4,
+      title: "Evening Relaxation",
+      description: "15 minutes of meditation",
+      time: "9:30 PM",
+      completed: false,
+    },
+  ]
+
+  return (
+    <div className="space-y-4">
+      {routines.map((routine) => (
+        <div
+          key={routine.id}
+          className={`p-4 rounded-md border ${
+            routine.completed ? "bg-gray-50 border-gray-200" : "bg-white border-gray-200"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-medium flex items-center">
+                {routine.completed && <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />}
+                {routine.title}
+              </h4>
+              <p className="text-sm text-muted-foreground">{routine.description}</p>
+              <p className="text-xs text-muted-foreground mt-1">{routine.time}</p>
+            </div>
+            {!routine.completed && (
+              <Button variant="outline" size="sm">
+                Mark Complete
+              </Button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export default function ProfilePage() {
-  const { user, isLoading, updateUserProfile, logout } = useAuth()
+  const { user, isLoading, updateUserProfile } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
-  // Component states
   const [activeTab, setActiveTab] = useState("personal")
-  const [isEditing, setIsEditing] = useState(false)
-  const [isFetchingProfile, setIsFetchingProfile] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false)
+  const [useSimpleUploader, setUseSimpleUploader] = useState(false)
 
-  // Data states
-  const [profileData, setProfileData] = useState(defaultProfile)
-  const [formData, setFormData] = useState(defaultProfile)
-  const [alert, setAlert] = useState({ type: null as "success" | "error" | null, message: "" })
+  // Profile data state
+  const [profileData, setProfileData] = useState({
+    // Personal Information
+    name: "",
+    email: "",
+    phone: "",
+    dateOfBirth: "",
+    gender: "",
+    profile_picture: "",
+    createdAt: "",
+
+    // Health Information
+    height: "",
+    weight: "",
+    bloodType: "",
+    allergies: "",
+    medicalConditions: "",
+    medications: "",
+    emergencyContactName: "",
+    emergencyContactPhone: "",
+    emergencyContactRelation: "",
+
+    // Account Information
+    accountType: "Standard",
+    lastLogin: "",
+    subscriptionStatus: "Free",
+    subscriptionRenewal: "",
+    emailNotifications: true,
+    smsNotifications: false,
+    appNotifications: true,
+
+    // Privacy & Security
+    twoFactorEnabled: false,
+    emailVerified: false,
+    phoneVerified: false,
+    dataSharing: true,
+    anonymousDataCollection: true,
+
+    // Activity Summary
+    recentAssessments: [],
+    heartHealthScores: [],
+    upcomingAppointments: [],
+    recentReports: [],
+  })
+
+  const [isEditing, setIsEditing] = useState(false)
+  const [formData, setFormData] = useState({
+    name: "",
+    phone: "",
+    dateOfBirth: "",
+    gender: "",
+    height: "",
+    weight: "",
+    bloodType: "",
+    allergies: "",
+    medicalConditions: "",
+    medications: "",
+    emergencyContactName: "",
+    emergencyContactPhone: "",
+    emergencyContactRelation: "",
+  })
+
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isFetchingProfile, setIsFetchingProfile] = useState(false)
+  const [alert, setAlert] = useState<{
+    type: "success" | "error" | null
+    message: string
+  }>({ type: null, message: "" })
+
+  const [connectedServices, setConnectedServices] = useState<HealthService[]>([])
+  const [showCalendar, setShowCalendar] = useState(false)
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
+  const [hasPendingHealth, setHasPendingHealth] = useState(false)
+  const [reminderDate, setReminderDate] = useState<Date | undefined>(undefined)
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push("/login")
+    } else if (user) {
+      // Fetch user profile data
+      fetchUserProfile()
+    }
+  }, [user, isLoading, router])
+
+  // Update profile data when user data changes
+  useEffect(() => {
+    if (user) {
+      setProfileData((prevData) => ({
+        ...prevData,
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        profile_picture: user.profile_picture || "",
+        emailVerified: true, // Assuming email is verified if user is logged in
+      }))
+    }
+  }, [user])
+
+  const fetchUserProfile = async () => {
+    if (isFetchingProfile) return
+
+    setIsFetchingProfile(true)
+    try {
+      console.log("Fetching user profile...")
+      const response = await fetch("/api/user/profile", {
+        method: "GET",
+        headers: {
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
+        cache: "no-store",
+      })
+
+      console.log("Profile response status:", response.status)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Profile fetch error:", errorData)
+        throw new Error(errorData.message || "Failed to fetch profile data")
+      }
+
+      const data = await response.json()
+      console.log("Profile data received:", data)
+
+      // Update profile data with fetched data
+      setProfileData((prevData) => ({
+        ...prevData,
+        name: data.name || user?.name || "",
+        email: data.email || user?.email || "",
+        phone: data.phone || user?.phone || "",
+        profile_picture: data.profile_picture || user?.profile_picture || "",
+        createdAt: data.created_at || "",
+        // Add any other fields that might be returned from the API
+      }))
+
+      // Also fetch health data if available
+      try {
+        const healthResponse = await fetch("/api/user/health-metrics", {
+          method: "GET",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+          cache: "no-store",
+        })
+
+        if (healthResponse.ok) {
+          const healthData = await healthResponse.json()
+          setProfileData((prevData) => ({
+            ...prevData,
+            height: healthData.height || "",
+            weight: healthData.weight || "",
+            bloodType: healthData.bloodType || "",
+            // Add other health fields
+          }))
+        }
+      } catch (healthError) {
+        console.error("Error fetching health data:", healthError)
+        // Don't throw error here, just log it
+      }
+
+      // Also fetch user predictions/assessments if available
+      try {
+        const predictionsResponse = await fetch("/api/user/predictions", {
+          method: "GET",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+          cache: "no-store",
+        })
+
+        if (predictionsResponse.ok) {
+          const predictionsData = await predictionsResponse.json()
+
+          // Format the predictions data for the UI
+          const formattedAssessments = predictionsData.map((pred: any) => ({
+            id: pred.id,
+            date: pred.created_at,
+            score: Math.round(pred.result * 100),
+            risk: getRiskLevel(pred.result * 100),
+          }))
+
+          // Extract scores for the chart
+          const scores = formattedAssessments.map((a: any) => a.score).reverse()
+
+          setProfileData((prevData) => ({
+            ...prevData,
+            recentAssessments: formattedAssessments,
+            heartHealthScores: scores,
+          }))
+        }
+      } catch (predictionsError) {
+        console.error("Error fetching predictions data:", predictionsError)
+        // Don't throw error here, just log it
+      }
+
+      // Initialize form data with profile data
+      setFormData({
+        name: data.name || user?.name || "",
+        phone: data.phone || user?.phone || "",
+        dateOfBirth: profileData.dateOfBirth,
+        gender: profileData.gender,
+        height: profileData.height,
+        weight: profileData.weight,
+        bloodType: profileData.bloodType,
+        allergies: profileData.allergies,
+        medicalConditions: profileData.medicalConditions,
+        medications: profileData.medications,
+        emergencyContactName: profileData.emergencyContactName,
+        emergencyContactPhone: profileData.emergencyContactPhone,
+        emergencyContactRelation: profileData.emergencyContactRelation,
+      })
+
+      // Clear any existing error
+      setAlert({ type: null, message: "" })
+    } catch (error) {
+      console.error("Error fetching profile:", error)
+      setAlert({
+        type: "error",
+        message: "Failed to load profile data. Please try again later.",
+      })
+    } finally {
+      setIsFetchingProfile(false)
+    }
+  }
+
+  const handleServiceConnection = (service: HealthService) => {
+    setConnectedServices((prev) => [...prev, service])
+    toast({
+      title: `Connected to ${service.name}`,
+      description: `Your ${service.name} health data will now sync with your profile.`,
+    })
+  }
+
+  const handleDisconnectService = (serviceId: string) => {
+    setConnectedServices((prev) => prev.filter((service) => service.id !== serviceId))
+    toast({
+      title: "Service disconnected",
+      description: "The service has been disconnected from your account.",
+    })
+  }
+
+  const handleSetReminder = (date: Date | undefined) => {
+    setReminderDate(date)
+    setShowCalendar(false)
+    if (date) {
+      toast({
+        title: "Health check reminder set",
+        description: `You'll receive a reminder on ${format(date, "MMMM d, yyyy")}`,
+      })
+    }
+  }
 
   // Helper function to determine risk level based on score
   const getRiskLevel = (score: number) => {
@@ -100,123 +497,6 @@ export default function ProfilePage() {
     return "High"
   }
 
-  // Handle fetch user profile data - defined with useCallback to prevent recreation on each render
-  const fetchUserProfile = useCallback(async () => {
-    if (isFetchingProfile || !user) return
-
-    setIsFetchingProfile(true)
-
-    try {
-      console.log("Fetching profile data...")
-
-      // Start with data from auth context
-      const baseProfile = {
-        ...defaultProfile,
-        name: user.name || "",
-        email: user.email || "",
-        phone: user.phone || "",
-        profile_picture: user.profile_picture || "",
-      }
-
-      // Initialize with this data
-      setProfileData(baseProfile)
-
-      // Try to fetch additional profile data
-      const profilePromise = fetch("/api/user/profile")
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data) {
-            setProfileData((prev) => ({
-              ...prev,
-              name: data.name || prev.name,
-              email: data.email || prev.email,
-              phone: data.phone || prev.phone,
-              profile_picture: data.profile_picture || prev.profile_picture,
-              createdAt: data.created_at || prev.createdAt,
-            }))
-          }
-        })
-        .catch((err) => console.error("Error fetching profile:", err))
-
-      // Try to fetch health data in parallel
-      const healthPromise = fetch("/api/user/health-metrics")
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data) {
-            setProfileData((prev) => ({
-              ...prev,
-              height: data.height || prev.height,
-              weight: data.weight || prev.weight,
-              bloodType: data.bloodType || prev.bloodType,
-            }))
-          }
-        })
-        .catch((err) => console.error("Error fetching health metrics:", err))
-
-      // Try to fetch prediction data in parallel
-      const predictionsPromise = fetch("/api/user/predictions")
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data && Array.isArray(data)) {
-            const formattedAssessments = data.map((pred) => ({
-              id: pred.id,
-              date: pred.created_at,
-              score: Math.round(pred.result * 100),
-              risk: getRiskLevel(Math.round(pred.result * 100)),
-            }))
-
-            const scores = formattedAssessments.map((a) => a.score).reverse()
-
-            setProfileData((prev) => ({
-              ...prev,
-              recentAssessments: formattedAssessments,
-              heartHealthScores: scores,
-            }))
-          }
-        })
-        .catch((err) => console.error("Error fetching predictions:", err))
-
-      // Wait for all promises to settle (whether fulfilled or rejected)
-      await Promise.allSettled([profilePromise, healthPromise, predictionsPromise])
-
-      // Clear any errors
-      setAlert({ type: null, message: "" })
-    } catch (error) {
-      console.error("Error in profile data loading:", error)
-      setAlert({
-        type: "error",
-        message: "Failed to load some profile data. Please try again later.",
-      })
-    } finally {
-      setIsFetchingProfile(false)
-      setHasAttemptedLoad(true)
-    }
-  }, [user])
-
-  // Update form data when profile data changes and we're not editing
-  useEffect(() => {
-    if (!isEditing) {
-      setFormData({
-        ...profileData,
-      })
-    }
-  }, [profileData, isEditing])
-
-  // Initial load and auth check effect
-  useEffect(() => {
-    // Redirect if not logged in
-    if (!isLoading && !user) {
-      router.push("/login")
-      return
-    }
-
-    // Load profile data once user is available and we haven't already tried
-    if (user && !hasAttemptedLoad && !isFetchingProfile) {
-      fetchUserProfile()
-    }
-  }, [user, isLoading, router, hasAttemptedLoad, fetchUserProfile, isFetchingProfile])
-
-  // Form handlers
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({
@@ -238,17 +518,19 @@ export default function ProfilePage() {
     setAlert({ type: null, message: "" })
 
     try {
-      // Only send required fields to the API to reduce payload size
-      const updatePayload = {
-        name: formData.name,
-        phone: formData.phone,
-        // Add other fields as needed
-      }
+      console.log("Submitting profile update:", formData)
 
+      // Send the update to the API
       const response = await fetch("/api/user/profile", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatePayload),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          phone: formData.phone,
+          // Add other fields as needed
+        }),
       })
 
       if (!response.ok) {
@@ -256,18 +538,28 @@ export default function ProfilePage() {
         throw new Error(errorData.message || "Failed to update profile")
       }
 
-      // Get updated data from response
       const updatedProfile = await response.json()
 
-      // Update profile with all form data and any returned data from API
+      // Update the profile data state
       setProfileData((prev) => ({
         ...prev,
-        ...formData,
         name: updatedProfile.name || formData.name,
         phone: updatedProfile.phone || formData.phone,
+        // Update other fields from form data
+        dateOfBirth: formData.dateOfBirth,
+        gender: formData.gender,
+        height: formData.height,
+        weight: formData.weight,
+        bloodType: formData.bloodType,
+        allergies: formData.allergies,
+        medicalConditions: formData.medicalConditions,
+        medications: formData.medications,
+        emergencyContactName: formData.emergencyContactName,
+        emergencyContactPhone: formData.emergencyContactPhone,
+        emergencyContactRelation: formData.emergencyContactRelation,
       }))
 
-      // Update auth context if available
+      // Update the auth context if available
       if (updateUserProfile) {
         updateUserProfile({
           name: formData.name,
@@ -280,7 +572,6 @@ export default function ProfilePage() {
         type: "success",
         message: "Profile updated successfully!",
       })
-
       toast({
         title: "Success",
         description: "Your profile has been updated successfully!",
@@ -295,7 +586,6 @@ export default function ProfilePage() {
         type: "error",
         message: error.message || "An error occurred while updating your profile",
       })
-
       toast({
         title: "Error",
         description: error.message || "An error occurred while updating your profile",
@@ -312,34 +602,31 @@ export default function ProfilePage() {
       profile_picture: imageUrl,
     }))
 
-    // Update auth context if available
+    // Update the auth context if available
     if (updateUserProfile) {
-      updateUserProfile({ profile_picture: imageUrl })
+      updateUserProfile({
+        profile_picture: imageUrl,
+      })
     }
+  }
+
+  const handleAdvancedUploaderError = () => {
+    setUseSimpleUploader(true)
+    toast({
+      title: "Using simple uploader",
+      description: "We've switched to a simpler upload method that may work better.",
+    })
   }
 
   const handleToggleChange = (setting: string) => {
-    const currentValue = profileData[setting as keyof typeof profileData]
+    setProfileData((prev) => ({
+      ...prev,
+      [setting]: !prev[setting as keyof typeof prev],
+    }))
 
-    // Only proceed if the setting is a boolean
-    if (typeof currentValue === "boolean") {
-      const newValue = !currentValue
-
-      setProfileData((prev) => ({
-        ...prev,
-        [setting]: newValue,
-      }))
-
-      toast({
-        title: "Setting updated",
-        description: `${setting} has been ${newValue ? "enabled" : "disabled"}.`,
-      })
-
-      // In a real app, you would also send this update to the API
-    }
+    // In a real app, you would also send this update to the API
   }
 
-  // Show loading state while auth is loading
   if (isLoading) {
     return (
       <div className="container mx-auto py-10">
@@ -401,39 +688,43 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex justify-center mb-6">
-            <div className="relative">
-              <Avatar className="h-24 w-24 border-2 border-primary">
-                <AvatarImage
-                  src={profileData.profile_picture || "/abstract-profile.png"}
-                  alt={profileData.name || "User"}
-                />
-                <AvatarFallback>{profileData.name?.[0]?.toUpperCase() || "U"}</AvatarFallback>
-              </Avatar>
-              {user && (
-                <SimpleProfileUpload
+            {useSimpleUploader ? (
+              <SimpleProfileUpload
+                currentImage={profileData.profile_picture || null}
+                onImageUpdate={handleProfileImageUpdate}
+              />
+            ) : (
+              <div>
+                <ProfileImageUpload
                   currentImage={profileData.profile_picture || null}
                   onImageUpdate={handleProfileImageUpdate}
                 />
-              )}
-            </div>
+                <Button variant="link" size="sm" onClick={handleAdvancedUploaderError} className="text-xs mt-2">
+                  Having trouble? Try simple uploader
+                </Button>
+              </div>
+            )}
           </div>
 
-          {isFetchingProfile ? (
+          {isFetchingProfile && !alert.type ? (
             <div className="flex flex-col items-center justify-center py-8">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
               <p className="text-sm text-muted-foreground mt-4">Loading profile data...</p>
             </div>
           ) : (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid grid-cols-4 mb-6">
+              <TabsList className="grid grid-cols-5 mb-6">
                 <TabsTrigger value="personal" className="flex items-center gap-2">
                   <User className="h-4 w-4" /> Personal
                 </TabsTrigger>
                 <TabsTrigger value="health" className="flex items-center gap-2">
                   <Heart className="h-4 w-4" /> Health
                 </TabsTrigger>
-                <TabsTrigger value="security" className="flex items-center gap-2">
-                  <Shield className="h-4 w-4" /> Security
+                <TabsTrigger value="account" className="flex items-center gap-2">
+                  <UserCog className="h-4 w-4" /> Account
+                </TabsTrigger>
+                <TabsTrigger value="privacy" className="flex items-center gap-2">
+                  <Shield className="h-4 w-4" /> Privacy
                 </TabsTrigger>
                 <TabsTrigger value="activity" className="flex items-center gap-2">
                   <Activity className="h-4 w-4" /> Activity
@@ -499,50 +790,39 @@ export default function ProfilePage() {
                     </div>
 
                     <div className="flex justify-end space-x-2 pt-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => setIsEditing(false)}
-                        disabled={isSubmitting}
-                        type="button"
-                      >
+                      <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isSubmitting}>
                         Cancel
                       </Button>
                       <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
-                          </>
-                        ) : (
-                          "Save Changes"
-                        )}
+                        {isSubmitting ? "Saving..." : "Save Changes"}
                       </Button>
                     </div>
                   </form>
                 ) : (
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 gap-6">
-                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
+                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <User className="h-4 w-4" /> Name
                         </div>
                         <div className="font-medium">{profileData.name || "Not provided"}</div>
                       </div>
 
-                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
+                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Mail className="h-4 w-4" /> Email
                         </div>
                         <div className="font-medium">{profileData.email || "Not provided"}</div>
                       </div>
 
-                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
+                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Phone className="h-4 w-4" /> Phone
                         </div>
                         <div className="font-medium">{profileData.phone || "Not provided"}</div>
                       </div>
 
-                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
+                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Calendar className="h-4 w-4" /> Date of Birth
                         </div>
@@ -553,7 +833,7 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
+                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <User className="h-4 w-4" /> Gender
                         </div>
@@ -691,29 +971,18 @@ export default function ProfilePage() {
                     </div>
 
                     <div className="flex justify-end space-x-2 pt-4">
-                      <Button
-                        variant="outline"
-                        onClick={() => setIsEditing(false)}
-                        disabled={isSubmitting}
-                        type="button"
-                      >
+                      <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isSubmitting}>
                         Cancel
                       </Button>
                       <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
-                          </>
-                        ) : (
-                          "Save Changes"
-                        )}
+                        {isSubmitting ? "Saving..." : "Save Changes"}
                       </Button>
                     </div>
                   </form>
                 ) : (
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
+                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Ruler className="h-4 w-4" /> Height
                         </div>
@@ -722,7 +991,7 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
+                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Weight className="h-4 w-4" /> Weight
                         </div>
@@ -731,14 +1000,14 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
+                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Droplet className="h-4 w-4" /> Blood Type
                         </div>
                         <div className="font-medium">{profileData.bloodType || "Not provided"}</div>
                       </div>
 
-                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
+                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <AlertTriangle className="h-4 w-4" /> Allergies
                         </div>
@@ -746,14 +1015,14 @@ export default function ProfilePage() {
                       </div>
                     </div>
 
-                    <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
+                    <div className="space-y-2 profile-hover-item p-3 rounded-md">
                       <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                         <Heart className="h-4 w-4" /> Medical Conditions
                       </div>
                       <div className="font-medium">{profileData.medicalConditions || "None"}</div>
                     </div>
 
-                    <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
+                    <div className="space-y-2 profile-hover-item p-3 rounded-md">
                       <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                         <Pill className="h-4 w-4" /> Medications
                       </div>
@@ -766,17 +1035,17 @@ export default function ProfilePage() {
                       </h3>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
+                        <div className="space-y-2 profile-hover-item p-3 rounded-md">
                           <div className="text-sm font-medium text-muted-foreground">Name</div>
                           <div className="font-medium">{profileData.emergencyContactName || "Not provided"}</div>
                         </div>
 
-                        <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
+                        <div className="space-y-2 profile-hover-item p-3 rounded-md">
                           <div className="text-sm font-medium text-muted-foreground">Phone</div>
                           <div className="font-medium">{profileData.emergencyContactPhone || "Not provided"}</div>
                         </div>
 
-                        <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
+                        <div className="space-y-2 profile-hover-item p-3 rounded-md">
                           <div className="text-sm font-medium text-muted-foreground">Relationship</div>
                           <div className="font-medium">{profileData.emergencyContactRelation || "Not provided"}</div>
                         </div>
@@ -790,8 +1059,107 @@ export default function ProfilePage() {
                 )}
               </TabsContent>
 
-              {/* Security Tab */}
-              <TabsContent value="security">
+              {/* Account Information Tab */}
+              <TabsContent value="account">
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                      <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                        <BadgeCheck className="h-4 w-4" /> Account Type
+                      </div>
+                      <div className="font-medium">{profileData.accountType}</div>
+                    </div>
+
+                    <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                      <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                        <Calendar className="h-4 w-4" /> Member Since
+                      </div>
+                      <div className="font-medium">
+                        {profileData.createdAt
+                          ? `${formatDistanceToNow(new Date(profileData.createdAt))} ago`
+                          : "Unknown"}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                      <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                        <Clock className="h-4 w-4" /> Last Login
+                      </div>
+                      <div className="font-medium">
+                        {profileData.lastLogin
+                          ? `${formatDistanceToNow(new Date(profileData.lastLogin))} ago`
+                          : "Unknown"}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                      <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                        <CreditCard className="h-4 w-4" /> Subscription Status
+                      </div>
+                      <div className="font-medium">{profileData.subscriptionStatus}</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                    <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                      <Calendar className="h-4 w-4" /> Subscription Renewal
+                    </div>
+                    <div className="font-medium">
+                      {profileData.subscriptionRenewal
+                        ? format(new Date(profileData.subscriptionRenewal), "MMMM d, yyyy")
+                        : "N/A"}
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                      <Bell className="h-5 w-5" /> Notification Preferences
+                    </h3>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Email Notifications</p>
+                          <p className="text-sm text-muted-foreground">Receive updates via email</p>
+                        </div>
+                        <Switch
+                          checked={profileData.emailNotifications}
+                          onCheckedChange={() => handleToggleChange("emailNotifications")}
+                        />
+                      </div>
+
+                      <Separator />
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">SMS Notifications</p>
+                          <p className="text-sm text-muted-foreground">Receive updates via text message</p>
+                        </div>
+                        <Switch
+                          checked={profileData.smsNotifications}
+                          onCheckedChange={() => handleToggleChange("smsNotifications")}
+                        />
+                      </div>
+
+                      <Separator />
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">App Notifications</p>
+                          <p className="text-sm text-muted-foreground">Receive push notifications</p>
+                        </div>
+                        <Switch
+                          checked={profileData.appNotifications}
+                          onCheckedChange={() => handleToggleChange("appNotifications")}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Privacy & Security Tab */}
+              <TabsContent value="privacy">
                 <div className="space-y-6">
                   <div className="pt-2">
                     <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
@@ -799,7 +1167,7 @@ export default function ProfilePage() {
                     </h3>
 
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors p-4 rounded-md">
+                      <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium">Two-Factor Authentication</p>
                           <p className="text-sm text-muted-foreground">
@@ -812,18 +1180,15 @@ export default function ProfilePage() {
                           >
                             {profileData.twoFactorEnabled ? "Enabled" : "Disabled"}
                           </span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleToggleChange("twoFactorEnabled")}
-                            type="button"
-                          >
+                          <Button variant="outline" size="sm">
                             {profileData.twoFactorEnabled ? "Disable" : "Enable"}
                           </Button>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors p-4 rounded-md">
+                      <Separator />
+
+                      <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium">Email Verification</p>
                           <p className="text-sm text-muted-foreground">Verify your email address</p>
@@ -834,24 +1199,16 @@ export default function ProfilePage() {
                               <CheckCircle2 className="h-4 w-4 mr-1" /> Verified
                             </span>
                           ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                toast({
-                                  title: "Verification email sent",
-                                  description: "Please check your inbox for the verification link.",
-                                })
-                              }}
-                              type="button"
-                            >
+                            <Button variant="outline" size="sm">
                               Verify Email
                             </Button>
                           )}
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors p-4 rounded-md">
+                      <Separator />
+
+                      <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium">Phone Verification</p>
                           <p className="text-sm text-muted-foreground">Verify your phone number</p>
@@ -862,17 +1219,7 @@ export default function ProfilePage() {
                               <CheckCircle2 className="h-4 w-4 mr-1" /> Verified
                             </span>
                           ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                toast({
-                                  title: "Verification SMS sent",
-                                  description: "Please check your phone for the verification code.",
-                                })
-                              }}
-                              type="button"
-                            >
+                            <Button variant="outline" size="sm">
                               Verify Phone
                             </Button>
                           )}
@@ -887,7 +1234,7 @@ export default function ProfilePage() {
                     </h3>
 
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors p-4 rounded-md">
+                      <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium">Data Sharing with Healthcare Providers</p>
                           <p className="text-sm text-muted-foreground">
@@ -895,12 +1242,14 @@ export default function ProfilePage() {
                           </p>
                         </div>
                         <Switch
-                          checked={!!profileData.dataSharing}
+                          checked={profileData.dataSharing}
                           onCheckedChange={() => handleToggleChange("dataSharing")}
                         />
                       </div>
 
-                      <div className="flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors p-4 rounded-md">
+                      <Separator />
+
+                      <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium">Anonymous Data Collection</p>
                           <p className="text-sm text-muted-foreground">
@@ -908,7 +1257,7 @@ export default function ProfilePage() {
                           </p>
                         </div>
                         <Switch
-                          checked={!!profileData.anonymousDataCollection}
+                          checked={profileData.anonymousDataCollection}
                           onCheckedChange={() => handleToggleChange("anonymousDataCollection")}
                         />
                       </div>
@@ -920,41 +1269,15 @@ export default function ProfilePage() {
                     <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
                       <KeyRound className="h-5 w-5" /> Password Management
                     </h3>
-                    <div className="bg-gray-50 hover:bg-gray-100 transition-colors p-4 rounded-md">
+                    <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium">Change your password</p>
                           <p className="text-sm text-gray-500">Update your password to keep your account secure</p>
                         </div>
                         <Link href="/change-password">
-                          <Button variant="outline" type="button">
-                            Change Password
-                          </Button>
+                          <Button variant="outline">Change Password</Button>
                         </Link>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Logout Section */}
-                  <div className="pt-4 border-t">
-                    <div className="bg-red-50 p-4 rounded-md border border-red-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">Log out of your account</p>
-                          <p className="text-sm text-gray-500">You will need to log in again to access your account</p>
-                        </div>
-                        <Button
-                          variant="destructive"
-                          onClick={() => {
-                            if (logout) {
-                              logout()
-                              router.push("/")
-                            }
-                          }}
-                          type="button"
-                        >
-                          Log Out
-                        </Button>
                       </div>
                     </div>
                   </div>
@@ -982,7 +1305,7 @@ export default function ProfilePage() {
                           </thead>
                           <tbody>
                             {profileData.recentAssessments.map((assessment: any) => (
-                              <tr key={assessment.id} className="border-b hover:bg-gray-50">
+                              <tr key={assessment.id} className="border-b">
                                 <td className="py-3 px-4">{format(new Date(assessment.date), "MMM d, yyyy")}</td>
                                 <td className="py-3 px-4">{assessment.score}</td>
                                 <td className="py-3 px-4">
@@ -998,27 +1321,13 @@ export default function ProfilePage() {
                                     {assessment.risk}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4">
-                                  <div className="flex gap-2">
-                                    <Link href={`/predict/results/${assessment.id}`}>
-                                      <Button variant="link" size="sm" className="p-0 h-auto">
-                                        View Details
-                                      </Button>
-                                    </Link>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-auto"
-                                      onClick={() => {
-                                        toast({
-                                          title: "Generating PDF",
-                                          description: "Your assessment PDF is being generated.",
-                                        })
-                                      }}
-                                    >
-                                      <FileText className="h-4 w-4 mr-1" /> PDF
-                                    </Button>
-                                  </div>
+                                <td className="py-3 px-4 flex gap-2">
+                                  <Button variant="link" size="sm" className="p-0 h-auto">
+                                    View Details
+                                  </Button>
+                                  <Button variant="ghost" size="sm" className="h-auto">
+                                    <FileText className="h-4 w-4 mr-1" /> PDF
+                                  </Button>
                                 </td>
                               </tr>
                             ))}
@@ -1028,11 +1337,9 @@ export default function ProfilePage() {
                     ) : (
                       <div className="text-center py-8 bg-gray-50 rounded-md border border-gray-200">
                         <p className="text-muted-foreground">No health assessments found</p>
-                        <Link href="/predict">
-                          <Button variant="link" className="mt-2">
-                            Take an assessment
-                          </Button>
-                        </Link>
+                        <Button variant="link" className="mt-2">
+                          Take an assessment
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -1044,7 +1351,7 @@ export default function ProfilePage() {
 
                     {profileData.heartHealthScores && profileData.heartHealthScores.length > 0 ? (
                       <div className="bg-white p-4 rounded-md border border-gray-200 h-48">
-                        {/* Visual representation of scores */}
+                        {/* Visual representation of scores would go here */}
                         <div className="h-full flex items-end justify-between gap-2">
                           {profileData.heartHealthScores.map((score: number, index: number) => (
                             <div key={index} className="flex flex-col items-center">
@@ -1069,50 +1376,90 @@ export default function ProfilePage() {
                     )}
                   </div>
 
-                  {/* Account Information */}
+                  {/* Connected Health Services Section */}
                   <div className="pt-4 border-t">
                     <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-                      <UserCog className="h-5 w-5" /> Account Information
+                      <RefreshCw className="h-5 w-5" /> Connected Health Services
                     </h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
-                        <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                          <BadgeCheck className="h-4 w-4" /> Account Type
+                    <ExternalServicesSync
+                      connectedServices={connectedServices}
+                      onConnect={handleServiceConnection}
+                      onDisconnect={handleDisconnectService}
+                    />
+                  </div>
+
+                  {/* Health Check Reminder Section */}
+                  <div className="pt-4 border-t">
+                    <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                      <Bell className="h-5 w-5" /> Health Check Reminder
+                    </h3>
+
+                    <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Schedule your next health check</p>
+                          <p className="text-sm text-muted-foreground">
+                            {reminderDate
+                              ? `Reminder set for ${format(reminderDate, "MMMM d, yyyy")}`
+                              : "No reminder set yet"}
+                          </p>
                         </div>
-                        <div className="font-medium">{profileData.accountType}</div>
+                        <Button variant="outline" onClick={() => setShowCalendar(!showCalendar)}>
+                          <CalendarIcon className="h-4 w-4 mr-2" />
+                          {reminderDate ? "Change date" : "Set reminder"}
+                        </Button>
                       </div>
 
-                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
-                        <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                          <Calendar className="h-4 w-4" /> Member Since
+                      {showCalendar && (
+                        <div className="mt-4 p-4 bg-white border rounded-md">
+                          <div className="flex justify-end mb-2">
+                            <Button variant="ghost" size="sm" onClick={() => setShowCalendar(false)}>
+                              Close
+                            </Button>
+                          </div>
+                          <div className="flex flex-col space-y-4">
+                            <div className="grid grid-cols-7 gap-2">
+                              {Array.from({ length: 30 }, (_, i) => {
+                                const date = new Date()
+                                date.setDate(date.getDate() + i + 1)
+                                return (
+                                  <Button
+                                    key={i}
+                                    variant="outline"
+                                    className="h-10 p-0"
+                                    onClick={() => handleSetReminder(date)}
+                                  >
+                                    {date.getDate()}
+                                  </Button>
+                                )
+                              })}
+                            </div>
+                            <Button variant="outline" onClick={() => handleSetReminder(undefined)}>
+                              Clear reminder
+                            </Button>
+                          </div>
                         </div>
-                        <div className="font-medium">
-                          {profileData.createdAt
-                            ? `${formatDistanceToNow(new Date(profileData.createdAt))} ago`
-                            : "Unknown"}
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Take New Assessment Button */}
+                  {/* Recent Health Notifications */}
                   <div className="pt-4 border-t">
-                    <div className="bg-primary/10 p-4 rounded-md border border-primary/20">
-                      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div>
-                          <p className="font-medium">Take a new heart health assessment</p>
-                          <p className="text-sm text-muted-foreground">
-                            Regular assessments help track your heart health over time
-                          </p>
-                        </div>
-                        <Link href="/predict">
-                          <Button>
-                            <Heart className="h-4 w-4 mr-2" /> Start Assessment
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
+                    <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                      <Bell className="h-5 w-5" /> Health Notifications
+                    </h3>
+
+                    <RecentHealthNotifications hasPendingHealth={hasPendingHealth} />
+                  </div>
+
+                  {/* Personalized Health Routine */}
+                  <div className="pt-4 border-t">
+                    <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                      <Calendar className="h-5 w-5" /> Your Heart Health Routine
+                    </h3>
+
+                    <HeartHealthRoutine />
                   </div>
                 </div>
               </TabsContent>
