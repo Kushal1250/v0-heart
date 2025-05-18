@@ -6,14 +6,14 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   AlertCircle,
   CheckCircle2,
@@ -26,7 +26,6 @@ import {
   Loader2,
   Heart,
   Shield,
-  Bell,
   UserCog,
   Activity,
   Ruler,
@@ -35,212 +34,28 @@ import {
   AlertTriangle,
   Pill,
   UserPlus,
-  CreditCard,
-  Clock,
   BadgeCheck,
   Lock,
   FileText,
-  CalendarIcon,
   TrendingUp,
 } from "lucide-react"
 import { formatDistanceToNow, format } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
-import { ProfileImageUpload } from "@/components/profile-image-upload"
 import { SimpleProfileUpload } from "@/components/simple-profile-upload"
 
-// Define the HealthService type
-type HealthService = {
-  id: string
-  name: string
-  icon: React.ReactNode
-  connected: boolean
-}
-
-// External Services Sync Component
-const ExternalServicesSync = ({
-  connectedServices,
-  onConnect,
-  onDisconnect,
-}: {
-  connectedServices: HealthService[]
-  onConnect: (service: HealthService) => void
-  onDisconnect: (serviceId: string) => void
-}) => {
-  const availableServices: HealthService[] = [
-    { id: "fitbit", name: "Fitbit", icon: <Activity className="h-5 w-5" />, connected: false },
-    { id: "apple-health", name: "Apple Health", icon: <Heart className="h-5 w-5" />, connected: false },
-    { id: "google-fit", name: "Google Fit", icon: <Activity className="h-5 w-5" />, connected: false },
-    { id: "samsung-health", name: "Samsung Health", icon: <Heart className="h-5 w-5" />, connected: false },
-  ]
-
-  // Update connected status based on connectedServices
-  const services = availableServices.map((service) => ({
-    ...service,
-    connected: connectedServices.some((cs) => cs.id === service.id),
-  }))
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {services.map((service) => (
-        <div
-          key={service.id}
-          className="bg-gray-50 p-4 rounded-md border border-gray-200 flex justify-between items-center"
-        >
-          <div className="flex items-center gap-3">
-            <div className="bg-white p-2 rounded-full">{service.icon}</div>
-            <div>
-              <p className="font-medium">{service.name}</p>
-              <p className="text-xs text-muted-foreground">{service.connected ? "Connected" : "Not connected"}</p>
-            </div>
-          </div>
-          <Button
-            variant={service.connected ? "outline" : "default"}
-            size="sm"
-            onClick={() => (service.connected ? onDisconnect(service.id) : onConnect(service))}
-          >
-            {service.connected ? "Disconnect" : "Connect"}
-          </Button>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// Recent Health Notifications Component
-const RecentHealthNotifications = ({ hasPendingHealth }: { hasPendingHealth: boolean }) => {
-  const notifications = [
-    {
-      id: 1,
-      title: "Heart Health Assessment Due",
-      description: "It's been 3 months since your last assessment",
-      date: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-      type: "reminder",
-    },
-    {
-      id: 2,
-      title: "Blood Pressure Trend",
-      description: "Your blood pressure readings have improved over the last month",
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
-      type: "achievement",
-    },
-    {
-      id: 3,
-      title: "New Health Article",
-      description: "Read our latest article on heart-healthy diets",
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
-      type: "info",
-    },
-  ]
-
-  return (
-    <div className="space-y-4">
-      {notifications.length > 0 ? (
-        notifications.map((notification) => (
-          <div
-            key={notification.id}
-            className={`p-4 rounded-md border ${
-              notification.type === "reminder"
-                ? "bg-amber-50 border-amber-200"
-                : notification.type === "achievement"
-                  ? "bg-green-50 border-green-200"
-                  : "bg-blue-50 border-blue-200"
-            }`}
-          >
-            <div className="flex justify-between">
-              <div>
-                <h4 className="font-medium">{notification.title}</h4>
-                <p className="text-sm text-muted-foreground">{notification.description}</p>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {formatDistanceToNow(notification.date, { addSuffix: true })}
-              </p>
-            </div>
-          </div>
-        ))
-      ) : (
-        <div className="text-center py-8 bg-gray-50 rounded-md border border-gray-200">
-          <p className="text-muted-foreground">No notifications at this time</p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Heart Health Routine Component
-const HeartHealthRoutine = () => {
-  const routines = [
-    {
-      id: 1,
-      title: "Morning Walk",
-      description: "30 minutes of brisk walking",
-      time: "7:00 AM",
-      completed: true,
-    },
-    {
-      id: 2,
-      title: "Blood Pressure Check",
-      description: "Record your blood pressure",
-      time: "9:00 AM",
-      completed: true,
-    },
-    {
-      id: 3,
-      title: "Medication",
-      description: "Take your daily medication",
-      time: "8:00 AM & 8:00 PM",
-      completed: false,
-    },
-    {
-      id: 4,
-      title: "Evening Relaxation",
-      description: "15 minutes of meditation",
-      time: "9:30 PM",
-      completed: false,
-    },
-  ]
-
-  return (
-    <div className="space-y-4">
-      {routines.map((routine) => (
-        <div
-          key={routine.id}
-          className={`p-4 rounded-md border ${
-            routine.completed ? "bg-gray-50 border-gray-200" : "bg-white border-gray-200"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="font-medium flex items-center">
-                {routine.completed && <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />}
-                {routine.title}
-              </h4>
-              <p className="text-sm text-muted-foreground">{routine.description}</p>
-              <p className="text-xs text-muted-foreground mt-1">{routine.time}</p>
-            </div>
-            {!routine.completed && (
-              <Button variant="outline" size="sm">
-                Mark Complete
-              </Button>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 export default function ProfilePage() {
-  const { user, isLoading, updateUserProfile } = useAuth()
+  const { user, isLoading, updateUserProfile, logout } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
   const [activeTab, setActiveTab] = useState("personal")
-  const [useSimpleUploader, setUseSimpleUploader] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [isFetchingProfile, setIsFetchingProfile] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Profile data state
   const [profileData, setProfileData] = useState({
-    // Personal Information
     name: "",
     email: "",
     phone: "",
@@ -248,8 +63,6 @@ export default function ProfilePage() {
     gender: "",
     profile_picture: "",
     createdAt: "",
-
-    // Health Information
     height: "",
     weight: "",
     bloodType: "",
@@ -259,31 +72,22 @@ export default function ProfilePage() {
     emergencyContactName: "",
     emergencyContactPhone: "",
     emergencyContactRelation: "",
-
-    // Account Information
-    accountType: "Standard",
-    lastLogin: "",
-    subscriptionStatus: "Free",
-    subscriptionRenewal: "",
+    emailVerified: false,
+    phoneVerified: false,
+    twoFactorEnabled: false,
+    dataSharing: true,
+    anonymousDataCollection: true,
     emailNotifications: true,
     smsNotifications: false,
     appNotifications: true,
-
-    // Privacy & Security
-    twoFactorEnabled: false,
-    emailVerified: false,
-    phoneVerified: false,
-    dataSharing: true,
-    anonymousDataCollection: true,
-
-    // Activity Summary
+    accountType: "Standard",
+    subscriptionStatus: "Free",
+    lastLogin: "",
     recentAssessments: [],
     heartHealthScores: [],
-    upcomingAppointments: [],
-    recentReports: [],
   })
 
-  const [isEditing, setIsEditing] = useState(false)
+  // Form data for editing
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -300,19 +104,12 @@ export default function ProfilePage() {
     emergencyContactRelation: "",
   })
 
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isFetchingProfile, setIsFetchingProfile] = useState(false)
   const [alert, setAlert] = useState<{
     type: "success" | "error" | null
     message: string
   }>({ type: null, message: "" })
 
-  const [connectedServices, setConnectedServices] = useState<HealthService[]>([])
-  const [showCalendar, setShowCalendar] = useState(false)
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
-  const [hasPendingHealth, setHasPendingHealth] = useState(false)
-  const [reminderDate, setReminderDate] = useState<Date | undefined>(undefined)
-
+  // Redirect if not logged in
   useEffect(() => {
     if (!isLoading && !user) {
       router.push("/login")
@@ -331,7 +128,12 @@ export default function ProfilePage() {
         email: user.email || "",
         phone: user.phone || "",
         profile_picture: user.profile_picture || "",
-        emailVerified: true, // Assuming email is verified if user is logged in
+      }))
+
+      setFormData((prevForm) => ({
+        ...prevForm,
+        name: user.name || "",
+        phone: user.phone || "",
       }))
     }
   }, [user])
@@ -346,12 +148,9 @@ export default function ProfilePage() {
         method: "GET",
         headers: {
           "Cache-Control": "no-cache",
-          Pragma: "no-cache",
         },
         cache: "no-store",
       })
-
-      console.log("Profile response status:", response.status)
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -369,7 +168,7 @@ export default function ProfilePage() {
         email: data.email || user?.email || "",
         phone: data.phone || user?.phone || "",
         profile_picture: data.profile_picture || user?.profile_picture || "",
-        createdAt: data.created_at || "",
+        createdAt: data.createdAt || "",
         // Add any other fields that might be returned from the API
       }))
 
@@ -395,7 +194,6 @@ export default function ProfilePage() {
         }
       } catch (healthError) {
         console.error("Error fetching health data:", healthError)
-        // Don't throw error here, just log it
       }
 
       // Also fetch user predictions/assessments if available
@@ -430,7 +228,6 @@ export default function ProfilePage() {
         }
       } catch (predictionsError) {
         console.error("Error fetching predictions data:", predictionsError)
-        // Don't throw error here, just log it
       }
 
       // Initialize form data with profile data
@@ -460,33 +257,6 @@ export default function ProfilePage() {
       })
     } finally {
       setIsFetchingProfile(false)
-    }
-  }
-
-  const handleServiceConnection = (service: HealthService) => {
-    setConnectedServices((prev) => [...prev, service])
-    toast({
-      title: `Connected to ${service.name}`,
-      description: `Your ${service.name} health data will now sync with your profile.`,
-    })
-  }
-
-  const handleDisconnectService = (serviceId: string) => {
-    setConnectedServices((prev) => prev.filter((service) => service.id !== serviceId))
-    toast({
-      title: "Service disconnected",
-      description: "The service has been disconnected from your account.",
-    })
-  }
-
-  const handleSetReminder = (date: Date | undefined) => {
-    setReminderDate(date)
-    setShowCalendar(false)
-    if (date) {
-      toast({
-        title: "Health check reminder set",
-        description: `You'll receive a reminder on ${format(date, "MMMM d, yyyy")}`,
-      })
     }
   }
 
@@ -610,14 +380,6 @@ export default function ProfilePage() {
     }
   }
 
-  const handleAdvancedUploaderError = () => {
-    setUseSimpleUploader(true)
-    toast({
-      title: "Using simple uploader",
-      description: "We've switched to a simpler upload method that may work better.",
-    })
-  }
-
   const handleToggleChange = (setting: string) => {
     setProfileData((prev) => ({
       ...prev,
@@ -625,6 +387,10 @@ export default function ProfilePage() {
     }))
 
     // In a real app, you would also send this update to the API
+    toast({
+      title: "Setting updated",
+      description: `${setting} has been ${profileData[setting as keyof typeof profileData] ? "disabled" : "enabled"}.`,
+    })
   }
 
   if (isLoading) {
@@ -688,22 +454,19 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex justify-center mb-6">
-            {useSimpleUploader ? (
+            <div className="relative">
+              <Avatar className="h-24 w-24 border-2 border-primary">
+                <AvatarImage
+                  src={profileData.profile_picture || "/abstract-profile.png"}
+                  alt={profileData.name || "User"}
+                />
+                <AvatarFallback>{profileData.name?.[0]?.toUpperCase() || "U"}</AvatarFallback>
+              </Avatar>
               <SimpleProfileUpload
                 currentImage={profileData.profile_picture || null}
                 onImageUpdate={handleProfileImageUpdate}
               />
-            ) : (
-              <div>
-                <ProfileImageUpload
-                  currentImage={profileData.profile_picture || null}
-                  onImageUpdate={handleProfileImageUpdate}
-                />
-                <Button variant="link" size="sm" onClick={handleAdvancedUploaderError} className="text-xs mt-2">
-                  Having trouble? Try simple uploader
-                </Button>
-              </div>
-            )}
+            </div>
           </div>
 
           {isFetchingProfile && !alert.type ? (
@@ -713,18 +476,15 @@ export default function ProfilePage() {
             </div>
           ) : (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid grid-cols-5 mb-6">
+              <TabsList className="grid grid-cols-4 mb-6">
                 <TabsTrigger value="personal" className="flex items-center gap-2">
                   <User className="h-4 w-4" /> Personal
                 </TabsTrigger>
                 <TabsTrigger value="health" className="flex items-center gap-2">
                   <Heart className="h-4 w-4" /> Health
                 </TabsTrigger>
-                <TabsTrigger value="account" className="flex items-center gap-2">
-                  <UserCog className="h-4 w-4" /> Account
-                </TabsTrigger>
-                <TabsTrigger value="privacy" className="flex items-center gap-2">
-                  <Shield className="h-4 w-4" /> Privacy
+                <TabsTrigger value="security" className="flex items-center gap-2">
+                  <Shield className="h-4 w-4" /> Security
                 </TabsTrigger>
                 <TabsTrigger value="activity" className="flex items-center gap-2">
                   <Activity className="h-4 w-4" /> Activity
@@ -794,35 +554,41 @@ export default function ProfilePage() {
                         Cancel
                       </Button>
                       <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? "Saving..." : "Save Changes"}
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                          </>
+                        ) : (
+                          "Save Changes"
+                        )}
                       </Button>
                     </div>
                   </form>
                 ) : (
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 gap-6">
-                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <User className="h-4 w-4" /> Name
                         </div>
                         <div className="font-medium">{profileData.name || "Not provided"}</div>
                       </div>
 
-                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Mail className="h-4 w-4" /> Email
                         </div>
                         <div className="font-medium">{profileData.email || "Not provided"}</div>
                       </div>
 
-                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Phone className="h-4 w-4" /> Phone
                         </div>
                         <div className="font-medium">{profileData.phone || "Not provided"}</div>
                       </div>
 
-                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Calendar className="h-4 w-4" /> Date of Birth
                         </div>
@@ -833,7 +599,7 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <User className="h-4 w-4" /> Gender
                         </div>
@@ -975,14 +741,20 @@ export default function ProfilePage() {
                         Cancel
                       </Button>
                       <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? "Saving..." : "Save Changes"}
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                          </>
+                        ) : (
+                          "Save Changes"
+                        )}
                       </Button>
                     </div>
                   </form>
                 ) : (
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Ruler className="h-4 w-4" /> Height
                         </div>
@@ -991,7 +763,7 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Weight className="h-4 w-4" /> Weight
                         </div>
@@ -1000,14 +772,14 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Droplet className="h-4 w-4" /> Blood Type
                         </div>
                         <div className="font-medium">{profileData.bloodType || "Not provided"}</div>
                       </div>
 
-                      <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <AlertTriangle className="h-4 w-4" /> Allergies
                         </div>
@@ -1015,14 +787,14 @@ export default function ProfilePage() {
                       </div>
                     </div>
 
-                    <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                    <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
                       <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                         <Heart className="h-4 w-4" /> Medical Conditions
                       </div>
                       <div className="font-medium">{profileData.medicalConditions || "None"}</div>
                     </div>
 
-                    <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                    <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
                       <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                         <Pill className="h-4 w-4" /> Medications
                       </div>
@@ -1035,17 +807,17 @@ export default function ProfilePage() {
                       </h3>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                        <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
                           <div className="text-sm font-medium text-muted-foreground">Name</div>
                           <div className="font-medium">{profileData.emergencyContactName || "Not provided"}</div>
                         </div>
 
-                        <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                        <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
                           <div className="text-sm font-medium text-muted-foreground">Phone</div>
                           <div className="font-medium">{profileData.emergencyContactPhone || "Not provided"}</div>
                         </div>
 
-                        <div className="space-y-2 profile-hover-item p-3 rounded-md">
+                        <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
                           <div className="text-sm font-medium text-muted-foreground">Relationship</div>
                           <div className="font-medium">{profileData.emergencyContactRelation || "Not provided"}</div>
                         </div>
@@ -1059,107 +831,8 @@ export default function ProfilePage() {
                 )}
               </TabsContent>
 
-              {/* Account Information Tab */}
-              <TabsContent value="account">
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2 profile-hover-item p-3 rounded-md">
-                      <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                        <BadgeCheck className="h-4 w-4" /> Account Type
-                      </div>
-                      <div className="font-medium">{profileData.accountType}</div>
-                    </div>
-
-                    <div className="space-y-2 profile-hover-item p-3 rounded-md">
-                      <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                        <Calendar className="h-4 w-4" /> Member Since
-                      </div>
-                      <div className="font-medium">
-                        {profileData.createdAt
-                          ? `${formatDistanceToNow(new Date(profileData.createdAt))} ago`
-                          : "Unknown"}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 profile-hover-item p-3 rounded-md">
-                      <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                        <Clock className="h-4 w-4" /> Last Login
-                      </div>
-                      <div className="font-medium">
-                        {profileData.lastLogin
-                          ? `${formatDistanceToNow(new Date(profileData.lastLogin))} ago`
-                          : "Unknown"}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 profile-hover-item p-3 rounded-md">
-                      <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                        <CreditCard className="h-4 w-4" /> Subscription Status
-                      </div>
-                      <div className="font-medium">{profileData.subscriptionStatus}</div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 profile-hover-item p-3 rounded-md">
-                    <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                      <Calendar className="h-4 w-4" /> Subscription Renewal
-                    </div>
-                    <div className="font-medium">
-                      {profileData.subscriptionRenewal
-                        ? format(new Date(profileData.subscriptionRenewal), "MMMM d, yyyy")
-                        : "N/A"}
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t">
-                    <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-                      <Bell className="h-5 w-5" /> Notification Preferences
-                    </h3>
-
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">Email Notifications</p>
-                          <p className="text-sm text-muted-foreground">Receive updates via email</p>
-                        </div>
-                        <Switch
-                          checked={profileData.emailNotifications}
-                          onCheckedChange={() => handleToggleChange("emailNotifications")}
-                        />
-                      </div>
-
-                      <Separator />
-
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">SMS Notifications</p>
-                          <p className="text-sm text-muted-foreground">Receive updates via text message</p>
-                        </div>
-                        <Switch
-                          checked={profileData.smsNotifications}
-                          onCheckedChange={() => handleToggleChange("smsNotifications")}
-                        />
-                      </div>
-
-                      <Separator />
-
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">App Notifications</p>
-                          <p className="text-sm text-muted-foreground">Receive push notifications</p>
-                        </div>
-                        <Switch
-                          checked={profileData.appNotifications}
-                          onCheckedChange={() => handleToggleChange("appNotifications")}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-
-              {/* Privacy & Security Tab */}
-              <TabsContent value="privacy">
+              {/* Security Tab */}
+              <TabsContent value="security">
                 <div className="space-y-6">
                   <div className="pt-2">
                     <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
@@ -1167,7 +840,7 @@ export default function ProfilePage() {
                     </h3>
 
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors p-4 rounded-md">
                         <div>
                           <p className="font-medium">Two-Factor Authentication</p>
                           <p className="text-sm text-muted-foreground">
@@ -1180,15 +853,13 @@ export default function ProfilePage() {
                           >
                             {profileData.twoFactorEnabled ? "Enabled" : "Disabled"}
                           </span>
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => handleToggleChange("twoFactorEnabled")}>
                             {profileData.twoFactorEnabled ? "Disable" : "Enable"}
                           </Button>
                         </div>
                       </div>
 
-                      <Separator />
-
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors p-4 rounded-md">
                         <div>
                           <p className="font-medium">Email Verification</p>
                           <p className="text-sm text-muted-foreground">Verify your email address</p>
@@ -1199,16 +870,23 @@ export default function ProfilePage() {
                               <CheckCircle2 className="h-4 w-4 mr-1" /> Verified
                             </span>
                           ) : (
-                            <Button variant="outline" size="sm">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                toast({
+                                  title: "Verification email sent",
+                                  description: "Please check your inbox for the verification link.",
+                                })
+                              }}
+                            >
                               Verify Email
                             </Button>
                           )}
                         </div>
                       </div>
 
-                      <Separator />
-
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors p-4 rounded-md">
                         <div>
                           <p className="font-medium">Phone Verification</p>
                           <p className="text-sm text-muted-foreground">Verify your phone number</p>
@@ -1219,7 +897,16 @@ export default function ProfilePage() {
                               <CheckCircle2 className="h-4 w-4 mr-1" /> Verified
                             </span>
                           ) : (
-                            <Button variant="outline" size="sm">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                toast({
+                                  title: "Verification SMS sent",
+                                  description: "Please check your phone for the verification code.",
+                                })
+                              }}
+                            >
                               Verify Phone
                             </Button>
                           )}
@@ -1234,7 +921,7 @@ export default function ProfilePage() {
                     </h3>
 
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors p-4 rounded-md">
                         <div>
                           <p className="font-medium">Data Sharing with Healthcare Providers</p>
                           <p className="text-sm text-muted-foreground">
@@ -1247,9 +934,7 @@ export default function ProfilePage() {
                         />
                       </div>
 
-                      <Separator />
-
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors p-4 rounded-md">
                         <div>
                           <p className="font-medium">Anonymous Data Collection</p>
                           <p className="text-sm text-muted-foreground">
@@ -1269,7 +954,7 @@ export default function ProfilePage() {
                     <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
                       <KeyRound className="h-5 w-5" /> Password Management
                     </h3>
-                    <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                    <div className="bg-gray-50 hover:bg-gray-100 transition-colors p-4 rounded-md">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium">Change your password</p>
@@ -1278,6 +963,27 @@ export default function ProfilePage() {
                         <Link href="/change-password">
                           <Button variant="outline">Change Password</Button>
                         </Link>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Logout Section */}
+                  <div className="pt-4 border-t">
+                    <div className="bg-red-50 p-4 rounded-md border border-red-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Log out of your account</p>
+                          <p className="text-sm text-gray-500">You will need to log in again to access your account</p>
+                        </div>
+                        <Button
+                          variant="destructive"
+                          onClick={() => {
+                            logout()
+                            router.push("/")
+                          }}
+                        >
+                          Log Out
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -1305,7 +1011,7 @@ export default function ProfilePage() {
                           </thead>
                           <tbody>
                             {profileData.recentAssessments.map((assessment: any) => (
-                              <tr key={assessment.id} className="border-b">
+                              <tr key={assessment.id} className="border-b hover:bg-gray-50">
                                 <td className="py-3 px-4">{format(new Date(assessment.date), "MMM d, yyyy")}</td>
                                 <td className="py-3 px-4">{assessment.score}</td>
                                 <td className="py-3 px-4">
@@ -1321,13 +1027,27 @@ export default function ProfilePage() {
                                     {assessment.risk}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4 flex gap-2">
-                                  <Button variant="link" size="sm" className="p-0 h-auto">
-                                    View Details
-                                  </Button>
-                                  <Button variant="ghost" size="sm" className="h-auto">
-                                    <FileText className="h-4 w-4 mr-1" /> PDF
-                                  </Button>
+                                <td className="py-3 px-4">
+                                  <div className="flex gap-2">
+                                    <Link href={`/predict/results/${assessment.id}`}>
+                                      <Button variant="link" size="sm" className="p-0 h-auto">
+                                        View Details
+                                      </Button>
+                                    </Link>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-auto"
+                                      onClick={() => {
+                                        toast({
+                                          title: "Generating PDF",
+                                          description: "Your assessment PDF is being generated.",
+                                        })
+                                      }}
+                                    >
+                                      <FileText className="h-4 w-4 mr-1" /> PDF
+                                    </Button>
+                                  </div>
                                 </td>
                               </tr>
                             ))}
@@ -1337,9 +1057,11 @@ export default function ProfilePage() {
                     ) : (
                       <div className="text-center py-8 bg-gray-50 rounded-md border border-gray-200">
                         <p className="text-muted-foreground">No health assessments found</p>
-                        <Button variant="link" className="mt-2">
-                          Take an assessment
-                        </Button>
+                        <Link href="/predict">
+                          <Button variant="link" className="mt-2">
+                            Take an assessment
+                          </Button>
+                        </Link>
                       </div>
                     )}
                   </div>
@@ -1351,7 +1073,7 @@ export default function ProfilePage() {
 
                     {profileData.heartHealthScores && profileData.heartHealthScores.length > 0 ? (
                       <div className="bg-white p-4 rounded-md border border-gray-200 h-48">
-                        {/* Visual representation of scores would go here */}
+                        {/* Visual representation of scores */}
                         <div className="h-full flex items-end justify-between gap-2">
                           {profileData.heartHealthScores.map((score: number, index: number) => (
                             <div key={index} className="flex flex-col items-center">
@@ -1376,90 +1098,50 @@ export default function ProfilePage() {
                     )}
                   </div>
 
-                  {/* Connected Health Services Section */}
+                  {/* Account Information */}
                   <div className="pt-4 border-t">
                     <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-                      <RefreshCw className="h-5 w-5" /> Connected Health Services
+                      <UserCog className="h-5 w-5" /> Account Information
                     </h3>
 
-                    <ExternalServicesSync
-                      connectedServices={connectedServices}
-                      onConnect={handleServiceConnection}
-                      onDisconnect={handleDisconnectService}
-                    />
-                  </div>
-
-                  {/* Health Check Reminder Section */}
-                  <div className="pt-4 border-t">
-                    <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-                      <Bell className="h-5 w-5" /> Health Check Reminder
-                    </h3>
-
-                    <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">Schedule your next health check</p>
-                          <p className="text-sm text-muted-foreground">
-                            {reminderDate
-                              ? `Reminder set for ${format(reminderDate, "MMMM d, yyyy")}`
-                              : "No reminder set yet"}
-                          </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
+                        <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          <BadgeCheck className="h-4 w-4" /> Account Type
                         </div>
-                        <Button variant="outline" onClick={() => setShowCalendar(!showCalendar)}>
-                          <CalendarIcon className="h-4 w-4 mr-2" />
-                          {reminderDate ? "Change date" : "Set reminder"}
-                        </Button>
+                        <div className="font-medium">{profileData.accountType}</div>
                       </div>
 
-                      {showCalendar && (
-                        <div className="mt-4 p-4 bg-white border rounded-md">
-                          <div className="flex justify-end mb-2">
-                            <Button variant="ghost" size="sm" onClick={() => setShowCalendar(false)}>
-                              Close
-                            </Button>
-                          </div>
-                          <div className="flex flex-col space-y-4">
-                            <div className="grid grid-cols-7 gap-2">
-                              {Array.from({ length: 30 }, (_, i) => {
-                                const date = new Date()
-                                date.setDate(date.getDate() + i + 1)
-                                return (
-                                  <Button
-                                    key={i}
-                                    variant="outline"
-                                    className="h-10 p-0"
-                                    onClick={() => handleSetReminder(date)}
-                                  >
-                                    {date.getDate()}
-                                  </Button>
-                                )
-                              })}
-                            </div>
-                            <Button variant="outline" onClick={() => handleSetReminder(undefined)}>
-                              Clear reminder
-                            </Button>
-                          </div>
+                      <div className="space-y-2 bg-gray-50 hover:bg-gray-100 transition-colors p-3 rounded-md">
+                        <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          <Calendar className="h-4 w-4" /> Member Since
                         </div>
-                      )}
+                        <div className="font-medium">
+                          {profileData.createdAt
+                            ? `${formatDistanceToNow(new Date(profileData.createdAt))} ago`
+                            : "Unknown"}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Recent Health Notifications */}
+                  {/* Take New Assessment Button */}
                   <div className="pt-4 border-t">
-                    <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-                      <Bell className="h-5 w-5" /> Health Notifications
-                    </h3>
-
-                    <RecentHealthNotifications hasPendingHealth={hasPendingHealth} />
-                  </div>
-
-                  {/* Personalized Health Routine */}
-                  <div className="pt-4 border-t">
-                    <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-                      <Calendar className="h-5 w-5" /> Your Heart Health Routine
-                    </h3>
-
-                    <HeartHealthRoutine />
+                    <div className="bg-primary/10 p-4 rounded-md border border-primary/20">
+                      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div>
+                          <p className="font-medium">Take a new heart health assessment</p>
+                          <p className="text-sm text-muted-foreground">
+                            Regular assessments help track your heart health over time
+                          </p>
+                        </div>
+                        <Link href="/predict">
+                          <Button>
+                            <Heart className="h-4 w-4 mr-2" /> Start Assessment
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </TabsContent>
