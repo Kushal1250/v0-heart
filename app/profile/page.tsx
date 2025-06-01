@@ -45,6 +45,7 @@ import { SimpleProfileUpload } from "@/components/simple-profile-upload"
 
 // Define default empty profile structure
 const defaultProfile = {
+  // Personal Information
   name: "",
   email: "",
   phone: "",
@@ -52,15 +53,56 @@ const defaultProfile = {
   gender: "",
   profile_picture: "",
   createdAt: "",
+
+  // Basic Health Metrics
   height: "",
   weight: "",
   bloodType: "",
   allergies: "",
   medicalConditions: "",
   medications: "",
+
+  // Cardiovascular Health
+  restingHeartRate: "",
+  bloodPressureSystolic: "",
+  bloodPressureDiastolic: "",
+  cholesterolTotal: "",
+  cholesterolHDL: "",
+  cholesterolLDL: "",
+  triglycerides: "",
+
+  // Lifestyle Factors
+  smokingStatus: "",
+  alcoholConsumption: "",
+  exerciseFrequency: "",
+  exerciseIntensity: "",
+  dietType: "",
+  stressLevel: "",
+  sleepHours: "",
+  sleepQuality: "",
+
+  // Family History
+  familyHeartDisease: false,
+  familyDiabetes: false,
+  familyHypertension: false,
+  familyStroke: false,
+  familyHighCholesterol: false,
+
+  // Medical History
+  previousHeartAttack: false,
+  previousStroke: false,
+  diabetes: false,
+  hypertension: false,
+  highCholesterol: false,
+  heartMurmur: false,
+  chestPain: false,
+
+  // Emergency Contact
   emergencyContactName: "",
   emergencyContactPhone: "",
   emergencyContactRelation: "",
+
+  // Account Settings
   emailVerified: false,
   phoneVerified: false,
   twoFactorEnabled: false,
@@ -425,18 +467,21 @@ export default function ProfilePage() {
             </div>
           ) : (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid grid-cols-4 mb-6">
+              <TabsList className="grid grid-cols-5 mb-6">
                 <TabsTrigger value="personal" className="flex items-center gap-2">
                   <User className="h-4 w-4" /> Personal
                 </TabsTrigger>
                 <TabsTrigger value="health" className="flex items-center gap-2">
                   <Heart className="h-4 w-4" /> Health
                 </TabsTrigger>
+                <TabsTrigger value="lifestyle" className="flex items-center gap-2">
+                  <Activity className="h-4 w-4" /> Lifestyle
+                </TabsTrigger>
                 <TabsTrigger value="security" className="flex items-center gap-2">
                   <Shield className="h-4 w-4" /> Security
                 </TabsTrigger>
                 <TabsTrigger value="activity" className="flex items-center gap-2">
-                  <Activity className="h-4 w-4" /> Activity
+                  <TrendingUp className="h-4 w-4" /> Activity
                 </TabsTrigger>
               </TabsList>
 
@@ -571,28 +616,182 @@ export default function ProfilePage() {
               {/* Health Information Tab */}
               <TabsContent value="health">
                 {isEditing ? (
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="height">Height (cm)</Label>
-                        <Input
-                          id="height"
-                          name="height"
-                          value={formData.height}
-                          onChange={handleInputChange}
-                          placeholder="Enter your height in cm"
-                        />
+                  <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* Basic Measurements */}
+                    <div>
+                      <h3 className="text-lg font-medium mb-4">Basic Measurements</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="height">Height (cm)</Label>
+                          <Input
+                            id="height"
+                            name="height"
+                            value={formData.height}
+                            onChange={handleInputChange}
+                            placeholder="Enter your height in cm"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="weight">Weight (kg)</Label>
+                          <Input
+                            id="weight"
+                            name="weight"
+                            value={formData.weight}
+                            onChange={handleInputChange}
+                            placeholder="Enter your weight in kg"
+                          />
+                        </div>
                       </div>
+                    </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="weight">Weight (kg)</Label>
-                        <Input
-                          id="weight"
-                          name="weight"
-                          value={formData.weight}
-                          onChange={handleInputChange}
-                          placeholder="Enter your weight in kg"
-                        />
+                    {/* Cardiovascular Metrics */}
+                    <div>
+                      <h3 className="text-lg font-medium mb-4">Cardiovascular Health</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="restingHeartRate">Resting Heart Rate (bpm)</Label>
+                          <Input
+                            id="restingHeartRate"
+                            name="restingHeartRate"
+                            value={formData.restingHeartRate}
+                            onChange={handleInputChange}
+                            placeholder="e.g., 72"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="bloodPressureSystolic">Blood Pressure Systolic</Label>
+                          <Input
+                            id="bloodPressureSystolic"
+                            name="bloodPressureSystolic"
+                            value={formData.bloodPressureSystolic}
+                            onChange={handleInputChange}
+                            placeholder="e.g., 120"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="bloodPressureDiastolic">Blood Pressure Diastolic</Label>
+                          <Input
+                            id="bloodPressureDiastolic"
+                            name="bloodPressureDiastolic"
+                            value={formData.bloodPressureDiastolic}
+                            onChange={handleInputChange}
+                            placeholder="e.g., 80"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="cholesterolTotal">Total Cholesterol (mg/dL)</Label>
+                          <Input
+                            id="cholesterolTotal"
+                            name="cholesterolTotal"
+                            value={formData.cholesterolTotal}
+                            onChange={handleInputChange}
+                            placeholder="e.g., 200"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Medical History */}
+                    <div>
+                      <h3 className="text-lg font-medium mb-4">Medical History</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="diabetes"
+                            name="diabetes"
+                            checked={formData.diabetes}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, diabetes: e.target.checked }))}
+                            className="rounded"
+                          />
+                          <Label htmlFor="diabetes">Diabetes</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="hypertension"
+                            name="hypertension"
+                            checked={formData.hypertension}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, hypertension: e.target.checked }))}
+                            className="rounded"
+                          />
+                          <Label htmlFor="hypertension">Hypertension</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="previousHeartAttack"
+                            name="previousHeartAttack"
+                            checked={formData.previousHeartAttack}
+                            onChange={(e) =>
+                              setFormData((prev) => ({ ...prev, previousHeartAttack: e.target.checked }))
+                            }
+                            className="rounded"
+                          />
+                          <Label htmlFor="previousHeartAttack">Previous Heart Attack</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="chestPain"
+                            name="chestPain"
+                            checked={formData.chestPain}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, chestPain: e.target.checked }))}
+                            className="rounded"
+                          />
+                          <Label htmlFor="chestPain">Chest Pain</Label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Family History */}
+                    <div>
+                      <h3 className="text-lg font-medium mb-4">Family History</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="familyHeartDisease"
+                            name="familyHeartDisease"
+                            checked={formData.familyHeartDisease}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, familyHeartDisease: e.target.checked }))}
+                            className="rounded"
+                          />
+                          <Label htmlFor="familyHeartDisease">Heart Disease</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="familyDiabetes"
+                            name="familyDiabetes"
+                            checked={formData.familyDiabetes}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, familyDiabetes: e.target.checked }))}
+                            className="rounded"
+                          />
+                          <Label htmlFor="familyDiabetes">Diabetes</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="familyHypertension"
+                            name="familyHypertension"
+                            checked={formData.familyHypertension}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, familyHypertension: e.target.checked }))}
+                            className="rounded"
+                          />
+                          <Label htmlFor="familyHypertension">Hypertension</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="familyStroke"
+                            name="familyStroke"
+                            checked={formData.familyStroke}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, familyStroke: e.target.checked }))}
+                            className="rounded"
+                          />
+                          <Label htmlFor="familyStroke">Stroke</Label>
+                        </div>
                       </div>
                     </div>
 
@@ -787,6 +986,119 @@ export default function ProfilePage() {
                       <Button onClick={() => setIsEditing(true)}>Edit Health Information</Button>
                     </div>
                   </div>
+                )}
+              </TabsContent>
+
+              {/* Lifestyle Tab */}
+              <TabsContent value="lifestyle">
+                {isEditing ? (
+                  <form onSubmit={handleSubmit} className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-medium mb-4">Lifestyle Factors</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="smokingStatus">Smoking Status</Label>
+                          <Select
+                            value={formData.smokingStatus}
+                            onValueChange={(value) => handleSelectChange("smokingStatus", value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select smoking status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="never">Never smoked</SelectItem>
+                              <SelectItem value="former">Former smoker</SelectItem>
+                              <SelectItem value="current">Current smoker</SelectItem>
+                              <SelectItem value="occasional">Occasional smoker</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="alcoholConsumption">Alcohol Consumption</Label>
+                          <Select
+                            value={formData.alcoholConsumption}
+                            onValueChange={(value) => handleSelectChange("alcoholConsumption", value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select alcohol consumption" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              <SelectItem value="occasional">Occasional</SelectItem>
+                              <SelectItem value="moderate">Moderate</SelectItem>
+                              <SelectItem value="heavy">Heavy</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="exerciseFrequency">Exercise Frequency</Label>
+                          <Select
+                            value={formData.exerciseFrequency}
+                            onValueChange={(value) => handleSelectChange("exerciseFrequency", value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select exercise frequency" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              <SelectItem value="1-2">1-2 times per week</SelectItem>
+                              <SelectItem value="3-4">3-4 times per week</SelectItem>
+                              <SelectItem value="5+">5+ times per week</SelectItem>
+                              <SelectItem value="daily">Daily</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="stressLevel">Stress Level</Label>
+                          <Select
+                            value={formData.stressLevel}
+                            onValueChange={(value) => handleSelectChange("stressLevel", value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select stress level" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="low">Low</SelectItem>
+                              <SelectItem value="moderate">Moderate</SelectItem>
+                              <SelectItem value="high">High</SelectItem>
+                              <SelectItem value="severe">Severe</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="sleepHours">Sleep Hours per Night</Label>
+                          <Input
+                            id="sleepHours"
+                            name="sleepHours"
+                            value={formData.sleepHours}
+                            onChange={handleInputChange}
+                            placeholder="e.g., 7-8"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="dietType">Diet Type</Label>
+                          <Select
+                            value={formData.dietType}
+                            onValueChange={(value) => handleSelectChange("dietType", value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select diet type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="standard">Standard</SelectItem>
+                              <SelectItem value="mediterranean">Mediterranean</SelectItem>
+                              <SelectItem value="vegetarian">Vegetarian</SelectItem>
+                              <SelectItem value="vegan">Vegan</SelectItem>
+                              <SelectItem value="keto">Ketogenic</SelectItem>
+                              <SelectItem value="low-sodium">Low Sodium</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="space-y-6">{/* Display lifestyle information */}</div>
                 )}
               </TabsContent>
 
