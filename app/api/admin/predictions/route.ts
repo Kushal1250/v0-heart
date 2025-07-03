@@ -17,9 +17,6 @@ export async function GET(request: Request) {
     const page = Number.parseInt(url.searchParams.get("page") || "1")
     const limit = Number.parseInt(url.searchParams.get("limit") || "50") // Increased default limit
     const search = url.searchParams.get("search") || ""
-    const riskFilter = url.searchParams.get("riskFilter") || "all"
-    const dateFilter = url.searchParams.get("dateFilter") || "all"
-    const sortOrder = url.searchParams.get("sortOrder") || "newest"
 
     const offset = (page - 1) * limit
 
@@ -39,94 +36,42 @@ export async function GET(request: Request) {
       })
     }
 
-    // Build dynamic WHERE clause
-    const whereClauses = []
-    const queryParams: (string | number)[] = []
-    let paramIndex = 1
-
-    if (search) {
-      whereClauses.push(`(u.name ILIKE $${paramIndex} OR u.email ILIKE $${paramIndex})`)
-      queryParams.push(`%${search}%`)
-      paramIndex++
-    }
-
-    if (riskFilter !== "all") {
-      if (riskFilter === "high") {
-        whereClauses.push(`p.result > $${paramIndex}`)
-        queryParams.push(0.5)
-        paramIndex++
-      } else if (riskFilter === "medium") {
-        whereClauses.push(`p.result >= $${paramIndex} AND p.result <= $${paramIndex + 1}`)
-        queryParams.push(0.3, 0.5)
-        paramIndex += 2
-      } else if (riskFilter === "low") {
-        whereClauses.push(`p.result < $${paramIndex}`)
-        queryParams.push(0.3)
-        paramIndex++
-      }
-    }
-
-    if (dateFilter !== "all") {
-      const now = new Date()
-      let startDate: Date | null = null
-
-      if (dateFilter === "today") {
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      } else if (dateFilter === "week") {
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        startDate.setDate(startDate.getDate() - 7)
-      } else if (dateFilter === "month") {
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        startDate.setMonth(now.getMonth() - 1) // Corrected to subtract month from current month
-      }
-
-      if (startDate) {
-        whereClauses.push(`p.created_at >= $${paramIndex}`)
-        queryParams.push(startDate.toISOString())
-        paramIndex++
-      }
-    }
-
-    const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : ""
-
     // Get total count for pagination
-    const countQuery = await sql.unsafe(
-      `
-      SELECT COUNT(*) 
-      FROM predictions p
-      JOIN users u ON p.user_id = u.id
-      ${whereClause}
-    `,
-      queryParams,
-    )
+    const countQuery = search
+      ? await sql`
+          SELECT COUNT(*) 
+          FROM predictions p
+          JOIN users u ON p.user_id = u.id
+          WHERE u.name ILIKE ${"%" + search + "%"} 
+             OR u.email ILIKE ${"%" + search + "%"}
+        `
+      : await sql`SELECT COUNT(*) FROM predictions`
 
     const totalCount = Number.parseInt(countQuery[0].count)
     const totalPages = Math.ceil(totalCount / limit)
 
-    // Build dynamic ORDER BY clause
-    let orderByClause = ""
-    if (sortOrder === "newest") {
-      orderByClause = "ORDER BY p.created_at DESC"
-    } else if (sortOrder === "oldest") {
-      orderByClause = "ORDER BY p.created_at ASC"
-    } else if (sortOrder === "highest") {
-      orderByClause = "ORDER BY p.result DESC"
-    } else if (sortOrder === "lowest") {
-      orderByClause = "ORDER BY p.result ASC"
-    }
-
     // Fetch predictions with user information
-    const predictions = await sql.unsafe(
+    let predictions
+
+    if (search) {
+      predictions = await sql`
+        SELECT p.*, u.name, u.email
+        FROM predictions p
+        JOIN users u ON p.user_id = u.id
+        WHERE u.name ILIKE ${"%" + search + "%"} 
+           OR u.email ILIKE ${"%" + search + "%"}
+        ORDER BY p.created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
       `
-      SELECT p.*, u.name, u.email
-      FROM predictions p
-      JOIN users u ON p.user_id = u.id
-      ${whereClause}
-      ${orderByClause}
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `,
-      [...queryParams, limit, offset],
-    )
+    } else {
+      predictions = await sql`
+        SELECT p.*, u.name, u.email
+        FROM predictions p
+        JOIN users u ON p.user_id = u.id
+        ORDER BY p.created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `
+    }
 
     // Transform the data to match the expected format
     const formattedPredictions = predictions.map((pred) => ({

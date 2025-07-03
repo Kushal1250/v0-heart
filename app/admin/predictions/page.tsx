@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Eye, Search, RefreshCw, AlertTriangle, BarChart3, Download, Filter, SlidersHorizontal } from "lucide-react"
 
@@ -50,6 +50,7 @@ interface PaginationInfo {
 export default function AdminPredictions() {
   const router = useRouter()
   const [predictions, setPredictions] = useState<Prediction[]>([])
+  const [filteredPredictions, setFilteredPredictions] = useState<Prediction[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
@@ -63,7 +64,7 @@ export default function AdminPredictions() {
     page: 1,
     limit: 10,
   })
-  const [activeTab, setActiveTab] = useState("all") // This will now control the riskFilter
+  const [activeTab, setActiveTab] = useState("all")
   const [riskFilter, setRiskFilter] = useState("all")
   const [dateFilter, setDateFilter] = useState("all")
   const [sortOrder, setSortOrder] = useState("newest")
@@ -96,21 +97,108 @@ export default function AdminPredictions() {
     checkAdmin()
   }, [router])
 
-  const fetchPredictions = useCallback(async () => {
+  // Fetch data when admin status is confirmed
+  useEffect(() => {
+    if (isAdmin) {
+      fetchPredictions()
+    } else {
+      setLoading(false)
+    }
+  }, [isAdmin, pagination.page, pagination.limit])
+
+  // Filter predictions based on search term and filters
+  useEffect(() => {
+    if (predictions.length > 0) {
+      let filtered = [...predictions]
+
+      // Apply search filter
+      if (searchTerm) {
+        filtered = filtered.filter(
+          (pred) =>
+            pred.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            pred.userId.toLowerCase().includes(searchTerm.toLowerCase()),
+        )
+      }
+
+      // Apply risk filter
+      if (riskFilter !== "all") {
+        if (riskFilter === "high") {
+          filtered = filtered.filter((pred) => pred.result > 0.5)
+        } else if (riskFilter === "medium") {
+          filtered = filtered.filter((pred) => pred.result >= 0.3 && pred.result <= 0.5)
+        } else if (riskFilter === "low") {
+          filtered = filtered.filter((pred) => pred.result < 0.3)
+        }
+      }
+
+      // Apply date filter
+      if (dateFilter !== "all") {
+        const now = new Date()
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+        if (dateFilter === "today") {
+          filtered = filtered.filter((pred) => new Date(pred.timestamp) >= today)
+        } else if (dateFilter === "week") {
+          const weekAgo = new Date(today)
+          weekAgo.setDate(weekAgo.getDate() - 7)
+          filtered = filtered.filter((pred) => new Date(pred.timestamp) >= weekAgo)
+        } else if (dateFilter === "month") {
+          const monthAgo = new Date(today)
+          monthAgo.setMonth(monthAgo.getMonth() - 1)
+          filtered = filtered.filter((pred) => new Date(pred.timestamp) >= monthAgo)
+        }
+      }
+
+      // Apply sort order
+      if (sortOrder === "newest") {
+        filtered.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      } else if (sortOrder === "oldest") {
+        filtered.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      } else if (sortOrder === "highest") {
+        filtered.sort((a, b) => b.result - a.result)
+      } else if (sortOrder === "lowest") {
+        filtered.sort((a, b) => a.result - b.result)
+      }
+
+      setFilteredPredictions(filtered)
+    }
+  }, [searchTerm, predictions, riskFilter, dateFilter, sortOrder])
+
+  // Calculate statistics
+  useEffect(() => {
+    if (predictions.length > 0) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      const newPredictionsToday = predictions.filter((pred) => {
+        const predDate = new Date(pred.timestamp)
+        return predDate >= today
+      }).length
+
+      const highRiskCount = predictions.filter((pred) => pred.result > 0.5).length
+      const mediumRiskCount = predictions.filter((pred) => pred.result >= 0.3 && pred.result <= 0.5).length
+      const lowRiskCount = predictions.filter((pred) => pred.result < 0.3).length
+
+      const totalRisk = predictions.reduce((sum, pred) => sum + pred.result, 0)
+      const averageRisk = predictions.length > 0 ? totalRisk / predictions.length : 0
+
+      setStats({
+        totalPredictions: predictions.length,
+        averageRisk,
+        highRiskCount,
+        lowRiskCount,
+        mediumRiskCount,
+        newPredictionsToday,
+      })
+    }
+  }, [predictions])
+
+  const fetchPredictions = async () => {
     setRefreshing(true)
     setError("")
 
     try {
-      const queryParams = new URLSearchParams({
-        page: pagination.page.toString(),
-        limit: pagination.limit.toString(),
-        search: searchTerm,
-        riskFilter: activeTab === "high-risk" ? "high" : activeTab === "low-risk" ? "low" : riskFilter, // Use activeTab for main risk filter
-        dateFilter: dateFilter,
-        sortOrder: sortOrder,
-      }).toString()
-
-      const response = await fetch(`/api/admin/predictions?${queryParams}`, {
+      const response = await fetch(`/api/admin/predictions?page=${pagination.page}&limit=${pagination.limit}`, {
         credentials: "include",
         cache: "no-store",
       })
@@ -124,6 +212,7 @@ export default function AdminPredictions() {
 
       if (data.predictions) {
         setPredictions(data.predictions)
+        setFilteredPredictions(data.predictions)
       }
 
       if (data.pagination) {
@@ -136,59 +225,7 @@ export default function AdminPredictions() {
       setRefreshing(false)
       setLoading(false)
     }
-  }, [pagination.page, pagination.limit, searchTerm, activeTab, riskFilter, dateFilter, sortOrder])
-
-  // Fetch data when admin status is confirmed or filters/pagination change
-  useEffect(() => {
-    if (isAdmin) {
-      fetchPredictions()
-    } else {
-      setLoading(false)
-    }
-  }, [isAdmin, fetchPredictions]) // fetchPredictions is now a dependency
-
-  // Calculate statistics (these stats will now reflect the *entire* dataset, not just the current page)
-  // To get stats for the filtered/paginated data, you'd need to calculate them from `predictions` state
-  // For overall stats, you might need a separate API endpoint or fetch all data once.
-  // For simplicity, let's calculate stats based on the currently fetched `predictions` (which are paginated)
-  // If you need global stats, a separate API call for stats without pagination/filters would be ideal.
-  useEffect(() => {
-    if (predictions.length > 0 || pagination.total > 0) {
-      const totalPredictionsInView = predictions.length // Predictions on current page
-      const highRiskCountInView = predictions.filter((pred) => pred.result > 0.5).length
-      const mediumRiskCountInView = predictions.filter((pred) => pred.result >= 0.3 && pred.result <= 0.5).length
-      const lowRiskCountInView = predictions.filter((pred) => pred.result < 0.3).length
-      const totalRiskInView = predictions.reduce((sum, pred) => sum + pred.result, 0)
-      const averageRiskInView = totalPredictionsInView > 0 ? totalRiskInView / totalPredictionsInView : 0
-
-      // For "new predictions today", we'd ideally need the full dataset or a specific API endpoint.
-      // For now, we'll just count from the current page, which might not be accurate for "today".
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const newPredictionsTodayInView = predictions.filter((pred) => {
-        const predDate = new Date(pred.timestamp)
-        return predDate >= today
-      }).length
-
-      setStats({
-        totalPredictions: pagination.total, // This should reflect total count from backend
-        averageRisk: averageRiskInView, // This is average of current page
-        highRiskCount: highRiskCountInView, // This is count on current page
-        lowRiskCount: lowRiskCountInView, // This is count on current page
-        mediumRiskCount: mediumRiskCountInView, // This is count on current page
-        newPredictionsToday: newPredictionsTodayInView, // This is count on current page
-      })
-    } else {
-      setStats({
-        totalPredictions: 0,
-        averageRisk: 0,
-        highRiskCount: 0,
-        lowRiskCount: 0,
-        mediumRiskCount: 0,
-        newPredictionsToday: 0,
-      })
-    }
-  }, [predictions, pagination.total])
+  }
 
   const handlePredictionClick = (prediction: Prediction) => {
     setSelectedPrediction(prediction)
@@ -197,11 +234,11 @@ export default function AdminPredictions() {
 
   const handlePageChange = (page: number) => {
     if (page < 1 || page > pagination.pages) return
-    setPagination((prev) => ({ ...prev, page }))
+    setPagination({ ...pagination, page })
   }
 
   const handleLimitChange = (limit: string) => {
-    setPagination((prev) => ({ ...prev, limit: Number.parseInt(limit), page: 1 }))
+    setPagination({ ...pagination, limit: Number.parseInt(limit), page: 1 })
   }
 
   const handleLoginRetry = () => {
@@ -211,68 +248,35 @@ export default function AdminPredictions() {
     router.push("/admin-login?redirect=/admin/predictions")
   }
 
-  const exportPredictions = async () => {
-    // To export all data, we need to fetch all data without pagination/filters
-    // For simplicity, this will export the currently filtered/sorted data.
-    // For a full export, you'd need a separate API endpoint that returns all data.
-    setRefreshing(true)
-    try {
-      const queryParams = new URLSearchParams({
-        search: searchTerm,
-        riskFilter: activeTab === "high-risk" ? "high" : activeTab === "low-risk" ? "low" : riskFilter,
-        dateFilter: dateFilter,
-        sortOrder: sortOrder,
-        limit: pagination.total.toString(), // Request all items for export
-        page: "1",
-      }).toString()
+  const exportPredictions = () => {
+    // Create CSV content
+    const headers = ["User", "Risk Level", "Date", "Age", "Gender", "Cholesterol", "Blood Pressure", "Heart Rate"]
+    const rows = filteredPredictions.map((pred) => {
+      const data = pred.data || {}
+      return [
+        pred.userName,
+        (pred.result * 100).toFixed(1) + "%",
+        new Date(pred.timestamp).toLocaleString(),
+        data.age || "N/A",
+        data.gender || "N/A",
+        data.cholesterol || "N/A",
+        data.bloodPressure || "N/A",
+        data.heartRate || "N/A",
+      ]
+    })
 
-      const response = await fetch(`/api/admin/predictions?${queryParams}`, {
-        credentials: "include",
-        cache: "no-store",
-      })
+    const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n")
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || `Failed to fetch all predictions for export: ${response.status}`)
-      }
-
-      const data = await response.json()
-      const allPredictionsForExport = data.predictions || []
-
-      // Create CSV content
-      const headers = ["User", "Risk Level", "Date", "Age", "Gender", "Cholesterol", "Blood Pressure", "Heart Rate"]
-      const rows = allPredictionsForExport.map((pred: Prediction) => {
-        const data = pred.data || {}
-        return [
-          pred.userName,
-          (pred.result * 100).toFixed(1) + "%",
-          new Date(pred.timestamp).toLocaleString(),
-          data.age || "N/A",
-          data.gender || "N/A",
-          data.cholesterol || "N/A",
-          data.bloodPressure || "N/A",
-          data.heartRate || "N/A",
-        ]
-      })
-
-      const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n")
-
-      // Create download link
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.setAttribute("href", url)
-      link.setAttribute("download", `heart-predictions-${new Date().toISOString().split("T")[0]}.csv`)
-      link.style.visibility = "hidden"
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    } catch (err) {
-      console.error("Error exporting predictions:", err)
-      setError(err instanceof Error ? err.message : "Failed to export predictions")
-    } finally {
-      setRefreshing(false)
-    }
+    // Create download link
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.setAttribute("href", url)
+    link.setAttribute("download", `heart-predictions-${new Date().toISOString().split("T")[0]}.csv`)
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   if (loading) {
@@ -352,13 +356,13 @@ export default function AdminPredictions() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalPredictions}</div>
-            <p className="text-xs text-muted-foreground">{stats.newPredictionsToday} new today (current page)</p>
+            <p className="text-xs text-muted-foreground">{stats.newPredictionsToday} new today</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Average Risk (Current Page)</CardTitle>
+            <CardTitle className="text-sm font-medium">Average Risk</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -369,96 +373,70 @@ export default function AdminPredictions() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">High Risk Cases (Current Page)</CardTitle>
+            <CardTitle className="text-sm font-medium">High Risk Cases</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.highRiskCount}</div>
             <p className="text-xs text-muted-foreground">
               {stats.highRiskCount > 0
-                ? `${((stats.highRiskCount / predictions.length) * 100).toFixed(1)}% of current page`
-                : "No high risk cases on this page"}
+                ? `${((stats.highRiskCount / stats.totalPredictions) * 100).toFixed(1)}% of total`
+                : "No high risk cases"}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Low Risk Cases (Current Page)</CardTitle>
+            <CardTitle className="text-sm font-medium">Low Risk Cases</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.lowRiskCount}</div>
             <p className="text-xs text-muted-foreground">
               {stats.lowRiskCount > 0
-                ? `${((stats.lowRiskCount / predictions.length) * 100).toFixed(1)}% of current page`
-                : "No low risk cases on this page"}
+                ? `${((stats.lowRiskCount / stats.totalPredictions) * 100).toFixed(1)}% of total`
+                : "No low risk cases"}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs
-        defaultValue="all"
-        className="mb-6"
-        onValueChange={(value) => {
-          setActiveTab(value)
-          setRiskFilter(value === "high-risk" ? "high" : value === "low-risk" ? "low" : "all")
-          setPagination((prev) => ({ ...prev, page: 1 })) // Reset to first page on tab change
-        }}
-      >
+      <Tabs defaultValue="all" className="mb-6" onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3 md:w-auto">
           <TabsTrigger value="all">All Predictions</TabsTrigger>
           <TabsTrigger value="high-risk">High Risk</TabsTrigger>
           <TabsTrigger value="low-risk">Low Risk</TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="space-y-4">
+        <TabsContent value="all" className="space-y-4">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="relative w-full md:w-1/3">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search predictions by user"
                 value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value)
-                  setPagination((prev) => ({ ...prev, page: 1 })) // Reset to first page on search
-                }}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8"
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-2">
-                {/* This risk filter is for the "All Predictions" tab, if you want more granular filtering */}
-                {activeTab === "all" && (
-                  <Select
-                    value={riskFilter}
-                    onValueChange={(value) => {
-                      setRiskFilter(value)
-                      setPagination((prev) => ({ ...prev, page: 1 })) // Reset to first page on filter change
-                    }}
-                  >
-                    <SelectTrigger className="w-[130px] bg-transparent">
-                      <Filter className="mr-2 h-4 w-4" />
-                      <SelectValue placeholder="Risk Level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Risks</SelectItem>
-                      <SelectItem value="high">High Risk</SelectItem>
-                      <SelectItem value="medium">Medium Risk</SelectItem>
-                      <SelectItem value="low">Low Risk</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+                <Select value={riskFilter} onValueChange={setRiskFilter}>
+                  <SelectTrigger className="w-[130px]">
+                    <Filter className="mr-2 h-4 w-4" />
+                    <SelectValue placeholder="Risk Level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Risks</SelectItem>
+                    <SelectItem value="high">High Risk</SelectItem>
+                    <SelectItem value="medium">Medium Risk</SelectItem>
+                    <SelectItem value="low">Low Risk</SelectItem>
+                  </SelectContent>
+                </Select>
 
-                <Select
-                  value={dateFilter}
-                  onValueChange={(value) => {
-                    setDateFilter(value)
-                    setPagination((prev) => ({ ...prev, page: 1 })) // Reset to first page on filter change
-                  }}
-                >
-                  <SelectTrigger className="w-[130px] bg-transparent">
+                <Select value={dateFilter} onValueChange={setDateFilter}>
+                  <SelectTrigger className="w-[130px]">
                     <Filter className="mr-2 h-4 w-4" />
                     <SelectValue placeholder="Date" />
                   </SelectTrigger>
@@ -470,14 +448,8 @@ export default function AdminPredictions() {
                   </SelectContent>
                 </Select>
 
-                <Select
-                  value={sortOrder}
-                  onValueChange={(value) => {
-                    setSortOrder(value)
-                    setPagination((prev) => ({ ...prev, page: 1 })) // Reset to first page on sort change
-                  }}
-                >
-                  <SelectTrigger className="w-[130px] bg-transparent">
+                <Select value={sortOrder} onValueChange={setSortOrder}>
+                  <SelectTrigger className="w-[130px]">
                     <SlidersHorizontal className="mr-2 h-4 w-4" />
                     <SelectValue placeholder="Sort By" />
                   </SelectTrigger>
@@ -503,14 +475,14 @@ export default function AdminPredictions() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {predictions.length === 0 ? (
+                {filteredPredictions.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="h-24 text-center">
-                      No predictions found for current filters.
+                      No predictions found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  predictions.map((pred) => (
+                  filteredPredictions.map((pred) => (
                     <TableRow key={pred.id}>
                       <TableCell className="font-medium">{pred.userName}</TableCell>
                       <TableCell>
@@ -540,7 +512,7 @@ export default function AdminPredictions() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Select value={pagination.limit.toString()} onValueChange={handleLimitChange}>
-                <SelectTrigger className="w-[70px] bg-transparent">
+                <SelectTrigger className="w-[70px]">
                   <SelectValue placeholder="10" />
                 </SelectTrigger>
                 <SelectContent>
@@ -551,7 +523,7 @@ export default function AdminPredictions() {
                 </SelectContent>
               </Select>
               <span className="text-sm text-muted-foreground">
-                Showing {predictions.length} of {pagination.total} predictions
+                Showing {filteredPredictions.length} of {pagination.total} predictions
               </span>
             </div>
 
@@ -609,6 +581,96 @@ export default function AdminPredictions() {
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="high-risk" className="space-y-4">
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Risk Level</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {predictions.filter((pred) => pred.result > 0.5).length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      No high risk predictions found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  predictions
+                    .filter((pred) => pred.result > 0.5)
+                    .sort((a, b) => b.result - a.result)
+                    .map((pred) => (
+                      <TableRow key={pred.id}>
+                        <TableCell className="font-medium">{pred.userName}</TableCell>
+                        <TableCell>
+                          <Badge variant="destructive" className="bg-red-600">
+                            {(pred.result * 100).toFixed(1)}% Risk
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(pred.timestamp).toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" onClick={() => handlePredictionClick(pred)}>
+                            <Eye className="h-4 w-4" />
+                            <span className="sr-only">View details</span>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="low-risk" className="space-y-4">
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Risk Level</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {predictions.filter((pred) => pred.result < 0.3).length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      No low risk predictions found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  predictions
+                    .filter((pred) => pred.result < 0.3)
+                    .sort((a, b) => a.result - b.result)
+                    .map((pred) => (
+                      <TableRow key={pred.id}>
+                        <TableCell className="font-medium">{pred.userName}</TableCell>
+                        <TableCell>
+                          <Badge variant="success" className="bg-green-600">
+                            {(pred.result * 100).toFixed(1)}% Risk
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(pred.timestamp).toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" onClick={() => handlePredictionClick(pred)}>
+                            <Eye className="h-4 w-4" />
+                            <span className="sr-only">View details</span>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                )}
+              </TableBody>
+            </Table>
           </div>
         </TabsContent>
       </Tabs>
