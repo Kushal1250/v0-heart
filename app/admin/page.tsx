@@ -881,22 +881,17 @@ export default function AdminDashboard() {
                       <TableCell className="font-medium">{user.name || "N/A"}</TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>
-                        <div className="relative">
+                        <div className="flex items-center gap-2">
                           <Input
                             type={showPasswords[user.id] ? "text" : "password"}
                             defaultValue={user.password || "password123"}
-                            className="h-8 w-24 text-xs pr-8"
-                            onChange={(e) => {
-                              // Update password in local state
-                              const updatedUsers = users.map((u) =>
-                                u.id === user.id ? { ...u, password: e.target.value } : u,
-                              )
-                              setUsers(updatedUsers)
-                            }}
+                            className="h-8 w-32 text-xs"
+                            readOnly
                           />
-                          <button
-                            type="button"
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 p-0"
                             onClick={() => {
                               setShowPasswords((prev) => ({
                                 ...prev,
@@ -904,12 +899,8 @@ export default function AdminDashboard() {
                               }))
                             }}
                           >
-                            {showPasswords[user.id] ? (
-                              <EyeOff className="h-3.5 w-3.5" />
-                            ) : (
-                              <Eye className="h-3.5 w-3.5" />
-                            )}
-                          </button>
+                            {showPasswords[user.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -1247,18 +1238,17 @@ export default function AdminDashboard() {
 
                 <div className="grid grid-cols-3 items-center gap-4">
                   <Label className="text-right">Password</Label>
-                  <div className="col-span-2 relative">
+                  <div className="col-span-2 flex items-center gap-2">
                     <Input
                       type={showPasswords[selectedUser.id] ? "text" : "password"}
                       defaultValue={selectedUser.password || "password123"}
-                      className="h-8 pr-8"
-                      onChange={(e) => {
-                        setSelectedUser({ ...selectedUser, password: e.target.value })
-                      }}
+                      className="h-8 flex-1"
+                      readOnly
                     />
-                    <button
-                      type="button"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 p-0"
                       onClick={() => {
                         setShowPasswords((prev) => ({
                           ...prev,
@@ -1267,7 +1257,7 @@ export default function AdminDashboard() {
                       }}
                     >
                       {showPasswords[selectedUser.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
