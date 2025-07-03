@@ -1,6 +1,10 @@
 import type React from "react"
-import "../globals.css"
-import "./profile.css"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "User Profile | Heart Disease Predictor",
+  description: "View and manage your profile information",
+}
 
 export default function ProfileLayout({
   children,
