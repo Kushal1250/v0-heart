@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,7 +10,6 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
-import { useAuth } from "@/lib/auth-context"
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("")
@@ -21,7 +19,6 @@ export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { adminLogin, isAdmin } = useAuth()
 
   // Get redirect path from URL params
   const redirectPath = searchParams.get("redirect") || "/admin"
@@ -29,12 +26,15 @@ export default function AdminLoginPage() {
 
   // Check if already logged in as admin
   useEffect(() => {
-    // If already logged in as admin, redirect to admin dashboard
-    if (isAdmin) {
-      console.log("Already logged in as admin, redirecting to", redirectPath)
-      router.push(redirectPath)
+    const checkAdminStatus = () => {
+      const isAdmin = document.cookie.includes("is_admin=true")
+      if (isAdmin) {
+        console.log("Already logged in as admin, redirecting to", redirectPath)
+        router.push(redirectPath)
+      }
     }
-  }, [isAdmin, redirectPath, router])
+    checkAdminStatus()
+  }, [redirectPath, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,20 +43,33 @@ export default function AdminLoginPage() {
 
     try {
       console.log("Attempting admin login with email:", email)
-      const result = await adminLogin(email, password)
 
-      if (result.success) {
+      const response = await fetch("/api/auth/admin/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+        credentials: "include", // Important for cookies
+      })
+
+      const data = await response.json()
+      console.log("Admin login response:", data)
+
+      if (response.ok && data.success) {
         console.log("Admin login successful, redirecting to", redirectPath)
 
-        // Force a page reload to ensure cookies are properly set
-        window.location.href = redirectPath
+        // Small delay to ensure cookies are set
+        setTimeout(() => {
+          window.location.href = redirectPath
+        }, 100)
       } else {
-        console.error("Admin login failed:", result.message)
-        setError(result.message)
+        console.error("Admin login failed:", data.message)
+        setError(data.message || "Invalid admin credentials")
       }
     } catch (err) {
       console.error("Error during admin login:", err)
-      setError("An unexpected error occurred. Please try again.")
+      setError("Network error. Please check your connection and try again.")
     } finally {
       setLoading(false)
     }
@@ -96,6 +109,7 @@ export default function AdminLoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={loading}
               />
             </div>
             <div className="space-y-2">
@@ -109,6 +123,7 @@ export default function AdminLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={loading}
                 />
                 <Button
                   type="button"
@@ -116,6 +131,7 @@ export default function AdminLoginPage() {
                   size="icon"
                   className="absolute right-0 top-0 h-full px-3"
                   onClick={() => setShowPassword(!showPassword)}
+                  disabled={loading}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   <span className="sr-only">{showPassword ? "Hide password" : "Show password"}</span>

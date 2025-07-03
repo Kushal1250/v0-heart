@@ -1,54 +1,76 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import type React from "react"
+import { createContext, useContext, useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 
 interface User {
   id: string
   email: string
-  name: string
-  phone?: string
-  role?: string
+  name: string | null
+  role: string
 }
 
 interface AuthContextType {
   user: User | null
-  login: (
-    email: string,
-    password: string,
-    phone: string,
-    rememberMe?: boolean,
-  ) => Promise<{ success: boolean; message: string }>
-  logout: () => Promise<void>
   isLoading: boolean
+  isLoggedIn: boolean
+  isAdmin: boolean
+  login: (email: string, password: string, phone?: string) => Promise<{ success: boolean; message: string }>
+  adminLogin: (email: string, password: string) => Promise<{ success: boolean; message: string }>
+  logout: () => Promise<void>
   refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
 
-  // Function to normalize phone number
-  const normalizePhoneNumber = (phoneNumber: string) => {
-    return phoneNumber.replace(/[\s\-$$$$+]/g, "").trim()
+  const isLoggedIn = !!user
+  const isAdmin = user?.role === "admin"
+
+  // Check authentication status on mount
+  useEffect(() => {
+    checkAuthStatus()
+  }, [])
+
+  const checkAuthStatus = async () => {
+    try {
+      const response = await fetch("/api/auth/user", {
+        credentials: "include",
+      })
+
+      if (response.ok) {
+        const userData = await response.json()
+        setUser(userData)
+      } else {
+        setUser(null)
+      }
+    } catch (error) {
+      console.error("Error checking auth status:", error)
+      setUser(null)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const login = async (email: string, password: string, phone: string, rememberMe = false) => {
+  const login = async (email: string, password: string, phone?: string) => {
     try {
-      const normalizedPhone = normalizePhoneNumber(phone)
-
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password, phone: normalizedPhone }),
+        body: JSON.stringify({ email, password, phone }),
+        credentials: "include",
       })
 
       const data = await response.json()
 
-      if (response.ok) {
+      if (response.ok && data.success) {
         setUser(data.user)
         return { success: true, message: "Login successful" }
       } else {
@@ -56,7 +78,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error("Login error:", error)
-      return { success: false, message: "An error occurred during login" }
+      return { success: false, message: "Network error. Please try again." }
+    }
+  }
+
+  const adminLogin = async (email: string, password: string) => {
+    try {
+      const response = await fetch("/api/auth/admin/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+        credentials: "include",
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        setUser(data.user)
+        return { success: true, message: "Admin login successful" }
+      } else {
+        return { success: false, message: data.message || "Admin login failed" }
+      }
+    } catch (error) {
+      console.error("Admin login error:", error)
+      return { success: false, message: "Network error. Please try again." }
     }
   }
 
@@ -64,51 +111,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await fetch("/api/auth/logout", {
         method: "POST",
+        credentials: "include",
       })
-      setUser(null)
-      // Clear any stored credentials
-      localStorage.removeItem("rememberedCredentials")
     } catch (error) {
       console.error("Logout error:", error)
-      // Still clear user state even if API call fails
+    } finally {
       setUser(null)
+      router.push("/")
     }
   }
 
   const refreshUser = async () => {
-    try {
-      const response = await fetch("/api/auth/user")
-      if (response.ok) {
-        const data = await response.json()
-        setUser(data.user)
-      } else {
-        setUser(null)
-      }
-    } catch (error) {
-      console.error("Error refreshing user:", error)
-      setUser(null)
-    }
+    await checkAuthStatus()
   }
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch("/api/auth/user")
-        if (response.ok) {
-          const data = await response.json()
-          setUser(data.user)
-        }
-      } catch (error) {
-        console.error("Auth check error:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
+  const value = {
+    user,
+    isLoading,
+    isLoggedIn,
+    isAdmin,
+    login,
+    adminLogin,
+    logout,
+    refreshUser,
+  }
 
-    checkAuth()
-  }, [])
-
-  return <AuthContext.Provider value={{ user, login, logout, isLoading, refreshUser }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
