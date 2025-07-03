@@ -552,7 +552,7 @@ export default function AdminDashboard() {
             size="sm"
             onClick={runMigration}
             disabled={migrating}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 bg-transparent"
           >
             <Database className={`h-4 w-4 ${migrating ? "animate-pulse" : ""}`} />
             {migrating ? "Migrating..." : "Run Migration"}
@@ -562,7 +562,7 @@ export default function AdminDashboard() {
             size="sm"
             onClick={fetchData}
             disabled={refreshing}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 bg-transparent"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             {refreshing ? "Refreshing..." : "Refresh Data"}
@@ -589,7 +589,7 @@ export default function AdminDashboard() {
         </Alert>
       )}
 
-      <Tabs defaultValue={activeTab} className="mb-6" onValueChange={setActiveTab}>
+      <Tabs value={activeTab} className="mb-6" onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
@@ -694,7 +694,12 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button variant="outline" size="sm" className="w-full" onClick={() => setActiveTab("users")}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full bg-transparent"
+                  onClick={() => setActiveTab("users")}
+                >
                   View All Users
                 </Button>
               </CardFooter>
@@ -726,7 +731,12 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button variant="outline" size="sm" className="w-full" onClick={() => setActiveTab("predictions")}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full bg-transparent"
+                  onClick={() => setActiveTab("predictions")}
+                >
                   View All Predictions
                 </Button>
               </CardFooter>
@@ -774,7 +784,7 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               <Button
                 variant="outline"
-                className="w-full justify-center dark:bg-[#0c0c14] dark:border-[#1e1e2f] dark:hover:bg-[#1e1e2f] flex items-center gap-2"
+                className="w-full justify-center dark:bg-[#0c0c14] dark:border-[#1e1e2f] dark:hover:bg-[#1e1e2f] flex items-center gap-2 bg-transparent"
                 onClick={runMigration}
               >
                 <Database className="h-4 w-4" />
@@ -783,7 +793,7 @@ export default function AdminDashboard() {
 
               <Button
                 variant="outline"
-                className="w-full justify-center dark:bg-[#0c0c14] dark:border-[#1e1e2f] dark:hover:bg-[#1e1e2f] flex items-center gap-2"
+                className="w-full justify-center dark:bg-[#0c0c14] dark:border-[#1e1e2f] dark:hover:bg-[#1e1e2f] flex items-center gap-2 bg-transparent"
                 onClick={() => router.push("/admin/fix-issues")}
               >
                 <UserCheck className="h-4 w-4" />
@@ -792,7 +802,7 @@ export default function AdminDashboard() {
 
               <Button
                 variant="outline"
-                className="w-full justify-center dark:bg-[#0c0c14] dark:border-[#1e1e2f] dark:hover:bg-[#1e1e2f] flex items-center gap-2"
+                className="w-full justify-center dark:bg-[#0c0c14] dark:border-[#1e1e2f] dark:hover:bg-[#1e1e2f] flex items-center gap-2 bg-transparent"
                 onClick={() => router.push("/admin/reset-token-diagnostics")}
               >
                 <Shield className="h-4 w-4" />
@@ -801,7 +811,7 @@ export default function AdminDashboard() {
 
               <Button
                 variant="outline"
-                className="w-full justify-center dark:bg-[#0c0c14] dark:border-[#1e1e2f] dark:hover:bg-[#1e1e2f] flex items-center gap-2"
+                className="w-full justify-center dark:bg-[#0c0c14] dark:border-[#1e1e2f] dark:hover:bg-[#1e1e2f] flex items-center gap-2 bg-transparent"
                 onClick={() => router.push("/admin/diagnostics")}
               >
                 <Activity className="h-4 w-4" />
@@ -1292,7 +1302,7 @@ export default function AdminDashboard() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex items-center gap-1"
+                    className="flex items-center gap-1 bg-transparent"
                     onClick={() => handleUpdateUserRole(selectedUser.id, "admin")}
                   >
                     <UserCheck className="h-4 w-4" />
@@ -1302,7 +1312,7 @@ export default function AdminDashboard() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex items-center gap-1"
+                    className="flex items-center gap-1 bg-transparent"
                     onClick={() => handleUpdateUserRole(selectedUser.id, "user")}
                   >
                     <UserX className="h-4 w-4" />
@@ -1313,7 +1323,7 @@ export default function AdminDashboard() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 bg-transparent"
                   onClick={() => handleResetPassword(selectedUser.id, selectedUser.email)}
                 >
                   <Key className="h-4 w-4" />
