@@ -2,6 +2,12 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth-utils"
 import { updateUserProfile } from "@/lib/db"
 
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+}
+
 export async function POST(request: NextRequest) {
   try {
     const currentUser = await getCurrentUser()
