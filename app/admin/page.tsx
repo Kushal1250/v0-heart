@@ -884,7 +884,7 @@ export default function AdminDashboard() {
                         <div className="flex items-center gap-2">
                           <Input
                             type={showPasswords[user.id] ? "text" : "password"}
-                            defaultValue={user.password || "password123"}
+                            defaultValue={user.password || "••••••••"}
                             className="h-8 w-32 text-xs"
                             readOnly
                           />
@@ -1241,7 +1241,7 @@ export default function AdminDashboard() {
                   <div className="col-span-2 flex items-center gap-2">
                     <Input
                       type={showPasswords[selectedUser.id] ? "text" : "password"}
-                      defaultValue={selectedUser.password || "password123"}
+                      defaultValue={selectedUser.password || "••••••••"}
                       className="h-8 flex-1"
                       readOnly
                     />
