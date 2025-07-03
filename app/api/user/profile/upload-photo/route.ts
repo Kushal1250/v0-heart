@@ -2,13 +2,6 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth-utils"
 import { updateUserProfile } from "@/lib/db"
 
-export const config = {
-  api: {
-    // Disable the default bodyParser to handle file uploads
-    bodyParser: false,
-  },
-}
-
 export async function POST(request: NextRequest) {
   try {
     console.log("Profile photo upload API called")
