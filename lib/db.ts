@@ -21,8 +21,7 @@ export async function initDatabase() {
        role TEXT NOT NULL DEFAULT 'user',
        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
        last_login TIMESTAMP WITH TIME ZONE,
-       provider TEXT,
-       profile_picture TEXT
+       provider TEXT
      )
    `
 
@@ -98,11 +97,6 @@ export async function getUserByEmail(email: string) {
   }
 }
 
-/**
- * Get user by phone number
- * @param phone Phone number
- * @returns User object or null
- */
 export async function getUserByPhone(phone: string) {
   const result = await sql`
    SELECT * FROM users
@@ -320,11 +314,6 @@ export async function updateUserPassword(userId: string, newPassword: string) {
   }
 }
 
-/**
- * Verify if a password reset token is valid and not expired
- * @param token The token to verify
- * @returns An object with the token information if valid, null otherwise
- */
 export async function verifyPasswordResetToken(token: string) {
   try {
     if (!token) {
@@ -354,11 +343,6 @@ export async function verifyPasswordResetToken(token: string) {
   }
 }
 
-/**
- * Invalidate a password reset token after it has been used
- * @param token The token to invalidate
- * @returns Success status
- */
 export async function invalidatePasswordResetToken(token: string) {
   try {
     if (!token) {
@@ -399,9 +383,8 @@ export async function getAllUsers() {
 
 export async function getAllUsersWithDetails() {
   try {
-    // Modified query to exclude the last_login column that doesn't exist
     const users = await sql`
-     SELECT id, email, name, phone, role, created_at, provider, profile_picture
+     SELECT id, email, name, phone, role, created_at, provider
      FROM users
      ORDER BY created_at DESC
    `
@@ -440,66 +423,6 @@ export async function deleteUser(userId: string) {
   }
 }
 
-// Add profile_picture to the updateUserProfile function
-export async function updateUserProfile(
-  userId: string,
-  data: {
-    name?: string
-    phone?: string
-    profile_picture?: string
-  },
-) {
-  try {
-    const setFields: string[] = []
-    const values: any[] = []
-    let paramIndex = 1
-
-    if (data.name !== undefined) {
-      setFields.push(`name = $${paramIndex}`)
-      values.push(data.name)
-      paramIndex++
-    }
-
-    if (data.phone !== undefined) {
-      setFields.push(`phone = $${paramIndex}`)
-      values.push(data.phone)
-      paramIndex++
-    }
-
-    if (data.profile_picture !== undefined) {
-      setFields.push(`profile_picture = $${paramIndex}`)
-      values.push(data.profile_picture)
-      paramIndex++
-    }
-
-    if (setFields.length === 0) {
-      return null // Nothing to update
-    }
-
-    // Add the user ID as the last parameter
-    values.push(userId)
-
-    const query = `
-     UPDATE users
-     SET ${setFields.join(", ")}
-     WHERE id = $${paramIndex}
-     RETURNING id, name, email, phone, role, profile_picture
-   `
-
-    const result = await sql(query, ...values)
-    return result[0]
-  } catch (error) {
-    console.error("Error updating user profile:", error)
-    return null
-  }
-}
-
-/**
- * Verify an OTP code for a user
- * @param userId User ID or email
- * @param otp Verification code
- * @returns Object with success status and message
- */
 export async function verifyOTP(userId: string, otp: string) {
   try {
     if (!userId || !otp) {
@@ -616,11 +539,6 @@ export async function getPredictionById(id: string) {
   }
 }
 
-/**
- * Delete a prediction by ID
- * @param id Prediction ID
- * @returns Success status
- */
 export async function deletePredictionById(id: string): Promise<boolean> {
   try {
     if (!id) {
@@ -635,11 +553,6 @@ export async function deletePredictionById(id: string): Promise<boolean> {
   }
 }
 
-/**
- * Clear all predictions for a user
- * @param userId User ID
- * @returns Success status
- */
 export async function clearUserPredictions(userId: string): Promise<boolean> {
   try {
     if (!userId) {
@@ -654,12 +567,6 @@ export async function clearUserPredictions(userId: string): Promise<boolean> {
   }
 }
 
-/**
- * Create a verification code for a user
- * @param identifier User ID, email, or phone
- * @param code Verification code
- * @returns The created verification code record
- */
 export async function createVerificationCode(identifier: string, code: string) {
   try {
     if (!identifier || !code) {
@@ -695,12 +602,6 @@ export async function createVerificationCode(identifier: string, code: string) {
   }
 }
 
-/**
- * Get a verification code by user ID and code
- * @param userId User ID
- * @param code Verification code
- * @returns The verification code record or null
- */
 export async function getVerificationCodeByUserIdAndCode(userId: string, code: string) {
   try {
     if (!userId || !code) {
@@ -718,11 +619,6 @@ export async function getVerificationCodeByUserIdAndCode(userId: string, code: s
   }
 }
 
-/**
- * Get a verification code by identifier (email or phone)
- * @param identifier User ID, email, or phone
- * @returns The verification code record or null
- */
 export async function getVerificationCode(identifier: string) {
   try {
     if (!identifier) {
@@ -749,12 +645,6 @@ export async function getVerificationCode(identifier: string) {
   }
 }
 
-/**
- * Verify a code for a user
- * @param userId User ID
- * @param code Verification code
- * @returns Boolean indicating if the code is valid
- */
 export async function verifyCode(userId: string, code: string) {
   try {
     if (!userId || !code) {
@@ -775,10 +665,6 @@ export async function verifyCode(userId: string, code: string) {
   }
 }
 
-/**
- * Deletes a verification code
- * @param identifier User ID, email, or phone
- */
 export async function deleteVerificationCode(identifier: string) {
   try {
     if (!identifier) {
@@ -794,11 +680,6 @@ export async function deleteVerificationCode(identifier: string) {
   }
 }
 
-/**
- * Updates a user's phone number
- * @param userId User ID
- * @param phone New phone number
- */
 export async function updateUserPhone(userId: string, phone: string) {
   try {
     if (!userId || !phone) {
@@ -810,31 +691,5 @@ export async function updateUserPhone(userId: string, phone: string) {
   } catch (error) {
     console.error("Database error in updateUserPhone:", error)
     throw new Error(`Failed to update phone number: ${error instanceof Error ? error.message : "Unknown error"}`)
-  }
-}
-
-/**
- * Update a user's profile picture
- * @param userId User ID
- * @param profilePicture Profile picture URL
- * @returns Updated user object or null
- */
-export async function updateUserProfilePicture(userId: string, profilePicture: string) {
-  try {
-    if (!userId || !profilePicture) {
-      throw new Error("User ID and profile picture are required to update profile picture")
-    }
-
-    const users = await sql`
-     UPDATE users
-     SET profile_picture = ${profilePicture}
-     WHERE id = ${userId}
-     RETURNING id, name, email, phone, role, profile_picture
-   `
-
-    return users[0]
-  } catch (error) {
-    console.error("Error updating user profile picture:", error)
-    return null
   }
 }

@@ -165,15 +165,6 @@ export default function Navbar() {
                               asChild
                               className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
                             >
-                              <Link href="/profile" className="flex items-center">
-                                <User className="mr-2 h-4 w-4" />
-                                <span>Profile</span>
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              asChild
-                              className="px-2 py-2 hover:bg-[#2a2f3e] rounded-md cursor-pointer"
-                            >
                               <Link href="/dashboard" className="flex items-center">
                                 <LayoutDashboard className="mr-2 h-4 w-4" />
                                 <span>Dashboard</span>
@@ -285,13 +276,6 @@ export default function Navbar() {
               ))}
               {user && (
                 <>
-                  <Link
-                    href="/profile"
-                    className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <User className="inline h-4 w-4 mr-2" /> Profile
-                  </Link>
                   <Link
                     href="/dashboard"
                     className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"

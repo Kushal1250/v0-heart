@@ -35,7 +35,6 @@
     "clsx": "^2.1.1",
     "crypto": "latest",
     "csv-parser": "^3.0.0",
-    "date-fns": "latest",
     "fs": "latest",
     "html2canvas": "latest",
     "jsonwebtoken": "latest",
