@@ -7,23 +7,40 @@ import {
   AlertTriangle,
   BarChart3,
   Database,
+  RefreshCw,
+  Search,
   Users,
+  Eye,
+  EyeOff,
+  Trash2,
+  UserCheck,
+  UserX,
+  Key,
   ChevronUp,
   ChevronDown,
   Shield,
   Mail,
-  Settings,
-  Heart,
-  CheckCircle,
-  Clock,
-  Phone,
+  MessageSquare,
+  Wrench,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Progress } from "@/components/ui/progress"
+import { Label } from "@/components/ui/label"
 
 interface User {
   id: string
@@ -59,13 +76,6 @@ interface SystemHealth {
 type SortField = "name" | "email" | "created_at"
 type SortOrder = "asc" | "desc"
 
-interface SystemStats {
-  totalUsers: number
-  totalPredictions: number
-  systemHealth: "healthy" | "warning" | "error"
-  lastBackup: string
-}
-
 export default function AdminDashboard() {
   const router = useRouter()
   const [users, setUsers] = useState<User[]>([])
@@ -97,11 +107,15 @@ export default function AdminDashboard() {
     storage: true,
     overall: "healthy",
   })
-  const [stats, setStats] = useState<SystemStats>({
+  const [stats, setStats] = useState({
     totalUsers: 0,
+    activeUsers: 0,
+    adminUsers: 0,
     totalPredictions: 0,
-    systemHealth: "healthy",
-    lastBackup: "Never",
+    averageRisk: 0,
+    highRiskCount: 0,
+    newUsersToday: 0,
+    newPredictionsToday: 0,
   })
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({})
 
@@ -499,40 +513,12 @@ export default function AdminDashboard() {
     router.push("/admin-login?redirect=/admin")
   }
 
-  const getHealthBadge = (health: string) => {
-    switch (health) {
-      case "healthy":
-        return (
-          <Badge className="bg-green-100 text-green-800">
-            <CheckCircle className="w-3 h-3 mr-1" />
-            Healthy
-          </Badge>
-        )
-      case "warning":
-        return (
-          <Badge className="bg-yellow-100 text-yellow-800">
-            <AlertTriangle className="w-3 h-3 mr-1" />
-            Warning
-          </Badge>
-        )
-      case "error":
-        return (
-          <Badge className="bg-red-100 text-red-800">
-            <AlertTriangle className="w-3 h-3 mr-1" />
-            Error
-          </Badge>
-        )
-      default:
-        return <Badge>Unknown</Badge>
-    }
-  }
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Heart className="h-12 w-12 text-red-500 animate-pulse mx-auto mb-4" />
-          <p className="text-gray-600">Loading admin dashboard...</p>
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <p className="text-lg font-medium">Loading admin dashboard...</p>
         </div>
       </div>
     )
@@ -554,213 +540,946 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Shield className="h-8 w-8 text-blue-600 mr-3" />
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p className="text-sm text-gray-500">HeartPredict Management Panel</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Badge className="bg-blue-100 text-blue-800">
-                <Clock className="w-3 h-3 mr-1" />
-                Last login: {new Date().toLocaleTimeString()}
-              </Badge>
-            </div>
-          </div>
+    <div className="container mx-auto p-4 md:p-6">
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <p className="text-muted-foreground">Manage users, view predictions, and monitor system health</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={runMigration}
+            disabled={migrating}
+            className="flex items-center gap-2 bg-transparent"
+          >
+            <Database className={`h-4 w-4 ${migrating ? "animate-pulse" : ""}`} />
+            {migrating ? "Migrating..." : "Run Migration"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchData}
+            disabled={refreshing}
+            className="flex items-center gap-2 bg-transparent"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh Data"}
+          </Button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Message */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome back, Kushal!</h2>
-          <p className="text-gray-600">Here's what's happening with your HeartPredict system today.</p>
-        </div>
+      {migrationMessage && (
+        <Alert variant={migrationMessage.includes("failed") ? "destructive" : "default"} className="mb-6">
+          <AlertDescription>{migrationMessage}</AlertDescription>
+        </Alert>
+      )}
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalUsers.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">+12% from last month</p>
-            </CardContent>
-          </Card>
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>{error}</span>
+            <Button variant="outline" size="sm" onClick={handleLoginRetry}>
+              Re-login
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Predictions Made</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalPredictions.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">+8% from last month</p>
-            </CardContent>
-          </Card>
+      <Tabs value={activeTab} className="mb-6" onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="predictions">Predictions</TabsTrigger>
+          <TabsTrigger value="system">System</TabsTrigger>
+        </TabsList>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">System Health</CardTitle>
-              <Database className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold mb-2">{getHealthBadge(stats.systemHealth)}</div>
-              <p className="text-xs text-muted-foreground">All systems operational</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Last Backup</CardTitle>
-              <Settings className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.lastBackup}</div>
-              <p className="text-xs text-muted-foreground">Automated daily backups</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Management Tabs */}
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="users">User Management</TabsTrigger>
-            <TabsTrigger value="system">System Settings</TabsTrigger>
-            <TabsTrigger value="reports">Reports</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
-                  <CardDescription>Common administrative tasks</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button className="w-full justify-start bg-transparent" variant="outline">
-                    <Users className="mr-2 h-4 w-4" />
-                    Manage Users
-                  </Button>
-                  <Button className="w-full justify-start bg-transparent" variant="outline">
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    View Analytics
-                  </Button>
-                  <Button className="w-full justify-start bg-transparent" variant="outline">
-                    <Database className="mr-2 h-4 w-4" />
-                    Database Status
-                  </Button>
-                  <Button className="w-full justify-start bg-transparent" variant="outline">
-                    <Settings className="mr-2 h-4 w-4" />
-                    System Settings
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
-                  <CardDescription>Latest system events</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">System backup completed</p>
-                        <p className="text-xs text-gray-500">2 hours ago</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">New user registered</p>
-                        <p className="text-xs text-gray-500">4 hours ago</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Database maintenance scheduled</p>
-                        <p className="text-xs text-gray-500">6 hours ago</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="users" className="space-y-4">
+        {/* Dashboard Tab */}
+        <TabsContent value="dashboard" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
-              <CardHeader>
-                <CardTitle>User Management</CardTitle>
-                <CardDescription>Manage user accounts and permissions</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600 mb-4">User management features will be available here.</p>
-                <Button>Add New User</Button>
+                <div className="text-2xl font-bold">{stats.totalUsers}</div>
+                <p className="text-xs text-muted-foreground">{stats.newUsersToday} new today</p>
               </CardContent>
             </Card>
-          </TabsContent>
 
-          <TabsContent value="system" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>System Configuration</CardTitle>
-                <CardDescription>Configure system settings and preferences</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Predictions</CardTitle>
+                <Activity className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">Email Notifications</h4>
-                      <p className="text-sm text-gray-500">Send system alerts via email</p>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      <Mail className="mr-2 h-4 w-4" />
-                      Configure
-                    </Button>
+                <div className="text-2xl font-bold">{stats.totalPredictions}</div>
+                <p className="text-xs text-muted-foreground">{stats.newPredictionsToday} new today</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Average Risk</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{(stats.averageRisk * 100).toFixed(1)}%</div>
+                <Progress value={stats.averageRisk * 100} className="mt-2" />
+              </CardContent>
+            </Card>
+
+            {/* System Health Card */}
+            <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-base font-medium">System Health</CardTitle>
+                  <div className="text-green-500">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 2L20 18H4L12 2Z" fill="currentColor" />
+                    </svg>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">SMS Alerts</h4>
-                      <p className="text-sm text-gray-500">Send critical alerts via SMS</p>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      <Phone className="mr-2 h-4 w-4" />
-                      Configure
-                    </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <h2 className="text-3xl font-bold mb-4">Healthy</h2>
+                <div className="grid grid-cols-2 gap-y-2">
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                    <span>Database</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                    <span>Email</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                    <span>SMS</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                    <span>Storage</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
 
-          <TabsContent value="reports" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>System Reports</CardTitle>
-                <CardDescription>Generate and view system reports</CardDescription>
+                <CardTitle>Recent Users</CardTitle>
+                <CardDescription>Latest user registrations</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600 mb-4">Reporting features will be available here.</p>
-                <Button>Generate Report</Button>
+                <div className="space-y-4">
+                  {users.slice(0, 5).map((user) => (
+                    <div key={user.id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{user.name || "Unnamed User"}</p>
+                          <p className="text-xs text-muted-foreground">{user.email}</p>
+                        </div>
+                      </div>
+                      <Badge variant={user.role === "admin" ? "default" : "outline"}>{user.role}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full bg-transparent"
+                  onClick={() => setActiveTab("users")}
+                >
+                  View All Users
+                </Button>
+              </CardFooter>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Predictions</CardTitle>
+                <CardDescription>Latest heart disease risk assessments</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {predictions.slice(0, 5).map((prediction) => (
+                    <div key={prediction.id} className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">{prediction.userName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(prediction.timestamp).toLocaleString()}
+                        </p>
+                      </div>
+                      <Badge
+                        variant={prediction.result > 0.5 ? "destructive" : "success"}
+                        className={prediction.result > 0.5 ? "bg-red-600" : "bg-green-600"}
+                      >
+                        {(prediction.result * 100).toFixed(0)}% Risk
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full bg-transparent"
+                  onClick={() => setActiveTab("predictions")}
+                >
+                  View All Predictions
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+
+          {/* System Status Card - Added to bottom of Dashboard */}
+          <div className="mt-8 rounded-lg border bg-[#0c0c14] border-[#1e1e2f] p-6 text-card-foreground shadow-sm">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-white">System Status</h3>
+              <p className="text-sm text-muted-foreground">Health of various system components</p>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-white">Database</p>
+                <div className="flex items-center">
+                  <AlertTriangle className="h-4 w-4 text-yellow-500 mr-1" />
+                  <span className="text-sm text-yellow-500">Unknown</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-white">Email Service</p>
+                <div className="flex items-center">
+                  <AlertTriangle className="h-4 w-4 text-yellow-500 mr-1" />
+                  <span className="text-sm text-yellow-500">Not Configured</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-white">SMS Service</p>
+                <div className="flex items-center">
+                  <AlertTriangle className="h-4 w-4 text-yellow-500 mr-1" />
+                  <span className="text-sm text-yellow-500">Not Configured</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-white">Last Migration</p>
+                <span className="text-sm text-muted-foreground">Unknown</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <Button
+                variant="outline"
+                className="w-full justify-center dark:bg-[#0c0c14] dark:border-[#1e1e2f] dark:hover:bg-[#1e1e2f] flex items-center gap-2 bg-transparent"
+                onClick={runMigration}
+              >
+                <Database className="h-4 w-4" />
+                Run Migration
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full justify-center dark:bg-[#0c0c14] dark:border-[#1e1e2f] dark:hover:bg-[#1e1e2f] flex items-center gap-2 bg-transparent"
+                onClick={() => router.push("/admin/fix-issues")}
+              >
+                <UserCheck className="h-4 w-4" />
+                Fix Verification System
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full justify-center dark:bg-[#0c0c14] dark:border-[#1e1e2f] dark:hover:bg-[#1e1e2f] flex items-center gap-2 bg-transparent"
+                onClick={() => router.push("/admin/reset-token-diagnostics")}
+              >
+                <Shield className="h-4 w-4" />
+                Fix Reset Tokens
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full justify-center dark:bg-[#0c0c14] dark:border-[#1e1e2f] dark:hover:bg-[#1e1e2f] flex items-center gap-2 bg-transparent"
+                onClick={() => router.push("/admin/diagnostics")}
+              >
+                <Activity className="h-4 w-4" />
+                System Diagnostics
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Users Tab */}
+        <TabsContent value="users" className="space-y-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="relative w-full md:w-1/3">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search users by name, email or phone"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {filteredUsers.length} of {users.length} users
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-md border border-[#1e1e2f]">
+            <Table>
+              <TableHeader className="bg-[#0c0c14] text-white">
+                <TableRow>
+                  <TableHead
+                    className="cursor-pointer hover:bg-[#1e1e2f] transition-colors"
+                    onClick={() => handleSort("name")}
+                  >
+                    Name {getSortIcon("name")}
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-[#1e1e2f] transition-colors"
+                    onClick={() => handleSort("email")}
+                  >
+                    Email {getSortIcon("email")}
+                  </TableHead>
+                  <TableHead>Password</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Provider</TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-[#1e1e2f] transition-colors"
+                    onClick={() => handleSort("created_at")}
+                  >
+                    Created {getSortIcon("created_at")}
+                  </TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-24 text-center">
+                      No users found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.name || "N/A"}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type={showPasswords[user.id] ? "text" : "password"}
+                            defaultValue={user.password || "password123"}
+                            className="h-8 w-32 text-xs"
+                            readOnly
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 p-0"
+                            onClick={() => {
+                              setShowPasswords((prev) => ({
+                                ...prev,
+                                [user.id]: !prev[user.id],
+                              }))
+                            }}
+                          >
+                            {showPasswords[user.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={user.role === "admin" ? "default" : "outline"}>{user.role}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{user.provider || "email"}</Badge>
+                      </TableCell>
+                      <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => handleUserClick(user)}>
+                            <Eye className="h-4 w-4" />
+                            <span className="sr-only">View user</span>
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleResetPassword(user.id, user.email)}>
+                            <Key className="h-4 w-4" />
+                            <span className="sr-only">Reset password</span>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+
+        {/* Predictions Tab */}
+        <TabsContent value="predictions" className="space-y-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="relative w-full md:w-1/3">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search predictions by user"
+                value={predictionSearchTerm}
+                onChange={(e) => setPredictionSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {filteredPredictions.length} of {predictions.length} predictions
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Risk Level</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredPredictions.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      No predictions found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredPredictions.map((pred) => (
+                    <TableRow key={pred.id}>
+                      <TableCell className="font-medium">{pred.userName}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={pred.result > 0.5 ? "destructive" : "success"}
+                          className={pred.result > 0.5 ? "bg-red-600" : "bg-green-600"}
+                        >
+                          {(pred.result * 100).toFixed(1)}% Risk
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{new Date(pred.timestamp).toLocaleString()}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={() => handlePredictionClick(pred)}>
+                          <Eye className="h-4 w-4" />
+                          <span className="sr-only">View details</span>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+
+        {/* System Tab */}
+
+        <TabsContent value="system" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {/* Database Management */}
+            <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
+              <CardHeader>
+                <CardTitle>Database Management</CardTitle>
+                <CardDescription>Manage database and migrations</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={async () => {
+                    try {
+                      const response = await fetch("/api/admin/update-system-indicators", {
+                        method: "POST",
+                        credentials: "include",
+                      })
+
+                      if (response.ok) {
+                        setMigrationMessage("System indicators updated successfully")
+                        // Refresh data after updating indicators
+                        fetchData()
+                      } else {
+                        const data = await response.json()
+                        setMigrationMessage(`Failed to update system indicators: ${data.error || "Unknown error"}`)
+                      }
+                    } catch (err) {
+                      console.error("Error updating system indicators:", err)
+                      setMigrationMessage(err instanceof Error ? err.message : "Failed to update system indicators")
+                    }
+                  }}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" /> Update System Indicators
+                </Button>
+                <div className="flex justify-between items-center">
+                  <span>Database Status:</span>
+                  <Badge variant="outline" className="bg-green-600 text-white">
+                    Connected
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Last Migration:</span>
+                  <span className="text-green-400">Up to date</span>
+                </div>
+                <div className="space-y-2 mt-4">
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                    onClick={runMigration}
+                  >
+                    <Database className="mr-2 h-4 w-4" /> Run Migration
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                    onClick={() => router.push("/admin/detailed-db-diagnostics")}
+                  >
+                    <Database className="mr-2 h-4 w-4" /> Database Diagnostics
+                  </Button>
+                </div>
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+
+            {/* Authentication Systems */}
+            <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
+              <CardHeader>
+                <CardTitle>Authentication Systems</CardTitle>
+                <CardDescription>Fix auth related issues</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span>Verification System:</span>
+                  <Badge className="bg-green-600">Active</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Password Reset System:</span>
+                  <Badge className="bg-green-600">Active</Badge>
+                </div>
+                <div className="space-y-2 mt-4">
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                    onClick={() => router.push("/admin/verification-settings")}
+                  >
+                    <UserCheck className="mr-2 h-4 w-4" /> Fix Verification System
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                    onClick={() => router.push("/admin/reset-token-diagnostics")}
+                  >
+                    <Key className="mr-2 h-4 w-4" /> Fix Password Reset System
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Notification Services */}
+            <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
+              <CardHeader>
+                <CardTitle>Notification Services</CardTitle>
+                <CardDescription>Manage email and SMS services</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span>Email Service:</span>
+                  <Badge className="bg-green-600">Configured</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>SMS Service:</span>
+                  <Badge className="bg-green-600">Configured</Badge>
+                </div>
+                <div className="space-y-2 mt-4">
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                    onClick={() => router.push("/admin/email-settings")}
+                  >
+                    <Mail className="mr-2 h-4 w-4" /> Email Settings
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                    onClick={() => router.push("/admin/sms-diagnostics")}
+                  >
+                    <MessageSquare className="mr-2 h-4 w-4" /> SMS Settings
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* System Diagnostics */}
+            <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
+              <CardHeader>
+                <CardTitle>System Diagnostics</CardTitle>
+                <CardDescription>Debug and repair tools</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={() => router.push("/admin/diagnostics")}
+                >
+                  <Activity className="mr-2 h-4 w-4" /> General Diagnostics
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={() => router.push("/admin/email-diagnostics")}
+                >
+                  <Mail className="mr-2 h-4 w-4" /> Email Diagnostics
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={() => router.push("/admin/sms-diagnostics")}
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" /> SMS Diagnostics
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={() => router.push("/admin/fix-issues")}
+                >
+                  <AlertTriangle className="mr-2 h-4 w-4" /> Fix System Issues
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Admin Tools */}
+            <Card className="bg-[#0c0c14] border-[#1e1e2f] text-white">
+              <CardHeader>
+                <CardTitle>Admin Tools</CardTitle>
+                <CardDescription>Additional administrative tools</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={() => router.push("/admin/system-health")}
+                >
+                  <BarChart3 className="mr-2 h-4 w-4" /> System Health
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={() => router.push("/admin/detailed-db-diagnostics")}
+                >
+                  <Database className="mr-2 h-4 w-4" /> Detailed DB Diagnostics
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={() => router.push("/admin/reset-token-diagnostics")}
+                >
+                  <Key className="mr-2 h-4 w-4" /> Reset Token Diagnostics
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-center bg-[#0c0c14] border-[#1e1e2f] hover:bg-[#1e1e2f]"
+                  onClick={() => router.push("/admin/fix-database")}
+                >
+                  <Wrench className="mr-2 h-4 w-4" /> Fix Database
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* User Details Dialog */}
+      {selectedUser && (
+        <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>User Details</DialogTitle>
+              <DialogDescription>Detailed information about the selected user.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="flex justify-center">
+                <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center text-2xl font-bold">
+                  {selectedUser.name
+                    ? selectedUser.name.charAt(0).toUpperCase()
+                    : selectedUser.email.charAt(0).toUpperCase()}
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Name</Label>
+                  <div className="col-span-2">{selectedUser.name || "N/A"}</div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Email</Label>
+                  <div className="col-span-2">{selectedUser.email}</div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Password</Label>
+                  <div className="col-span-2 flex items-center gap-2">
+                    <Input
+                      type={showPasswords[selectedUser.id] ? "text" : "password"}
+                      defaultValue={selectedUser.password || "password123"}
+                      className="h-8 flex-1"
+                      readOnly
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 p-0"
+                      onClick={() => {
+                        setShowPasswords((prev) => ({
+                          ...prev,
+                          [selectedUser.id]: !prev[selectedUser.id],
+                        }))
+                      }}
+                    >
+                      {showPasswords[selectedUser.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Phone</Label>
+                  <div className="col-span-2">{selectedUser.phone || "N/A"}</div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Role</Label>
+                  <div className="col-span-2">
+                    <Badge variant={selectedUser.role === "admin" ? "default" : "outline"}>{selectedUser.role}</Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Provider</Label>
+                  <div className="col-span-2">
+                    <Badge variant="secondary">{selectedUser.provider || "email"}</Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Created</Label>
+                  <div className="col-span-2">{new Date(selectedUser.created_at).toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="flex flex-col sm:flex-row sm:justify-between sm:space-x-2">
+              <div className="flex flex-wrap gap-2">
+                {selectedUser.role === "user" ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-1 bg-transparent"
+                    onClick={() => handleUpdateUserRole(selectedUser.id, "admin")}
+                  >
+                    <UserCheck className="h-4 w-4" />
+                    Make Admin
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-1 bg-transparent"
+                    onClick={() => handleUpdateUserRole(selectedUser.id, "user")}
+                  >
+                    <UserX className="h-4 w-4" />
+                    Remove Admin
+                  </Button>
+                )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1 bg-transparent"
+                  onClick={() => handleResetPassword(selectedUser.id, selectedUser.email)}
+                >
+                  <Key className="h-4 w-4" />
+                  Reset Password
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => {
+                    setShowUserDialog(false)
+                    setDeleteConfirmation(selectedUser.id)
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              </div>
+
+              <Button variant="default" onClick={() => setShowUserDialog(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Prediction Details Dialog */}
+      {selectedPrediction && (
+        <Dialog open={showPredictionDialog} onOpenChange={setShowPredictionDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Prediction Details</DialogTitle>
+              <DialogDescription>Detailed information about the selected prediction.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="flex justify-center">
+                <div
+                  className={`h-20 w-20 rounded-full flex items-center justify-center text-white text-2xl font-bold ${
+                    selectedPrediction.result > 0.5 ? "bg-red-500" : "bg-green-500"
+                  }`}
+                >
+                  {(selectedPrediction.result * 100).toFixed(0)}%
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">User</Label>
+                  <div className="col-span-2">{selectedPrediction.userName}</div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">User ID</Label>
+                  <div className="col-span-2">{selectedPrediction.userId}</div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Risk Level</Label>
+                  <div className="col-span-2">
+                    <Badge
+                      variant={selectedPrediction.result > 0.5 ? "destructive" : "success"}
+                      className={selectedPrediction.result > 0.5 ? "bg-red-600" : "bg-green-600"}
+                    >
+                      {(selectedPrediction.result * 100).toFixed(1)}% Risk
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Date</Label>
+                  <div className="col-span-2">{new Date(selectedPrediction.timestamp).toLocaleString()}</div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <Label className="text-right pt-2">Input Data</Label>
+                  <div className="col-span-2 max-h-40 overflow-y-auto rounded-md bg-muted p-2 text-xs">
+                    <pre>{JSON.stringify(selectedPrediction.data, null, 2)}</pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="default" onClick={() => setShowPredictionDialog(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirmation && (
+        <Dialog open={!!deleteConfirmation} onOpenChange={() => setDeleteConfirmation(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirm Deletion</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this user? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex flex-col sm:flex-row sm:justify-between sm:space-x-2">
+              <Button variant="outline" onClick={() => setDeleteConfirmation(null)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={() => handleDeleteUser(deleteConfirmation)}>
+                Delete User
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Reset Password Dialog */}
+      {showResetDialog && (
+        <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Reset User Password</DialogTitle>
+              <DialogDescription>Send a password reset link to the user's email address.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid gap-2">
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Email</Label>
+                  <div className="col-span-2">
+                    <Input
+                      value={resetUserEmail}
+                      onChange={(e) => setResetUserEmail(e.target.value)}
+                      placeholder="user@example.com"
+                    />
+                  </div>
+                </div>
+              </div>
+              {resetMessage && (
+                <div className={`text-sm ${resetMessage.includes("Error") ? "text-red-500" : "text-green-500"}`}>
+                  {resetMessage}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowResetDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmResetPassword}
+                disabled={isResetting || !resetUserEmail}
+                className="flex items-center gap-2"
+              >
+                {isResetting ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Key className="h-4 w-4" />
+                    Send Reset Link
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { generateToken } from "@/lib/auth-utils"
 
 export async function POST(request: Request) {
   try {
@@ -30,13 +31,13 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if credentials match the exact admin credentials
+    // Check if credentials match the hardcoded admin credentials
     const adminEmail = "patelkushal1533@gmail.com"
     const adminPassword = "Kushal@1533"
 
     if (email.toLowerCase().trim() === adminEmail.toLowerCase() && password === adminPassword) {
       // Generate admin token
-      const token = crypto.randomUUID()
+      const token = generateToken()
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
 
       console.log("Admin login successful, generating token")
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
         user: {
           id: "admin",
           email: email,
-          name: "Kushal Patel",
+          name: "Admin",
           role: "admin",
         },
       })
@@ -75,12 +76,6 @@ export async function POST(request: Request) {
       })
 
       response.cookies.set({
-        name: "admin_session",
-        value: token,
-        ...cookieOptions,
-      })
-
-      response.cookies.set({
         name: "is_admin",
         value: "true",
         httpOnly: false, // Needs to be accessible from JavaScript
@@ -98,7 +93,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        message: "Invalid admin credentials. Please check your email and password.",
+        message: "Invalid admin credentials",
       },
       { status: 401 },
     )
