@@ -318,12 +318,17 @@ export default function AdminPredictions() {
             size="sm"
             onClick={fetchPredictions}
             disabled={refreshing}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 bg-transparent"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             {refreshing ? "Refreshing..." : "Refresh Data"}
           </Button>
-          <Button variant="outline" size="sm" onClick={exportPredictions} className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportPredictions}
+            className="flex items-center gap-2 bg-transparent"
+          >
             <Download className="h-4 w-4" />
             Export CSV
           </Button>
@@ -735,8 +740,27 @@ export default function AdminPredictions() {
 
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-right font-medium pt-2">Input Data</div>
-                  <div className="col-span-2 max-h-40 overflow-y-auto rounded-md bg-muted p-2 text-xs">
-                    <pre>{JSON.stringify(selectedPrediction.data, null, 2)}</pre>
+                  <div className="col-span-2 max-h-60 overflow-y-auto rounded-md bg-muted p-2 text-xs">
+                    {Object.entries(selectedPrediction.data).length > 0 ? (
+                      <ul className="space-y-1">
+                        {Object.entries(selectedPrediction.data).map(([key, value]) => (
+                          <li key={key} className="flex justify-between">
+                            <span className="font-semibold capitalize">{key.replace(/([A-Z])/g, " $1").trim()}:</span>
+                            <span>
+                              {typeof value === "boolean"
+                                ? value
+                                  ? "Yes"
+                                  : "No"
+                                : value !== null && value !== undefined && value !== ""
+                                  ? String(value)
+                                  : "N/A"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-center text-muted-foreground">No detailed input data available.</p>
+                    )}
                   </div>
                 </div>
               </div>
