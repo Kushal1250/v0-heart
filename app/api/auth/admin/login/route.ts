@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { generateToken } from "@/lib/auth-utils"
 
 export async function POST(request: Request) {
   try {
@@ -37,7 +36,7 @@ export async function POST(request: Request) {
 
     if (email.toLowerCase().trim() === adminEmail.toLowerCase() && password === adminPassword) {
       // Generate admin token
-      const token = generateToken()
+      const token = crypto.randomUUID()
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
 
       console.log("Admin login successful, generating token")
@@ -49,7 +48,7 @@ export async function POST(request: Request) {
         user: {
           id: "admin",
           email: email,
-          name: "Admin",
+          name: "Kushal Patel",
           role: "admin",
         },
       })
@@ -71,6 +70,12 @@ export async function POST(request: Request) {
 
       response.cookies.set({
         name: "session",
+        value: token,
+        ...cookieOptions,
+      })
+
+      response.cookies.set({
+        name: "admin_session",
         value: token,
         ...cookieOptions,
       })
