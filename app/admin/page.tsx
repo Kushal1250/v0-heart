@@ -882,27 +882,25 @@ export default function AdminDashboard() {
                       <TableCell>{user.email}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <div className="relative">
-                            <Input
-                              type={showPasswords[user.id] ? "text" : "password"}
-                              value={showPasswords[user.id] ? user.password || "No password" : "••••••••"}
-                              className="h-8 w-40 text-xs pr-10"
-                              readOnly
-                            />
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="absolute right-1 top-0 h-8 w-8 p-0"
-                              onClick={() => {
-                                setShowPasswords((prev) => ({
-                                  ...prev,
-                                  [user.id]: !prev[user.id],
-                                }))
-                              }}
-                            >
-                              {showPasswords[user.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </Button>
-                          </div>
+                          <Input
+                            type={showPasswords[user.id] ? "text" : "password"}
+                            value={showPasswords[user.id] ? user.password || "No password set" : "••••••••"}
+                            className="h-8 w-32 text-xs"
+                            readOnly
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 p-0"
+                            onClick={() => {
+                              setShowPasswords((prev) => ({
+                                ...prev,
+                                [user.id]: !prev[user.id],
+                              }))
+                            }}
+                          >
+                            {showPasswords[user.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -1241,27 +1239,25 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-3 items-center gap-4">
                   <Label className="text-right">Password</Label>
                   <div className="col-span-2 flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <Input
-                        type={showPasswords[selectedUser.id] ? "text" : "password"}
-                        value={showPasswords[selectedUser.id] ? selectedUser.password || "No password" : "••••••••"}
-                        className="h-8 pr-10"
-                        readOnly
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-1 top-0 h-8 w-8 p-0"
-                        onClick={() => {
-                          setShowPasswords((prev) => ({
-                            ...prev,
-                            [selectedUser.id]: !prev[selectedUser.id],
-                          }))
-                        }}
-                      >
-                        {showPasswords[selectedUser.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
+                    <Input
+                      type={showPasswords[selectedUser.id] ? "text" : "password"}
+                      value={showPasswords[selectedUser.id] ? selectedUser.password || "No password set" : "••••••••"}
+                      className="h-8 flex-1"
+                      readOnly
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 p-0"
+                      onClick={() => {
+                        setShowPasswords((prev) => ({
+                          ...prev,
+                          [selectedUser.id]: !prev[selectedUser.id],
+                        }))
+                      }}
+                    >
+                      {showPasswords[selectedUser.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
                   </div>
                 </div>
 

@@ -24,23 +24,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [showLoginSuccess, setShowLoginSuccess] = useState(false)
   const { toast } = useToast()
-
-  // Check if user is admin based on cookies or user data
-  const [isAdmin, setIsAdmin] = useState(false)
-
-  useEffect(() => {
-    // Check admin status from cookies
-    const checkAdminStatus = () => {
-      const adminCookie = document.cookie.includes("is_admin=true")
-      setIsAdmin(adminCookie)
-    }
-
-    checkAdminStatus()
-
-    // Listen for cookie changes
-    const interval = setInterval(checkAdminStatus, 1000)
-    return () => clearInterval(interval)
-  }, [])
+  const isAdmin = user?.email === "admin@example.com" // Example admin check
 
   // Add scroll effect
   useEffect(() => {
@@ -72,7 +56,6 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await logout()
-    setIsAdmin(false)
     window.location.href = "/"
   }
 
@@ -167,14 +150,14 @@ export default function Navbar() {
                           <DropdownMenuLabel className="font-normal px-4 py-3 border-b border-[#2a2f3e]">
                             <div className="flex flex-col space-y-1">
                               <div className="flex items-center">
-                                <p className="text-sm font-medium leading-none">{user.name || "User"}</p>
+                                <p className="text-sm font-medium leading-none">{user.name || "Admin"}</p>
                                 {isAdmin && (
                                   <span className="ml-2 px-1.5 py-0.5 text-xs bg-red-500 text-white rounded-md">
                                     Admin
                                   </span>
                                 )}
                               </div>
-                              <p className="text-xs leading-none text-gray-400">{user.email}</p>
+                              <p className="text-xs leading-none text-gray-400">{user.email || "admin@example.com"}</p>
                             </div>
                           </DropdownMenuLabel>
                           <div className="px-2 py-2">
@@ -237,7 +220,7 @@ export default function Navbar() {
                     </button>
                   </>
                 ) : (
-                  // Non-authenticated user navigation - ALWAYS show Admin button
+                  // Non-authenticated user navigation - updated to match the design
                   <div className="flex items-center gap-3">
                     <Link href="/login">
                       <Button
@@ -257,7 +240,6 @@ export default function Navbar() {
                         <UserPlus className="h-4 w-4 mr-2" /> Sign Up
                       </Button>
                     </Link>
-                    {/* Admin button - always visible, redirects to admin-login */}
                     <Link href="/admin-login">
                       <Button
                         variant="outline"
@@ -324,17 +306,6 @@ export default function Navbar() {
                     <LogOut className="inline h-4 w-4 mr-2" /> Log out
                   </button>
                 </>
-              )}
-
-              {/* Mobile Admin button for non-authenticated users */}
-              {!user && (
-                <Link
-                  href="/admin-login"
-                  className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Shield className="inline h-4 w-4 mr-2" /> Admin
-                </Link>
               )}
             </div>
           </div>
