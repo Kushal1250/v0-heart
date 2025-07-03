@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     // Parse query parameters
     const url = new URL(request.url)
     const page = Number.parseInt(url.searchParams.get("page") || "1")
-    const limit = Number.parseInt(url.searchParams.get("limit") || "10") // Default to 10 for consistency with frontend
+    const limit = Number.parseInt(url.searchParams.get("limit") || "50") // Increased default limit
     const search = url.searchParams.get("search") || ""
     const riskFilter = url.searchParams.get("riskFilter") || "all"
     const dateFilter = url.searchParams.get("dateFilter") || "all"
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
         startDate.setDate(startDate.getDate() - 7)
       } else if (dateFilter === "month") {
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        startDate.setMonth(startDate.getMonth() - 1)
+        startDate.setMonth(now.getMonth() - 1) // Corrected to subtract month from current month
       }
 
       if (startDate) {

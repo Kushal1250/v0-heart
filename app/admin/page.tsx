@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/dialog"
 import { Progress } from "@/components/ui/progress"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface User {
   id: string
@@ -125,6 +126,11 @@ export default function AdminDashboard() {
   const [resetMessage, setResetMessage] = useState("")
   const [isResetting, setIsResetting] = useState(false)
 
+  // New states for prediction filters
+  const [riskFilter, setRiskFilter] = useState("all") // 'all', 'low', 'medium', 'high'
+  const [dateFilter, setDateFilter] = useState("all") // 'all', 'today', 'week', 'month'
+  const [predictionSortOrder, setPredictionSortOrder] = useState("newest") // 'newest', 'oldest', 'highest', 'lowest'
+
   // Check if user is admin
   useEffect(() => {
     const checkAdmin = () => {
@@ -145,14 +151,14 @@ export default function AdminDashboard() {
     checkAdmin()
   }, [router])
 
-  // Fetch data when admin status is confirmed
+  // Fetch data when admin status is confirmed or filters change
   useEffect(() => {
     if (isAdmin) {
       fetchData()
     } else {
       setLoading(false)
     }
-  }, [isAdmin])
+  }, [isAdmin, predictionSearchTerm, riskFilter, dateFilter, predictionSortOrder]) // Added prediction filters as dependencies
 
   // Filter and sort users based on search term and sort settings
   useEffect(() => {
@@ -193,19 +199,19 @@ export default function AdminDashboard() {
     setFilteredUsers(filtered)
   }, [searchTerm, users, sortField, sortOrder])
 
-  // Filter predictions based on search term
-  useEffect(() => {
-    if (predictionSearchTerm) {
-      const filtered = predictions.filter(
-        (pred) =>
-          pred.userName.toLowerCase().includes(predictionSearchTerm.toLowerCase()) ||
-          pred.userId.toLowerCase().includes(predictionSearchTerm.toLowerCase()),
-      )
-      setFilteredPredictions(filtered)
-    } else {
-      setFilteredPredictions(predictions)
-    }
-  }, [predictionSearchTerm, predictions])
+  // Removed client-side filtering for predictions as it's now server-side
+  // useEffect(() => {
+  //   if (predictionSearchTerm) {
+  //     const filtered = predictions.filter(
+  //       (pred) =>
+  //         pred.userName.toLowerCase().includes(predictionSearchTerm.toLowerCase()) ||
+  //         pred.userId.toLowerCase().includes(predictionSearchTerm.toLowerCase()),
+  //     )
+  //     setFilteredPredictions(filtered)
+  //   } else {
+  //     setFilteredPredictions(predictions)
+  //   }
+  // }, [predictionSearchTerm, predictions])
 
   // Calculate statistics
   useEffect(() => {
@@ -284,7 +290,16 @@ export default function AdminDashboard() {
 
   const fetchPredictions = async () => {
     try {
-      const response = await fetch("/api/admin/predictions", {
+      const params = new URLSearchParams()
+      params.append("page", "1") // Always reset to page 1 on filter change
+      params.append("limit", "50") // Or whatever your default limit is
+      if (predictionSearchTerm) params.append("search", predictionSearchTerm)
+      if (riskFilter !== "all") params.append("riskFilter", riskFilter)
+      if (dateFilter !== "all") params.append("dateFilter", dateFilter)
+      if (predictionSortOrder !== "newest") params.append("sortOrder", predictionSortOrder)
+
+      const queryString = params.toString()
+      const response = await fetch(`/api/admin/predictions?${queryString}`, {
         credentials: "include",
         cache: "no-store",
       })
@@ -297,11 +312,14 @@ export default function AdminDashboard() {
       const data = await response.json()
       if (data.predictions) {
         setPredictions(data.predictions)
-        setFilteredPredictions(data.predictions)
+        setFilteredPredictions(data.predictions) // This will now be the already filtered/sorted data from server
       }
+      // You might want to store pagination data here if you implement client-side pagination controls
+      // setPagination(data.pagination);
       return data.predictions
     } catch (err) {
       console.error("Error fetching predictions:", err)
+      setError(err instanceof Error ? err.message : "Failed to fetch predictions") // Set error state for predictions tab
       throw err
     }
   }
@@ -943,6 +961,45 @@ export default function AdminDashboard() {
               />
             </div>
             <div className="flex items-center gap-2">
+              {/* Risk Filter */}
+              <Select value={riskFilter} onValueChange={setRiskFilter}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Risk" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Risk</SelectItem>
+                  <SelectItem value="low">Low Risk</SelectItem>
+                  <SelectItem value="medium">Medium Risk</SelectItem>
+                  <SelectItem value="high">High Risk</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Date Filter */}
+              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Date" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="week">Last 7 Days</SelectItem>
+                  <SelectItem value="month">Last 30 Days</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Sort Order */}
+              <Select value={predictionSortOrder} onValueChange={setPredictionSortOrder}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Sort By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest</SelectItem>
+                  <SelectItem value="oldest">Oldest</SelectItem>
+                  <SelectItem value="highest">Highest Risk</SelectItem>
+                  <SelectItem value="lowest">Lowest Risk</SelectItem>
+                </SelectContent>
+              </Select>
+
               <span className="text-sm text-muted-foreground">
                 {filteredPredictions.length} of {predictions.length} predictions
               </span>
@@ -1391,7 +1448,17 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-3 gap-4">
                   <Label className="text-right pt-2">Input Data</Label>
                   <div className="col-span-2 max-h-40 overflow-y-auto rounded-md bg-muted p-2 text-xs">
-                    <pre>{JSON.stringify(selectedPrediction.data, null, 2)}</pre>
+                    {Object.keys(selectedPrediction.data).length > 0 ? (
+                      <ul className="list-disc list-inside">
+                        {Object.entries(selectedPrediction.data).map(([key, value]) => (
+                          <li key={key}>
+                            <strong>{key}:</strong> {JSON.stringify(value)}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>No detailed input data available.</p>
+                    )}
                   </div>
                 </div>
               </div>
