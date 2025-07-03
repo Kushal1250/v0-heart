@@ -46,13 +46,19 @@ export default function LoginPage() {
     setShowPassword(!showPassword)
   }
 
+  // Function to normalize phone number (remove spaces, dashes, parentheses)
+  const normalizePhoneNumber = (phoneNumber: string) => {
+    return phoneNumber.replace(/[\s\-$$$$]/g, "").trim()
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
-    // Validate phone number is provided
-    if (!phone.trim()) {
-      setError("Phone number is required")
+    // Normalize and validate phone number
+    const normalizedPhone = normalizePhoneNumber(phone)
+    if (!normalizedPhone || normalizedPhone.length < 10) {
+      setError("Please enter a valid phone number (at least 10 digits)")
       return
     }
 
@@ -64,7 +70,7 @@ export default function LoginPage() {
         "rememberedCredentials",
         JSON.stringify({
           email,
-          phone,
+          phone: normalizedPhone,
           rememberMe,
         }),
       )
@@ -73,7 +79,7 @@ export default function LoginPage() {
     }
 
     try {
-      const result = await login(email, password, phone, rememberMe)
+      const result = await login(email, password, normalizedPhone, rememberMe)
       if (result.success) {
         // Set success flag in session storage for dashboard to display welcome message
         sessionStorage.setItem("loginSuccess", "true")
@@ -156,13 +162,14 @@ export default function LoginPage() {
                 <Input
                   id="phone"
                   type="tel"
-                  placeholder="+1 (555) 123-4567"
+                  placeholder="1234567890 or +1 (234) 567-8900"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="pl-10"
                   required
                 />
               </div>
+              <p className="text-xs text-gray-500">Enter your phone number (digits only or with formatting)</p>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
