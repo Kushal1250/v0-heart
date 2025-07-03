@@ -28,9 +28,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Name is required" }, { status: 400 })
     }
 
-    // Phone is now optional - only validate if provided
-    if (phone && phone.trim() && phone.trim().length < 10) {
-      return NextResponse.json({ message: "Phone number must be at least 10 digits", field: "phone" }, { status: 400 })
+    if (!phone) {
+      return NextResponse.json({ message: "Phone number is required" }, { status: 400 })
     }
 
     if (!isValidEmail(email)) {
@@ -47,16 +46,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Email already in use", field: "email" }, { status: 409 })
     }
 
-    // Check if user already exists by phone (only if phone is provided)
-    if (phone && phone.trim()) {
-      const existingUserByPhone = await getUserByPhone(phone.trim())
-      if (existingUserByPhone) {
-        return NextResponse.json({ message: "Phone number already in use", field: "phone" }, { status: 409 })
-      }
+    // Check if user already exists by phone
+    const existingUserByPhone = await getUserByPhone(phone)
+    if (existingUserByPhone) {
+      return NextResponse.json({ message: "Phone number already in use", field: "phone" }, { status: 409 })
     }
 
-    // Create user (phone can be empty string)
-    const user = await createUser(email, password, name, phone?.trim() || "")
+    // Create user
+    const user = await createUser(email, password, name, phone)
     if (!user) {
       return NextResponse.json({ message: "Failed to create user account" }, { status: 500 })
     }

@@ -73,9 +73,8 @@ export default function SignupPage() {
       return
     }
 
-    // Phone is now optional - only validate if provided
-    if (phone.trim() && phone.length < 10) {
-      setFieldErrors((prev) => ({ ...prev, phone: "Phone number must be at least 10 digits" }))
+    if (!phone.trim()) {
+      setFieldErrors((prev) => ({ ...prev, phone: "Phone number is required" }))
       return
     }
 
@@ -99,12 +98,7 @@ export default function SignupPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-          phone: phone.trim() || "", // Send empty string if no phone provided
-        }),
+        body: JSON.stringify({ name, email, password, phone }),
       })
 
       // Get the response data regardless of status
@@ -271,7 +265,7 @@ export default function SignupPage() {
 
             <div className="form-group">
               <Label htmlFor="phone" className="form-label text-white">
-                Phone number <span className="text-gray-400 text-sm">(optional)</span>
+                Phone number
               </Label>
               <div className="mt-1 relative rounded-md shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -282,6 +276,7 @@ export default function SignupPage() {
                   name="phone"
                   type="tel"
                   autoComplete="tel"
+                  required
                   className={`form-input pl-20 bg-gray-900 border-gray-700 text-white placeholder-gray-400 ${
                     fieldErrors.phone
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500"
