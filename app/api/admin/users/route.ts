@@ -1,29 +1,45 @@
+import { headers } from "next/headers"
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
-import { getAllUsersWithDetails } from "@/lib/db"
+import { neon } from "@neondatabase/serverless"
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     // Check admin authentication
-    const isAdmin = cookies().get("is_admin")?.value === "true"
+    const cookies = headers().get("cookie") || ""
+    const isAdminCookie = cookies.split(";").find((cookie) => cookie.trim().startsWith("is_admin="))
+    const isAdmin = isAdminCookie ? isAdminCookie.split("=")[1] === "true" : false
 
     if (!isAdmin) {
-      console.log("Users API: Not an admin")
-      return NextResponse.json({ message: "Forbidden", error: "Not an admin" }, { status: 403 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Fetch real users from the database
-    const users = await getAllUsersWithDetails()
+    const sql = neon(process.env.DATABASE_URL!)
 
-    // Mask sensitive data
-    const safeUsers = users.map((user) => ({
-      ...user,
-      password: "••••••••",
-    }))
+    // Fetch all users including their passwords (for admin view only)
+    const users = await sql`
+      SELECT 
+        id, 
+        email, 
+        name, 
+        password,
+        role, 
+        created_at, 
+        provider,
+        phone,
+        profile_picture
+      FROM users 
+      ORDER BY created_at DESC
+    `
 
-    return NextResponse.json({ users: safeUsers })
+    return NextResponse.json({
+      success: true,
+      users: users.map((user) => ({
+        ...user,
+        created_at: user.created_at.toISOString(),
+      })),
+    })
   } catch (error) {
     console.error("Error fetching users:", error)
-    return NextResponse.json({ message: "An error occurred", error: String(error) }, { status: 500 })
+    return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 })
   }
 }
