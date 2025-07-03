@@ -22,8 +22,6 @@ import {
   Mail,
   MessageSquare,
   Wrench,
-  Lock,
-  Unlock,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -49,7 +47,6 @@ interface User {
   email: string
   name: string | null
   password?: string
-  hasPassword?: boolean
   role: string
   created_at: string
   provider?: string
@@ -516,35 +513,6 @@ export default function AdminDashboard() {
     router.push("/admin-login?redirect=/admin")
   }
 
-  // Admin-only password visibility function
-  const togglePasswordVisibility = (userId: string) => {
-    if (!isAdmin) return // Only admins can toggle password visibility
-
-    setShowPasswords((prev) => ({
-      ...prev,
-      [userId]: !prev[userId],
-    }))
-  }
-
-  // Get password display for admin
-  const getPasswordDisplay = (user: User, isVisible: boolean) => {
-    if (!isAdmin) return "••••••••" // Non-admins always see dots
-
-    if (!isVisible) return "••••••••" // Hidden state
-
-    // Visible state for admin
-    if (!user.hasPassword) return "No password set"
-    return user.password || "Password set"
-  }
-
-  // Get password status icon
-  const getPasswordStatusIcon = (user: User) => {
-    if (!user.hasPassword) {
-      return <Unlock className="h-4 w-4 text-red-500" />
-    }
-    return <Lock className="h-4 w-4 text-green-500" />
-  }
-
   if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -888,7 +856,7 @@ export default function AdminDashboard() {
                   >
                     Email {getSortIcon("email")}
                   </TableHead>
-                  <TableHead>Password Status</TableHead>
+                  <TableHead>Password</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Provider</TableHead>
                   <TableHead
@@ -917,27 +885,23 @@ export default function AdminDashboard() {
                           <div className="relative">
                             <Input
                               type={showPasswords[user.id] ? "text" : "password"}
-                              value={getPasswordDisplay(user, showPasswords[user.id])}
-                              className="h-8 w-48 text-xs pr-20"
+                              value={showPasswords[user.id] ? user.password || "No password" : "••••••••"}
+                              className="h-8 w-40 text-xs pr-10"
                               readOnly
                             />
-                            <div className="absolute right-1 top-0 flex items-center h-8 gap-1">
-                              {getPasswordStatusIcon(user)}
-                              {isAdmin && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 p-0"
-                                  onClick={() => togglePasswordVisibility(user.id)}
-                                >
-                                  {showPasswords[user.id] ? (
-                                    <EyeOff className="h-3 w-3" />
-                                  ) : (
-                                    <Eye className="h-3 w-3" />
-                                  )}
-                                </Button>
-                              )}
-                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-1 top-0 h-8 w-8 p-0"
+                              onClick={() => {
+                                setShowPasswords((prev) => ({
+                                  ...prev,
+                                  [user.id]: !prev[user.id],
+                                }))
+                              }}
+                            >
+                              {showPasswords[user.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
                           </div>
                         </div>
                       </TableCell>
@@ -954,16 +918,10 @@ export default function AdminDashboard() {
                             <Eye className="h-4 w-4" />
                             <span className="sr-only">View user</span>
                           </Button>
-                          {isAdmin && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleResetPassword(user.id, user.email)}
-                            >
-                              <Key className="h-4 w-4" />
-                              <span className="sr-only">Reset password</span>
-                            </Button>
-                          )}
+                          <Button variant="ghost" size="icon" onClick={() => handleResetPassword(user.id, user.email)}>
+                            <Key className="h-4 w-4" />
+                            <span className="sr-only">Reset password</span>
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1038,6 +996,7 @@ export default function AdminDashboard() {
         </TabsContent>
 
         {/* System Tab */}
+
         <TabsContent value="system" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {/* Database Management */}
@@ -1279,36 +1238,32 @@ export default function AdminDashboard() {
                   <div className="col-span-2">{selectedUser.email}</div>
                 </div>
 
-                {isAdmin && (
-                  <div className="grid grid-cols-3 items-center gap-4">
-                    <Label className="text-right">Password</Label>
-                    <div className="col-span-2 flex items-center gap-2">
-                      <div className="relative flex-1">
-                        <Input
-                          type={showPasswords[selectedUser.id] ? "text" : "password"}
-                          value={getPasswordDisplay(selectedUser, showPasswords[selectedUser.id])}
-                          className="h-8 pr-16"
-                          readOnly
-                        />
-                        <div className="absolute right-1 top-0 flex items-center h-8 gap-1">
-                          {getPasswordStatusIcon(selectedUser)}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 p-0"
-                            onClick={() => togglePasswordVisibility(selectedUser.id)}
-                          >
-                            {showPasswords[selectedUser.id] ? (
-                              <EyeOff className="h-3 w-3" />
-                            ) : (
-                              <Eye className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
+                <div className="grid grid-cols-3 items-center gap-4">
+                  <Label className="text-right">Password</Label>
+                  <div className="col-span-2 flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        type={showPasswords[selectedUser.id] ? "text" : "password"}
+                        value={showPasswords[selectedUser.id] ? selectedUser.password || "No password" : "••••••••"}
+                        className="h-8 pr-10"
+                        readOnly
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-0 h-8 w-8 p-0"
+                        onClick={() => {
+                          setShowPasswords((prev) => ({
+                            ...prev,
+                            [selectedUser.id]: !prev[selectedUser.id],
+                          }))
+                        }}
+                      >
+                        {showPasswords[selectedUser.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
                     </div>
                   </div>
-                )}
+                </div>
 
                 <div className="grid grid-cols-3 items-center gap-4">
                   <Label className="text-right">Phone</Label>
@@ -1336,54 +1291,52 @@ export default function AdminDashboard() {
               </div>
             </div>
             <DialogFooter className="flex flex-col sm:flex-row sm:justify-between sm:space-x-2">
-              {isAdmin && (
-                <div className="flex flex-wrap gap-2">
-                  {selectedUser.role === "user" ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center gap-1 bg-transparent"
-                      onClick={() => handleUpdateUserRole(selectedUser.id, "admin")}
-                    >
-                      <UserCheck className="h-4 w-4" />
-                      Make Admin
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center gap-1 bg-transparent"
-                      onClick={() => handleUpdateUserRole(selectedUser.id, "user")}
-                    >
-                      <UserX className="h-4 w-4" />
-                      Remove Admin
-                    </Button>
-                  )}
-
+              <div className="flex flex-wrap gap-2">
+                {selectedUser.role === "user" ? (
                   <Button
                     variant="outline"
                     size="sm"
                     className="flex items-center gap-1 bg-transparent"
-                    onClick={() => handleResetPassword(selectedUser.id, selectedUser.email)}
+                    onClick={() => handleUpdateUserRole(selectedUser.id, "admin")}
                   >
-                    <Key className="h-4 w-4" />
-                    Reset Password
+                    <UserCheck className="h-4 w-4" />
+                    Make Admin
                   </Button>
-
+                ) : (
                   <Button
-                    variant="destructive"
+                    variant="outline"
                     size="sm"
-                    className="flex items-center gap-1"
-                    onClick={() => {
-                      setShowUserDialog(false)
-                      setDeleteConfirmation(selectedUser.id)
-                    }}
+                    className="flex items-center gap-1 bg-transparent"
+                    onClick={() => handleUpdateUserRole(selectedUser.id, "user")}
                   >
-                    <Trash2 className="h-4 w-4" />
-                    Delete
+                    <UserX className="h-4 w-4" />
+                    Remove Admin
                   </Button>
-                </div>
-              )}
+                )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1 bg-transparent"
+                  onClick={() => handleResetPassword(selectedUser.id, selectedUser.email)}
+                >
+                  <Key className="h-4 w-4" />
+                  Reset Password
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => {
+                    setShowUserDialog(false)
+                    setDeleteConfirmation(selectedUser.id)
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              </div>
 
               <Button variant="default" onClick={() => setShowUserDialog(false)}>
                 Close
