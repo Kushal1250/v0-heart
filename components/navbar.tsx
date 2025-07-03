@@ -23,8 +23,21 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [showLoginSuccess, setShowLoginSuccess] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const { toast } = useToast()
-  const isAdmin = user?.email === "admin@example.com" // Example admin check
+
+  // Check admin status from cookies
+  useEffect(() => {
+    const checkAdminStatus = () => {
+      const adminCookie = document.cookie.includes("is_admin=true")
+      setIsAdmin(adminCookie)
+    }
+
+    checkAdminStatus()
+    // Check periodically for admin status changes
+    const interval = setInterval(checkAdminStatus, 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Add scroll effect
   useEffect(() => {
@@ -55,6 +68,12 @@ export default function Navbar() {
   }, [user, toast])
 
   const handleLogout = async () => {
+    // Clear admin cookies
+    document.cookie = "is_admin=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+    document.cookie = "session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+    document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+
+    setIsAdmin(false)
     await logout()
     window.location.href = "/"
   }
@@ -63,14 +82,14 @@ export default function Navbar() {
   let navigationItems = []
 
   // For homepage (/) - show only Home if not logged in
-  if (pathname === "/" && !user) {
+  if (pathname === "/" && !user && !isAdmin) {
     navigationItems = [{ name: "Home", href: "/" }]
   }
   // Default navigation for other pages when not logged in
-  else if (!user) {
+  else if (!user && !isAdmin) {
     navigationItems = [{ name: "Home", href: "/" }]
   }
-  // For logged-in users - keep the existing items
+  // For logged-in users or admin - show full navigation
   else {
     navigationItems = [
       { name: "Home", href: "/home" },
@@ -95,7 +114,7 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center">
-              <Link href={user ? "/home" : "/"} className="flex items-center">
+              <Link href={user || isAdmin ? "/home" : "/"} className="flex items-center">
                 <Heart className="h-6 w-6 text-red-500 fill-red-500 mr-2" />
                 <span className="font-bold text-xl text-gray-900">HeartPredict</span>
               </Link>
@@ -116,8 +135,8 @@ export default function Navbar() {
 
             {!isLoading && (
               <div className="flex items-center gap-4">
-                {user ? (
-                  // Authenticated user navigation
+                {user || isAdmin ? (
+                  // Authenticated user or admin navigation
                   <>
                     <div className="hidden md:flex items-center gap-4">
                       <button className="p-1 rounded-full text-gray-400 hover:text-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors btn-hover-effect">
@@ -129,14 +148,16 @@ export default function Navbar() {
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                             <Avatar className="h-10 w-10 transition-transform hover:scale-110 bg-blue-100">
-                              {user.profile_picture ? (
+                              {user?.profile_picture ? (
                                 <AvatarImage
                                   src={user.profile_picture || "/placeholder.svg"}
-                                  alt={user.name || "User"}
+                                  alt={user?.name || "User"}
                                 />
                               ) : (
                                 <AvatarFallback className="bg-blue-100 text-blue-600 font-medium">
-                                  {user.name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || "A"}
+                                  {isAdmin
+                                    ? "A"
+                                    : user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
                                 </AvatarFallback>
                               )}
                             </Avatar>
@@ -150,14 +171,18 @@ export default function Navbar() {
                           <DropdownMenuLabel className="font-normal px-4 py-3 border-b border-[#2a2f3e]">
                             <div className="flex flex-col space-y-1">
                               <div className="flex items-center">
-                                <p className="text-sm font-medium leading-none">{user.name || "Admin"}</p>
+                                <p className="text-sm font-medium leading-none">
+                                  {isAdmin ? "Admin" : user?.name || "User"}
+                                </p>
                                 {isAdmin && (
                                   <span className="ml-2 px-1.5 py-0.5 text-xs bg-red-500 text-white rounded-md">
                                     Admin
                                   </span>
                                 )}
                               </div>
-                              <p className="text-xs leading-none text-gray-400">{user.email || "admin@example.com"}</p>
+                              <p className="text-xs leading-none text-gray-400">
+                                {isAdmin ? "patelkushal1533@gmail.com" : user?.email || "user@example.com"}
+                              </p>
                             </div>
                           </DropdownMenuLabel>
                           <div className="px-2 py-2">
@@ -177,7 +202,7 @@ export default function Navbar() {
                               >
                                 <Link href="/admin" className="flex items-center">
                                   <Shield className="mr-2 h-4 w-4" />
-                                  <span>Admin</span>
+                                  <span>Admin Panel</span>
                                 </Link>
                               </DropdownMenuItem>
                             )}
@@ -220,7 +245,7 @@ export default function Navbar() {
                     </button>
                   </>
                 ) : (
-                  // Non-authenticated user navigation - updated to match the design
+                  // Non-authenticated user navigation - ALWAYS show Admin button
                   <div className="flex items-center gap-3">
                     <Link href="/login">
                       <Button
@@ -240,6 +265,7 @@ export default function Navbar() {
                         <UserPlus className="h-4 w-4 mr-2" /> Sign Up
                       </Button>
                     </Link>
+                    {/* Admin button - always visible for non-authenticated users */}
                     <Link href="/admin-login">
                       <Button
                         variant="outline"
@@ -274,7 +300,7 @@ export default function Navbar() {
                   {item.name}
                 </Link>
               ))}
-              {user && (
+              {(user || isAdmin) && (
                 <>
                   <Link
                     href="/dashboard"
@@ -296,7 +322,7 @@ export default function Navbar() {
                       className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"
                       onClick={() => setMobileMenuOpen(false)}
                     >
-                      <Shield className="inline h-4 w-4 mr-2" /> Admin
+                      <Shield className="inline h-4 w-4 mr-2" /> Admin Panel
                     </Link>
                   )}
                   <button
@@ -306,6 +332,17 @@ export default function Navbar() {
                     <LogOut className="inline h-4 w-4 mr-2" /> Log out
                   </button>
                 </>
+              )}
+
+              {/* Mobile Admin button for non-authenticated users */}
+              {!user && !isAdmin && (
+                <Link
+                  href="/admin-login"
+                  className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 text-base font-medium custom-link"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Shield className="inline h-4 w-4 mr-2" /> Admin
+                </Link>
               )}
             </div>
           </div>
