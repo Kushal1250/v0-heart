@@ -2,17 +2,38 @@ import { NextResponse } from "next/server"
 import { getUserByEmail, verifyPassword, createSession } from "@/lib/db"
 import { generateToken } from "@/lib/auth-utils"
 
-// Phone number normalization function
-function normalizePhoneNumber(phone: string): string {
-  // Remove all non-digit characters
-  return phone.replace(/\D/g, "")
+// Phone number validation function for different country codes
+function isValidPhoneNumber(phone: string): boolean {
+  // Expected format: +XX-XXXXXXXXXX (e.g., +91-9016261380)
+  const phoneRegex = /^\+\d{1,4}-\d{7,15}$/
+
+  if (!phoneRegex.test(phone)) {
+    return false
+  }
+
+  const [countryCode, number] = phone.split("-")
+
+  // Specific validation based on country code
+  switch (countryCode) {
+    case "+91": // India
+      return number.length === 10 && /^[6-9]/.test(number)
+    case "+1": // US/Canada
+      return number.length === 10
+    case "+44": // UK
+      return number.length >= 10 && number.length <= 11
+    case "+86": // China
+      return number.length === 11
+    case "+81": // Japan
+      return number.length >= 10 && number.length <= 11
+    default:
+      return number.length >= 7 && number.length <= 15
+  }
 }
 
-// Phone number validation function
-function isValidPhoneNumber(phone: string): boolean {
-  const normalized = normalizePhoneNumber(phone)
-  // Check if it has at least 10 digits and at most 15 digits
-  return normalized.length >= 10 && normalized.length <= 15
+// Normalize phone number for database comparison
+function normalizePhoneNumber(phone: string): string {
+  // Keep the format as +XX-XXXXXXXXXX
+  return phone.trim()
 }
 
 export async function POST(request: Request) {
@@ -22,8 +43,14 @@ export async function POST(request: Request) {
     console.log("Login attempt for email:", email)
 
     // Validate required fields
-    if (!email || !password) {
-      return NextResponse.json({ success: false, message: "Email and password are required" }, { status: 400 })
+    if (!email || !password || !phone) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Email, password, and phone number are required",
+        },
+        { status: 400 },
+      )
     }
 
     // Validate email format
@@ -32,25 +59,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Invalid email format" }, { status: 400 })
     }
 
-    // Validate phone number if provided
-    if (phone && !isValidPhoneNumber(phone)) {
-      return NextResponse.json({ success: false, message: "Invalid phone number format" }, { status: 400 })
+    // Validate phone number format
+    if (!isValidPhoneNumber(phone)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid phone number format. Expected format: +XX-XXXXXXXXXX (e.g., +91-9016261380)",
+        },
+        { status: 400 },
+      )
     }
 
     // Get user from database
     const user = await getUserByEmail(email.toLowerCase().trim())
     if (!user) {
-      return NextResponse.json({ success: false, message: "Invalid email or password" }, { status: 401 })
+      return NextResponse.json({ success: false, message: "Invalid credentials" }, { status: 401 })
     }
 
     // Verify password
     const isValidPassword = await verifyPassword(password, user.password)
     if (!isValidPassword) {
-      return NextResponse.json({ success: false, message: "Invalid email or password" }, { status: 401 })
+      return NextResponse.json({ success: false, message: "Invalid credentials" }, { status: 401 })
     }
 
-    // If phone is provided, verify it matches the user's phone (optional check)
-    if (phone && user.phone) {
+    // Verify phone number matches the user's phone
+    if (user.phone) {
       const normalizedInputPhone = normalizePhoneNumber(phone)
       const normalizedUserPhone = normalizePhoneNumber(user.phone)
 
@@ -59,13 +92,17 @@ export async function POST(request: Request) {
           input: normalizedInputPhone,
           stored: normalizedUserPhone,
         })
-        // Note: We're not failing login for phone mismatch, just logging it
-        // You can uncomment the lines below if you want strict phone verification
-        // return NextResponse.json(
-        //   { success: false, message: "Phone number does not match our records" },
-        //   { status: 401 }
-        // )
+        return NextResponse.json(
+          { success: false, message: "Phone number does not match our records" },
+          { status: 401 },
+        )
       }
+    } else {
+      // If user doesn't have a phone number stored, we can't verify
+      return NextResponse.json(
+        { success: false, message: "No phone number associated with this account" },
+        { status: 401 },
+      )
     }
 
     // Generate session token
@@ -86,6 +123,7 @@ export async function POST(request: Request) {
         email: user.email,
         name: user.name,
         role: user.role,
+        phone: user.phone,
       },
     })
 

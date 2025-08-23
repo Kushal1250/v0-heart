@@ -10,7 +10,58 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertCircle, User, Mail, Lock, Phone, Eye, EyeOff } from "lucide-react"
+
+// Country codes with their respective codes and names
+const countryCodes = [
+  { code: "+91", country: "India", flag: "🇮🇳" },
+  { code: "+1", country: "United States", flag: "🇺🇸" },
+  { code: "+44", country: "United Kingdom", flag: "🇬🇧" },
+  { code: "+86", country: "China", flag: "🇨🇳" },
+  { code: "+81", country: "Japan", flag: "🇯🇵" },
+  { code: "+49", country: "Germany", flag: "🇩🇪" },
+  { code: "+33", country: "France", flag: "🇫🇷" },
+  { code: "+39", country: "Italy", flag: "🇮🇹" },
+  { code: "+7", country: "Russia", flag: "🇷🇺" },
+  { code: "+55", country: "Brazil", flag: "🇧🇷" },
+  { code: "+61", country: "Australia", flag: "🇦🇺" },
+  { code: "+82", country: "South Korea", flag: "🇰🇷" },
+  { code: "+34", country: "Spain", flag: "🇪🇸" },
+  { code: "+31", country: "Netherlands", flag: "🇳🇱" },
+  { code: "+46", country: "Sweden", flag: "🇸🇪" },
+  { code: "+41", country: "Switzerland", flag: "🇨🇭" },
+  { code: "+65", country: "Singapore", flag: "🇸🇬" },
+  { code: "+971", country: "UAE", flag: "🇦🇪" },
+  { code: "+966", country: "Saudi Arabia", flag: "🇸🇦" },
+  { code: "+27", country: "South Africa", flag: "🇿🇦" },
+]
+
+// Phone number formatting function
+function formatPhoneNumber(countryCode: string, phoneNumber: string): string {
+  const cleanNumber = phoneNumber.replace(/\D/g, "")
+  return `${countryCode}-${cleanNumber}`
+}
+
+// Phone number validation function
+function isValidPhoneNumber(countryCode: string, phoneNumber: string): boolean {
+  const cleanNumber = phoneNumber.replace(/\D/g, "")
+
+  switch (countryCode) {
+    case "+91": // India
+      return cleanNumber.length === 10 && /^[6-9]/.test(cleanNumber)
+    case "+1": // US/Canada
+      return cleanNumber.length === 10
+    case "+44": // UK
+      return cleanNumber.length >= 10 && cleanNumber.length <= 11
+    case "+86": // China
+      return cleanNumber.length === 11
+    case "+81": // Japan
+      return cleanNumber.length >= 10 && cleanNumber.length <= 11
+    default:
+      return cleanNumber.length >= 7 && cleanNumber.length <= 15
+  }
+}
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -18,24 +69,29 @@ export default function SignupPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    phone: "",
   })
+  const [countryCode, setCountryCode] = useState("+91") // Default to India
+  const [phoneNumber, setPhoneNumber] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const router = useRouter()
 
-  // Function to normalize phone number
-  const normalizePhoneNumber = (phoneNumber: string) => {
-    return phoneNumber.replace(/[\s\-$$$$+]/g, "").trim()
-  }
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     })
+  }
+
+  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, "") // Remove non-digits
+    setPhoneNumber(value)
+  }
+
+  const getFormattedPhoneNumber = () => {
+    return formatPhoneNumber(countryCode, phoneNumber)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,16 +109,26 @@ export default function SignupPage() {
       return
     }
 
-    // Validate phone number if provided
-    const normalizedPhone = normalizePhoneNumber(formData.phone)
-    if (formData.phone && normalizedPhone.length < 10) {
-      setError("Please enter a valid phone number (at least 10 digits)")
+    if (!phoneNumber) {
+      setError("Phone number is required")
+      return
+    }
+
+    // Validate phone number format
+    if (!isValidPhoneNumber(countryCode, phoneNumber)) {
+      let errorMessage = "Please enter a valid phone number"
+      if (countryCode === "+91") {
+        errorMessage = "Please enter a valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9)"
+      }
+      setError(errorMessage)
       return
     }
 
     setIsLoading(true)
 
     try {
+      const formattedPhone = getFormattedPhoneNumber()
+
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: {
@@ -72,7 +138,7 @@ export default function SignupPage() {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          phone: normalizedPhone || null, // Send null if no phone provided
+          phone: formattedPhone,
         }),
       })
 
@@ -106,7 +172,7 @@ export default function SignupPage() {
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">Full Name *</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <User className="h-5 w-5 text-gray-400" />
@@ -124,7 +190,7 @@ export default function SignupPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email *</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-gray-400" />
@@ -142,25 +208,49 @@ export default function SignupPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number (Optional)</Label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Phone className="h-5 w-5 text-gray-400" />
+              <Label htmlFor="phone">Phone Number *</Label>
+              <div className="flex space-x-2">
+                <Select value={countryCode} onValueChange={setCountryCode} disabled={isLoading}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {countryCodes.map((country) => (
+                      <SelectItem key={country.code} value={country.code}>
+                        <div className="flex items-center space-x-2">
+                          <span>{country.flag}</span>
+                          <span>{country.code}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Phone className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder={countryCode === "+91" ? "9016261380" : "Phone number"}
+                    value={phoneNumber}
+                    onChange={handlePhoneNumberChange}
+                    className="pl-10"
+                    required
+                    disabled={isLoading}
+                    maxLength={15}
+                  />
                 </div>
-                <Input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  placeholder="1234567890 or +1 (234) 567-8900"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="pl-10"
-                />
               </div>
-              <p className="text-xs text-gray-500">Phone number is optional but recommended for account security</p>
+              <div className="text-xs text-gray-500">
+                <p>Format: {getFormattedPhoneNumber() || `${countryCode}-XXXXXXXXXX`}</p>
+                {countryCode === "+91" && (
+                  <p className="text-blue-600">Indian mobile numbers should start with 6, 7, 8, or 9</p>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Password *</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-gray-400" />
@@ -185,7 +275,7 @@ export default function SignupPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword">Confirm Password *</Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-gray-400" />

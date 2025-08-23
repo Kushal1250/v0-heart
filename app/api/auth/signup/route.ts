@@ -1,79 +1,105 @@
 import { NextResponse } from "next/server"
-import { createUser, getUserByEmail, getUserByPhone, createSession } from "@/lib/db"
-import { generateToken, isValidEmail, isStrongPassword, createResponseWithCookie } from "@/lib/auth-utils"
+import { createUser, getUserByEmail } from "@/lib/db"
+import bcrypt from "bcryptjs"
+
+// Phone number validation function
+function isValidPhoneNumber(phone: string): boolean {
+  // Expected format: +XX-XXXXXXXXXX (e.g., +91-9016261380)
+  const phoneRegex = /^\+\d{1,4}-\d{7,15}$/
+
+  if (!phoneRegex.test(phone)) {
+    return false
+  }
+
+  const [countryCode, number] = phone.split("-")
+
+  // Specific validation based on country code
+  switch (countryCode) {
+    case "+91": // India
+      return number.length === 10 && /^[6-9]/.test(number)
+    case "+1": // US/Canada
+      return number.length === 10
+    case "+44": // UK
+      return number.length >= 10 && number.length <= 11
+    case "+86": // China
+      return number.length === 11
+    case "+81": // Japan
+      return number.length >= 10 && number.length <= 11
+    default:
+      return number.length >= 7 && number.length <= 15
+  }
+}
 
 export async function POST(request: Request) {
   try {
-    // Parse request body
-    let body
-    try {
-      body = await request.json()
-    } catch (e) {
-      console.error("Failed to parse request body:", e)
-      return NextResponse.json({ message: "Invalid request format" }, { status: 400 })
+    const { name, email, password, phone } = await request.json()
+
+    console.log("Signup attempt for:", { name, email, phone })
+
+    // Validate required fields
+    if (!name || !email || !password || !phone) {
+      return NextResponse.json({ success: false, message: "All fields are required" }, { status: 400 })
     }
 
-    const { email, password, name, phone } = body
-
-    // Validate input
-    if (!email) {
-      return NextResponse.json({ message: "Email is required" }, { status: 400 })
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ success: false, message: "Invalid email format" }, { status: 400 })
     }
 
-    if (!password) {
-      return NextResponse.json({ message: "Password is required" }, { status: 400 })
+    // Validate phone number format
+    if (!isValidPhoneNumber(phone)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid phone number format. Expected format: +XX-XXXXXXXXXX (e.g., +91-9016261380)",
+        },
+        { status: 400 },
+      )
     }
 
-    if (!name) {
-      return NextResponse.json({ message: "Name is required" }, { status: 400 })
+    // Validate password strength
+    if (password.length < 6) {
+      return NextResponse.json(
+        { success: false, message: "Password must be at least 6 characters long" },
+        { status: 400 },
+      )
     }
 
-    if (!phone) {
-      return NextResponse.json({ message: "Phone number is required" }, { status: 400 })
+    // Check if user already exists
+    const existingUser = await getUserByEmail(email.toLowerCase().trim())
+    if (existingUser) {
+      return NextResponse.json({ success: false, message: "User with this email already exists" }, { status: 409 })
     }
 
-    if (!isValidEmail(email)) {
-      return NextResponse.json({ message: "Invalid email format" }, { status: 400 })
-    }
-
-    if (!isStrongPassword(password)) {
-      return NextResponse.json({ message: "Password must be at least 8 characters" }, { status: 400 })
-    }
-
-    // Check if user already exists by email
-    const existingUserByEmail = await getUserByEmail(email)
-    if (existingUserByEmail) {
-      return NextResponse.json({ message: "Email already in use", field: "email" }, { status: 409 })
-    }
-
-    // Check if user already exists by phone
-    const existingUserByPhone = await getUserByPhone(phone)
-    if (existingUserByPhone) {
-      return NextResponse.json({ message: "Phone number already in use", field: "phone" }, { status: 409 })
-    }
+    // Hash password
+    const saltRounds = 12
+    const hashedPassword = await bcrypt.hash(password, saltRounds)
 
     // Create user
-    const user = await createUser(email, password, name, phone)
-    if (!user) {
-      return NextResponse.json({ message: "Failed to create user account" }, { status: 500 })
-    }
+    const userId = await createUser({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      password: hashedPassword,
+      phone: phone.trim(),
+      role: "user",
+    })
 
-    // Create session
-    const token = generateToken()
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
-    const sessionCreated = await createSession(user.id, token, expiresAt)
+    console.log("User created successfully:", userId)
 
-    if (!sessionCreated) {
-      return NextResponse.json({ message: "Failed to create user session" }, { status: 500 })
-    }
-
-    // Return user data (without password) and set cookie
-    const { password: _, ...userWithoutPassword } = user
-    return createResponseWithCookie({ user: userWithoutPassword, message: "User created successfully" }, token)
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Account created successfully",
+        userId,
+      },
+      { status: 201 },
+    )
   } catch (error) {
     console.error("Signup error:", error)
-    // Provide more detailed error message
-    const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred during signup"
-    return NextResponse.json({ message: errorMessage }, { status: 500 })
+    return NextResponse.json(
+      { success: false, message: "An error occurred during signup. Please try again." },
+      { status: 500 },
+    )
   }
 }
