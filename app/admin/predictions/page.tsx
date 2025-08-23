@@ -487,7 +487,7 @@ export default function AdminPredictions() {
                       <TableCell className="font-medium">{pred.userName}</TableCell>
                       <TableCell>
                         <Badge
-                          variant={pred.result > 0.5 ? "destructive" : pred.result >= 0.3 ? "outline" : "success"}
+                          variant={pred.result > 0.5 ? "destructive" : pred.result >= 0.3 ? "outline" : "default"}
                           className={
                             pred.result > 0.5 ? "bg-red-600" : pred.result >= 0.3 ? "bg-yellow-600" : "bg-green-600"
                           }
@@ -655,7 +655,7 @@ export default function AdminPredictions() {
                       <TableRow key={pred.id}>
                         <TableCell className="font-medium">{pred.userName}</TableCell>
                         <TableCell>
-                          <Badge variant="success" className="bg-green-600">
+                          <Badge variant="default" className="bg-green-600">
                             {(pred.result * 100).toFixed(1)}% Risk
                           </Badge>
                         </TableCell>
@@ -718,7 +718,7 @@ export default function AdminPredictions() {
                           ? "destructive"
                           : selectedPrediction.result >= 0.3
                             ? "outline"
-                            : "success"
+                            : "default"
                       }
                       className={
                         selectedPrediction.result > 0.5
