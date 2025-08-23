@@ -1375,7 +1375,7 @@ export default function AdminDashboard() {
                   <Label className="text-right">Risk Level</Label>
                   <div className="col-span-2">
                     <Badge
-                      variant={selectedPrediction.result > 0.5 ? "destructive" : "success"}
+                      variant={selectedPrediction.result > 0.5 ? "destructive" : "default"}
                       className={selectedPrediction.result > 0.5 ? "bg-red-600" : "bg-green-600"}
                     >
                       {(selectedPrediction.result * 100).toFixed(1)}% Risk
