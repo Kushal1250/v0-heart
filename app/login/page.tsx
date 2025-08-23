@@ -239,9 +239,6 @@ export default function LoginPage() {
               </div>
               <div className="text-xs text-gray-500">
                 <p>Format: {getFormattedPhoneNumber() || `${countryCode}-XXXXXXXXXX`}</p>
-                {countryCode === "+91" && (
-                  <p className="text-blue-600">Indian mobile numbers should start with 6, 7, 8, or 9</p>
-                )}
               </div>
             </div>
 
