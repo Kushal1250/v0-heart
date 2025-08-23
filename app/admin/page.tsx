@@ -972,7 +972,7 @@ export default function AdminDashboard() {
                       <TableCell className="font-medium">{pred.userName}</TableCell>
                       <TableCell>
                         <Badge
-                          variant={pred.result > 0.5 ? "destructive" : "success"}
+                          variant={pred.result > 0.5 ? "destructive" : "default"}
                           className={pred.result > 0.5 ? "bg-red-600" : "bg-green-600"}
                         >
                           {(pred.result * 100).toFixed(1)}% Risk
