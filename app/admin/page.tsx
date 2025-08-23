@@ -721,7 +721,7 @@ export default function AdminDashboard() {
                         </p>
                       </div>
                       <Badge
-                        variant={prediction.result > 0.5 ? "destructive" : "success"}
+                        variant={prediction.result > 0.5 ? "destructive" : "default"}
                         className={prediction.result > 0.5 ? "bg-red-600" : "bg-green-600"}
                       >
                         {(prediction.result * 100).toFixed(0)}% Risk
