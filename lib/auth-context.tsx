@@ -20,7 +20,6 @@ interface AuthContextType {
   adminLogin: (email: string, password: string) => Promise<{ success: boolean; message: string }>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
-  refreshSession: () => Promise<boolean>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -126,16 +125,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await checkAuthStatus()
   }
 
-  const refreshSession = async (): Promise<boolean> => {
-    try {
-      await checkAuthStatus()
-      return !!user // Return true if user exists after refresh
-    } catch (error) {
-      console.error("Error refreshing session:", error)
-      return false
-    }
-  }
-
   const value = {
     user,
     isLoading,
@@ -145,7 +134,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     adminLogin,
     logout,
     refreshUser,
-    refreshSession,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

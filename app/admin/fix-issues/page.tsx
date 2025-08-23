@@ -26,14 +26,11 @@ export default function FixIssuesPage() {
           return
         }
 
-        try {
-          const refreshed = await refreshSession()
-          if (refreshed) {
-            setIsAuthenticated(true)
-            return
-          }
-        } catch (error) {
-          console.error("Error refreshing session:", error)
+        // Try to refresh the session
+        const refreshed = await refreshSession()
+        if (refreshed) {
+          setIsAuthenticated(true)
+          return
         }
 
         // Check if admin cookie is set

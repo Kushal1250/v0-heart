@@ -721,7 +721,7 @@ export default function AdminDashboard() {
                         </p>
                       </div>
                       <Badge
-                        variant={prediction.result > 0.5 ? "destructive" : "default"}
+                        variant={prediction.result > 0.5 ? "destructive" : "success"}
                         className={prediction.result > 0.5 ? "bg-red-600" : "bg-green-600"}
                       >
                         {(prediction.result * 100).toFixed(0)}% Risk
@@ -972,7 +972,7 @@ export default function AdminDashboard() {
                       <TableCell className="font-medium">{pred.userName}</TableCell>
                       <TableCell>
                         <Badge
-                          variant={pred.result > 0.5 ? "destructive" : "default"}
+                          variant={pred.result > 0.5 ? "destructive" : "success"}
                           className={pred.result > 0.5 ? "bg-red-600" : "bg-green-600"}
                         >
                           {(pred.result * 100).toFixed(1)}% Risk
@@ -1375,7 +1375,7 @@ export default function AdminDashboard() {
                   <Label className="text-right">Risk Level</Label>
                   <div className="col-span-2">
                     <Badge
-                      variant={selectedPrediction.result > 0.5 ? "destructive" : "default"}
+                      variant={selectedPrediction.result > 0.5 ? "destructive" : "success"}
                       className={selectedPrediction.result > 0.5 ? "bg-red-600" : "bg-green-600"}
                     >
                       {(selectedPrediction.result * 100).toFixed(1)}% Risk
