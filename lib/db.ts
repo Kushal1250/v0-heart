@@ -145,13 +145,19 @@ export async function getUserById(id: string) {
   }
 }
 
-export async function createUser(email: string, password: string, name: string, phone = "") {
+export async function createUser(userData: {
+  name: string
+  email: string
+  password: string
+  phone: string
+  role?: string
+}) {
   try {
-    const hashedPassword = await hash(password, 10)
+    const hashedPassword = await hash(userData.password, 10)
 
     const result = await sql`
-     INSERT INTO users (email, password, name, phone)
-     VALUES (${email}, ${hashedPassword}, ${name}, ${phone})
+     INSERT INTO users (email, password, name, phone, role)
+     VALUES (${userData.email.toLowerCase().trim()}, ${hashedPassword}, ${userData.name.trim()}, ${userData.phone.trim()}, ${userData.role || "user"})
      RETURNING id, email, name, role, phone
    `
 
