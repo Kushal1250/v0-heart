@@ -1,6 +1,5 @@
 "use server"
 
-import { Twilio } from "twilio"
 import { logError } from "./error-logger"
 
 // Initialize Twilio client
@@ -8,11 +7,23 @@ const accountSid = process.env.TWILIO_ACCOUNT_SID
 const authToken = process.env.TWILIO_AUTH_TOKEN
 const fromNumber = process.env.TWILIO_PHONE_NUMBER
 
-let twilioClient: Twilio | null = null
+let twilioClient: any = null
 
-// Only initialize if credentials are available
-if (accountSid && authToken) {
-  twilioClient = new Twilio(accountSid, authToken)
+let twilioInitialized = false
+
+async function initTwilioClient() {
+  if (twilioInitialized || twilioClient) return
+
+  try {
+    if (accountSid && authToken) {
+      const { Twilio } = await import("twilio")
+      twilioClient = new Twilio(accountSid, authToken)
+    }
+    twilioInitialized = true
+  } catch (error) {
+    console.error("[v0] Failed to initialize Twilio client:", error)
+    twilioInitialized = true
+  }
 }
 
 // Define a type for the SMS response
@@ -125,6 +136,8 @@ export async function isTwilioConfigured() {
  */
 async function baseSendSMS(to: string, body: string): Promise<SMSResponse> {
   try {
+    await initTwilioClient()
+
     // Check if Twilio is configured
     if (!twilioClient || !fromNumber) {
       console.warn("Twilio not configured. SMS would have been sent to:", to)
