@@ -122,7 +122,7 @@ export default function VerificationSettingsPage() {
               </div>
 
               {smsResult && (
-                <Alert variant={smsResult.success ? "success" : "destructive"}>
+                <Alert variant={smsResult.success ? "default" : "destructive"}>
                   {smsResult.success ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
                   <AlertTitle>{smsResult.success ? "Success" : "Error"}</AlertTitle>
                   <AlertDescription>
@@ -159,7 +159,7 @@ export default function VerificationSettingsPage() {
               </div>
 
               {emailResult && (
-                <Alert variant={emailResult.success ? "success" : "destructive"}>
+                <Alert variant={emailResult.success ? "default" : "destructive"}>
                   {emailResult.success ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
                   <AlertTitle>{emailResult.success ? "Success" : "Error"}</AlertTitle>
                   <AlertDescription>
