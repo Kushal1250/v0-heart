@@ -82,16 +82,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Invalid credentials" }, { status: 401 })
     }
 
-    // Verify phone number matches the user's phone - normalize both for comparison
+    // Verify phone number matches the user's phone
     if (user.phone) {
       const normalizedInputPhone = normalizePhoneNumber(phone)
       const normalizedUserPhone = normalizePhoneNumber(user.phone)
-
-      console.log("[v0] Phone verification:", {
-        inputPhone: normalizedInputPhone,
-        storedPhone: normalizedUserPhone,
-        match: normalizedInputPhone === normalizedUserPhone,
-      })
 
       if (normalizedInputPhone !== normalizedUserPhone) {
         console.log("Phone number mismatch:", {
@@ -104,9 +98,9 @@ export async function POST(request: Request) {
         )
       }
     } else {
-      console.warn(`User ${user.id} has no phone number stored in database`)
+      // If user doesn't have a phone number stored, we can't verify
       return NextResponse.json(
-        { success: false, message: "Your account does not have a phone number. Please contact support." },
+        { success: false, message: "No phone number associated with this account" },
         { status: 401 },
       )
     }
