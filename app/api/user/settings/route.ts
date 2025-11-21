@@ -1,12 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
-import { getUserFromSession } from "@/lib/auth-utils"
+import { getUserFromRequest } from "@/lib/auth-utils"
 
 const sql = neon(process.env.DATABASE_URL!)
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getUserFromSession(req)
+    const user = await getUserFromRequest(req as any)
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getUserFromSession(req)
+    const user = await getUserFromRequest(req as any)
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
