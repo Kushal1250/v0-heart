@@ -1,12 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 import createPasswordResetTokensTable from "../../../../../scripts/create-password-reset-tokens-table"
-import { isAdmin } from "../../../../../lib/auth-utils"
+import { getUserFromRequest } from "../../../../../lib/auth-utils"
 
 export async function GET(request: NextRequest) {
   try {
-    // Check if the user is an admin
-    const isAdminUser = await isAdmin(request)
-    if (!isAdminUser) {
+    const user = await getUserFromRequest(request as any)
+    if (!user || user.role !== "admin") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

@@ -45,8 +45,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
 
       if (response.ok) {
-        const userData = await response.json()
-        setUser(userData)
+        const data = await response.json()
+        setUser(data.user || null)
       } else {
         setUser(null)
       }
