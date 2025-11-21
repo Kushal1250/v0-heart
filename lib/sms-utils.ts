@@ -1,6 +1,19 @@
 "use server"
 
+import { Twilio } from "twilio"
 import { logError } from "./error-logger"
+
+// Initialize Twilio client
+const accountSid = process.env.TWILIO_ACCOUNT_SID
+const authToken = process.env.TWILIO_AUTH_TOKEN
+const fromNumber = process.env.TWILIO_PHONE_NUMBER
+
+let twilioClient: Twilio | null = null
+
+// Only initialize if credentials are available
+if (accountSid && authToken) {
+  twilioClient = new Twilio(accountSid, authToken)
+}
 
 // Define a type for the SMS response
 export type SMSResponse = {
@@ -63,36 +76,46 @@ export async function isValidPhone(phone: string): Promise<boolean> {
   return formattedPhone.length >= 8 && formattedPhone.length <= 15
 }
 
-/**
- * Check if Twilio is properly configured
- */
-export async function isTwilioConfigured(): Promise<{
-  configured: boolean
-  missing: string[]
-  details: Record<string, string>
-}> {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID
-  const authToken = process.env.TWILIO_AUTH_TOKEN
-  const fromNumber = process.env.TWILIO_PHONE_NUMBER
-
-  const missing = []
-  const details: Record<string, string> = {}
-
-  if (!accountSid) missing.push("TWILIO_ACCOUNT_SID")
-  else details.accountSid = "Configured"
-
-  if (!authToken) missing.push("TWILIO_AUTH_TOKEN")
-  else details.authToken = "Configured"
-
-  if (!fromNumber) missing.push("TWILIO_PHONE_NUMBER")
-  else details.fromNumber = "Configured"
+// Add this function if it doesn't exist already
+export async function isTwilioConfigured() {
+  const requiredEnvVars = ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"]
+  const missing = requiredEnvVars.filter((envVar) => !process.env[envVar])
 
   return {
     configured: missing.length === 0,
     missing,
-    details,
   }
 }
+
+/**
+ * Check if Twilio is properly configured
+ */
+// export async function isTwilioConfigured(): Promise<{
+//   configured: boolean
+//   missing: string[]
+//   details: Record<string, string>
+// }> {
+//   const accountSid = process.env.TWILIO_ACCOUNT_SID
+//   const authToken = process.env.TWILIO_AUTH_TOKEN
+//   const fromNumber = process.env.TWILIO_PHONE_NUMBER
+
+//   const missing = []
+//   const details: Record<string, string> = {}
+
+//   if (!accountSid) missing.push("TWILIO_ACCOUNT_SID")
+//   if (!authToken) missing.push("TWILIO_AUTH_TOKEN")
+//   if (!fromNumber) missing.push("TWILIO_PHONE_NUMBER")
+
+//   details.accountSid = accountSid ? "Configured" : "Missing"
+//   details.authToken = authToken ? "Configured" : "Missing"
+//   details.fromNumber = fromNumber ? "Configured" : "Missing"
+
+//   return {
+//     configured: missing.length === 0,
+//     missing,
+//     details,
+//   }
+// }
 
 /**
  * Send an SMS message
@@ -102,23 +125,11 @@ export async function isTwilioConfigured(): Promise<{
  */
 async function baseSendSMS(to: string, body: string): Promise<SMSResponse> {
   try {
-    // Check if credentials are available
-    const accountSid = process.env.TWILIO_ACCOUNT_SID
-    const authToken = process.env.TWILIO_AUTH_TOKEN
-    const fromNumber = process.env.TWILIO_PHONE_NUMBER
-
-    if (!accountSid || !authToken || !fromNumber) {
+    // Check if Twilio is configured
+    if (!twilioClient || !fromNumber) {
       console.warn("Twilio not configured. SMS would have been sent to:", to)
       return { success: false, error: "SMS service not configured" }
     }
-
-    const twilioModule = await import("twilio").catch((err) => {
-      console.error("Failed to import Twilio module:", err)
-      throw new Error("Failed to load SMS service module")
-    })
-
-    const { Twilio } = twilioModule
-    const twilioClient = new Twilio(accountSid, authToken)
 
     // Send SMS
     const message = await twilioClient.messages.create({
@@ -207,7 +218,22 @@ export async function sendSMS(to: string, message: string): Promise<SMSResponse>
 
     // In production, send the actual SMS
     try {
+      // Dynamically import Twilio to avoid bundling issues
+      // const twilioModule = await import("twilio").catch((err) => {
+      //   console.error("Failed to import Twilio module:", err)
+      //   throw new Error("Failed to load SMS service module. Please try again later.")
+      // })
+
+      // const Twilio = twilioModule.Twilio
+      // const client = new Twilio(accountSid, authToken)
+
       console.log(`Sending SMS via Twilio from ${fromNumber} to ${formattedPhone}`)
+
+      // const result = await client.messages.create({
+      //   body: message,
+      //   from: fromNumber,
+      //   to: formattedPhone,
+      // })
 
       const result = await baseSendSMS(formattedPhone, message)
 
@@ -317,7 +343,7 @@ export async function sendVerificationWithFallback(
   fallbackUsed?: boolean
 }> {
   // Try SMS first
-  const smsResult = await sendVerificationSMS(phone, code)
+  const smsResult = await sendVerificationSMS(phone, code) //await sendSMS(phone, `Your HeartPredict verification code is: ${code}. Valid for 15 minutes.`)
 
   // If SMS succeeds, return success
   if (smsResult.success) {
@@ -331,10 +357,12 @@ export async function sendVerificationWithFallback(
   // If SMS fails and we have an email, try email as fallback
   if (!smsResult.success && email) {
     const { sendEmail } = await import("./email-utils")
-    const emailResult = await sendEmail(
-      email,
-      "Your Verification Code",
-      `
+
+    const emailResult = await sendEmail({
+      to: email,
+      subject: "Your Verification Code",
+      text: `Your HeartPredict verification code is: ${code}. Valid for 15 minutes.`,
+      html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Your Verification Code</h2>
           <p>Use the following code to verify your account:</p>
@@ -346,8 +374,7 @@ export async function sendVerificationWithFallback(
           <p><small>Note: We sent this code via email because SMS delivery failed.</small></p>
         </div>
       `,
-      `Your HeartPredict verification code is: ${code}. Valid for 15 minutes.`,
-    )
+    })
 
     if (emailResult.success) {
       return {
@@ -382,3 +409,18 @@ export async function sendPasswordResetSMS(to: string, resetLink: string, shortC
 
   return await sendSMS(to, body)
 }
+
+/**
+ * Send a password reset SMS with a reset code or link
+ */
+// export async function sendPasswordResetSMS(to: string, resetToken: string, shortCode?: string): Promise<SMSResponse> {
+//   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+
+//   // If a short code is provided, use it instead of the full token
+//   const resetCode = shortCode || resetToken.substring(0, 6).toUpperCase()
+//   const resetLink = `${appUrl}/reset-password?token=${resetToken}`
+
+//   const message = `HeartPredict: Your password reset code is ${resetCode}. Or use this link: ${resetLink} (Valid for 1 hour)`
+
+//   return await sendSMS(to, message)
+// }

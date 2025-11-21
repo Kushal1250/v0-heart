@@ -34,7 +34,6 @@
     "child_process": "latest",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "critters": "^0.0.24",
     "crypto": "latest",
     "csv-parser": "^3.0.0",
     "fs": "latest",
@@ -44,7 +43,6 @@
     "jspdf-autotable": "latest",
     "lucide-react": "^0.454.0",
     "next": "14.0.4",
-    "node-fetch": "latest",
     "nodemailer": "latest",
     "path": "latest",
     "pdfkit": "latest",
@@ -66,7 +64,7 @@
     "eslint": "^8",
     "eslint-config-next": "14.0.4",
     "postcss": "^8.5",
-    "tailwindcss": "^3.4.17",
+    "tailwindcss": "^3.3.0",
     "typescript": "^5"
   }
 }

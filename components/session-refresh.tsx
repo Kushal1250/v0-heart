@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { RefreshCw, LogIn } from "lucide-react"
 
 export default function SessionRefresh() {
-  const { user, isAdmin, refreshUser } = useAuth()
+  const { user, isAdmin, refreshSession } = useAuth()
   const [sessionExpired, setSessionExpired] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const router = useRouter()
@@ -29,15 +29,15 @@ export default function SessionRefresh() {
   // Handle manual refresh
   const handleRefresh = async () => {
     setRefreshing(true)
-    try {
-      await refreshUser()
+    const success = await refreshSession()
+    setRefreshing(false)
+
+    if (success) {
       setSessionExpired(false)
       router.refresh()
-    } catch (error) {
-      console.error("Error refreshing user:", error)
+    } else {
       setSessionExpired(true)
     }
-    setRefreshing(false)
   }
 
   // Handle login redirect

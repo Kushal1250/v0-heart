@@ -85,10 +85,11 @@ export async function POST(request: Request) {
 
     // Send the code via the specified method
     if (method === "email") {
-      const emailResult = await sendEmail(
-        identifier,
-        "Your Verification Code",
-        `
+      const emailResult = await sendEmail({
+        to: identifier,
+        subject: "Your Verification Code",
+        text: `Your verification code is: ${code}. It will expire in 15 minutes.`,
+        html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2>Your Verification Code</h2>
             <p>Use the following code to verify your account:</p>
@@ -99,14 +100,13 @@ export async function POST(request: Request) {
             <p>If you didn't request this code, please ignore this email.</p>
           </div>
         `,
-        `Your verification code is: ${code}. It will expire in 15 minutes.`,
-      )
+      })
 
       if (!emailResult.success) {
         return NextResponse.json(
           {
             success: false,
-            message: emailResult.error || "Failed to send verification email",
+            message: emailResult.message || "Failed to send verification email",
           },
           { status: 500 },
         )
@@ -127,10 +127,11 @@ export async function POST(request: Request) {
         // If we have a user with an email, try email as fallback
         if (user && user.email) {
           console.log(`Attempting email fallback for user ${user.id}`)
-          const emailResult = await sendEmail(
-            user.email,
-            "Your Verification Code",
-            `
+          const emailResult = await sendEmail({
+            to: user.email,
+            subject: "Your Verification Code",
+            text: `Your verification code is: ${code}. It will expire in 15 minutes.`,
+            html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <h2>Your Verification Code</h2>
                 <p>Use the following code to verify your account:</p>
@@ -142,8 +143,7 @@ export async function POST(request: Request) {
                 <p><small>Note: We sent this code via email because SMS delivery failed.</small></p>
               </div>
             `,
-            `Your verification code is: ${code}. It will expire in 15 minutes.`,
-          )
+          })
 
           if (emailResult.success) {
             return NextResponse.json({

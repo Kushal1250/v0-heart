@@ -20,17 +20,17 @@ export async function POST(request: Request) {
     }
 
     // Send test email
-    const result = await sendEmail(
+    const result = await sendEmail({
       to,
       subject,
-      `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      text: message,
+      html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>${subject}</h2>
         <p>${message}</p>
         <hr>
         <p><em>This is a test email from the Heart Health Predictor admin panel.</em></p>
       </div>`,
-      message,
-    )
+    })
 
     return NextResponse.json(result)
   } catch (error) {

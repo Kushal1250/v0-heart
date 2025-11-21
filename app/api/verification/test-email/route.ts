@@ -25,10 +25,11 @@ export async function POST(request: Request) {
     const testCode = Math.floor(100000 + Math.random() * 900000).toString()
 
     // Send the email
-    const result = await sendEmail(
-      email,
-      "[TEST] HeartPredict Verification Code",
-      `
+    const result = await sendEmail({
+      to: email,
+      subject: "[TEST] HeartPredict Verification Code",
+      text: `Your verification code is: ${testCode}. This is a test message.`,
+      html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>HeartPredict Verification Code</h2>
           <p>Your verification code is:</p>
@@ -38,8 +39,7 @@ export async function POST(request: Request) {
           <p style="margin-top: 20px;">This is a test message. Please ignore if you did not request this code.</p>
         </div>
       `,
-      `Your verification code is: ${testCode}. This is a test message.`,
-    )
+    })
 
     if (!result.success) {
       return NextResponse.json({ message: result.message }, { status: 500 })

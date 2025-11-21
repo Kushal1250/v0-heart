@@ -287,10 +287,11 @@ export async function sendVerificationWithFallback(
   if (!smsResult.success && email) {
     const { sendEmail } = await import("./email-utils")
 
-    const emailResult = await sendEmail(
-      email,
-      "Your Verification Code",
-      `
+    const emailResult = await sendEmail({
+      to: email,
+      subject: "Your Verification Code",
+      text: `Your HeartPredict verification code is: ${code}. Valid for 15 minutes.`,
+      html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Your Verification Code</h2>
           <p>Use the following code to verify your account:</p>
@@ -302,8 +303,7 @@ export async function sendVerificationWithFallback(
           <p><small>Note: We sent this code via email because SMS delivery failed.</small></p>
         </div>
       `,
-      `Your verification code is: ${code}. Valid for 15 minutes.`,
-    )
+    })
 
     if (emailResult.success) {
       return {
