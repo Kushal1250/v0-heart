@@ -63,46 +63,36 @@ export async function isValidPhone(phone: string): Promise<boolean> {
   return formattedPhone.length >= 8 && formattedPhone.length <= 15
 }
 
-// Add this function if it doesn't exist already
-export async function isTwilioConfigured() {
-  const requiredEnvVars = ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"]
-  const missing = requiredEnvVars.filter((envVar) => !process.env[envVar])
+/**
+ * Check if Twilio is properly configured
+ */
+export async function isTwilioConfigured(): Promise<{
+  configured: boolean
+  missing: string[]
+  details: Record<string, string>
+}> {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID
+  const authToken = process.env.TWILIO_AUTH_TOKEN
+  const fromNumber = process.env.TWILIO_PHONE_NUMBER
+
+  const missing = []
+  const details: Record<string, string> = {}
+
+  if (!accountSid) missing.push("TWILIO_ACCOUNT_SID")
+  else details.accountSid = "Configured"
+
+  if (!authToken) missing.push("TWILIO_AUTH_TOKEN")
+  else details.authToken = "Configured"
+
+  if (!fromNumber) missing.push("TWILIO_PHONE_NUMBER")
+  else details.fromNumber = "Configured"
 
   return {
     configured: missing.length === 0,
     missing,
+    details,
   }
 }
-
-/**
- * Check if Twilio is properly configured
- */
-// export async function isTwilioConfigured(): Promise<{
-//   configured: boolean
-//   missing: string[]
-//   details: Record<string, string>
-// }> {
-//   const accountSid = process.env.TWILIO_ACCOUNT_SID
-//   const authToken = process.env.TWILIO_AUTH_TOKEN
-//   const fromNumber = process.env.TWILIO_PHONE_NUMBER
-
-//   const missing = []
-//   const details: Record<string, string> = {}
-
-//   if (!accountSid) missing.push("TWILIO_ACCOUNT_SID")
-//   if (!authToken) missing.push("TWILIO_AUTH_TOKEN")
-//   if (!fromNumber) missing.push("TWILIO_PHONE_NUMBER")
-
-//   details.accountSid = accountSid ? "Configured" : "Missing"
-//   details.authToken = authToken ? "Configured" : "Missing"
-//   details.fromNumber = fromNumber ? "Configured" : "Missing"
-
-//   return {
-//     configured: missing.length === 0,
-//     missing,
-//     details,
-//   }
-// }
 
 /**
  * Send an SMS message
@@ -392,18 +382,3 @@ export async function sendPasswordResetSMS(to: string, resetLink: string, shortC
 
   return await sendSMS(to, body)
 }
-
-/**
- * Send a password reset SMS with a reset code or link
- */
-// export async function sendPasswordResetSMS(to: string, resetToken: string, shortCode?: string): Promise<SMSResponse> {
-//   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-
-//   // If a short code is provided, use it instead of the full token
-//   const resetCode = shortCode || resetToken.substring(0, 6).toUpperCase()
-//   const resetLink = `${appUrl}/reset-password?token=${resetToken}`
-
-//   const message = `HeartPredict: Your password reset code is ${resetCode}. Or use this link: ${resetLink} (Valid for 1 hour)`
-
-//   return await sendSMS(to, message)
-// }
