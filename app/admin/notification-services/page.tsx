@@ -176,7 +176,7 @@ export default function NotificationServicesPage() {
             <div className="flex items-center justify-between">
               <CardTitle>Email Service</CardTitle>
               {emailStatus && (
-                <Badge variant={emailStatus.configured && emailStatus.active ? "success" : "destructive"}>
+                <Badge variant={emailStatus.configured && emailStatus.active ? "default" : "destructive"}>
                   {emailStatus.configured && emailStatus.active ? "Active" : "Inactive"}
                 </Badge>
               )}
@@ -231,7 +231,7 @@ export default function NotificationServicesPage() {
             <div className="flex items-center justify-between">
               <CardTitle>SMS Service</CardTitle>
               {smsStatus && (
-                <Badge variant={smsStatus.configured && smsStatus.active ? "success" : "destructive"}>
+                <Badge variant={smsStatus.configured && smsStatus.active ? "default" : "destructive"}>
                   {smsStatus.configured && smsStatus.active ? "Active" : "Inactive"}
                 </Badge>
               )}
