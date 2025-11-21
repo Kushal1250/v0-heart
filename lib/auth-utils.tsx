@@ -10,7 +10,6 @@ import {
 import type { NextRequest } from "next/server"
 import { sendSMS } from "@/lib/sms-utils"
 import { logError } from "@/lib/error-logger"
-import { sendEmail } from "@/lib/email-utils"
 
 export function getSessionToken(): string | undefined {
   return cookies().get("session")?.value
@@ -213,12 +212,13 @@ async function sendEmailVerification(
   try {
     console.log(`Sending email verification to ${email} with code ${code}`)
 
+    const { sendEmail } = await import("@/lib/email-utils")
+
     // Use the sendEmail function from email-utils.ts
-    const result = await sendEmail({
-      to: email,
-      subject: "Your Verification Code",
-      text: `Your verification code is: ${code}. It will expire in 15 minutes.`,
-      html: `
+    const result = await sendEmail(
+      email,
+      "Your Verification Code",
+      `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Your Verification Code</h2>
           <p>Use the following code to verify your account:</p>
@@ -229,7 +229,8 @@ async function sendEmailVerification(
           <p>If you didn't request this code, please ignore this email.</p>
         </div>
       `,
-    })
+      `Your verification code is: ${code}. It will expire in 15 minutes.`,
+    )
 
     if (!result.success) {
       console.error("Failed to send email verification:", result.message)

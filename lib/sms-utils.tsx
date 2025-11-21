@@ -1,7 +1,6 @@
 "use server"
 
 import { logError } from "./error-logger"
-import { sendEmail } from "./email-utils"
 
 // Define a type for the SMS response
 export type SMSResponse = {
@@ -341,6 +340,7 @@ export async function sendVerificationWithFallback(
 
   // If SMS fails and we have an email, try email as fallback
   if (!smsResult.success && email) {
+    const { sendEmail } = await import("./email-utils")
     const emailResult = await sendEmail(
       email,
       "Your Verification Code",
