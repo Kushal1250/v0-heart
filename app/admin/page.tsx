@@ -274,9 +274,26 @@ export default function AdminDashboard() {
     setError("")
 
     try {
-      await Promise.all([fetchUsers(), fetchPredictions(), fetchSystemHealth()])
+      const [usersResult, predictionsResult, healthResult] = await Promise.allSettled([
+        fetchUsers(),
+        fetchPredictions(),
+        fetchSystemHealth(),
+      ])
+
+      // Check individual results and log errors without stopping the page
+      if (usersResult.status === "rejected") {
+        console.error("Failed to fetch users:", usersResult.reason)
+      }
+
+      if (predictionsResult.status === "rejected") {
+        console.error("Failed to fetch predictions:", predictionsResult.reason)
+      }
+
+      if (healthResult.status === "rejected") {
+        console.error("Failed to fetch system health:", healthResult.reason)
+      }
     } catch (err) {
-      console.error("Error fetching data:", err)
+      console.error("Error in fetchData:", err)
       setError(err instanceof Error ? err.message : "Failed to fetch data")
     } finally {
       setRefreshing(false)
@@ -293,6 +310,10 @@ export default function AdminDashboard() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+        if (response.status === 403) {
+          console.warn("Admin authentication failed - cookie may not be set properly")
+          return []
+        }
         throw new Error(errorData.message || `Failed to fetch users: ${response.status}`)
       }
 
@@ -301,10 +322,10 @@ export default function AdminDashboard() {
         setUsers(data.users)
         setFilteredUsers(data.users)
       }
-      return data.users
+      return data.users || []
     } catch (err) {
       console.error("Error fetching users:", err)
-      throw err
+      return [] // Return empty array instead of throwing
     }
   }
 
@@ -317,6 +338,10 @@ export default function AdminDashboard() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+        if (response.status === 403) {
+          console.warn("Admin authentication failed - cookie may not be set properly")
+          return []
+        }
         throw new Error(errorData.message || `Failed to fetch predictions: ${response.status}`)
       }
 
@@ -325,10 +350,10 @@ export default function AdminDashboard() {
         setPredictions(data.predictions)
         setFilteredPredictions(data.predictions)
       }
-      return data.predictions
+      return data.predictions || []
     } catch (err) {
       console.error("Error fetching predictions:", err)
-      throw err
+      return [] // Return empty array instead of throwing
     }
   }
 
