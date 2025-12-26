@@ -125,17 +125,43 @@ export default function AdminDashboard() {
   const [resetMessage, setResetMessage] = useState("")
   const [isResetting, setIsResetting] = useState(false)
 
-  // Check if user is admin
   useEffect(() => {
-    const checkAdmin = () => {
-      const cookies = document.cookie.split(";")
-      const isAdminCookie = cookies.find((cookie) => cookie.trim().startsWith("is_admin="))
-      const isAdmin = isAdminCookie ? isAdminCookie.split("=")[1] === "true" : false
+    const checkAdmin = async () => {
+      try {
+        // First, try to get user info from API
+        const response = await fetch("/api/auth/user", {
+          credentials: "include",
+          cache: "no-store",
+        })
 
-      setIsAdmin(isAdmin)
+        if (response.ok) {
+          const userData = await response.json()
+          if (userData?.role === "admin") {
+            setIsAdmin(true)
+            setError("")
+            return
+          }
+        }
 
-      if (!isAdmin) {
-        setError("Not authenticated as admin. Please login again.")
+        // Fallback: check is_admin cookie
+        const cookies = document.cookie.split(";")
+        const isAdminCookie = cookies.find((cookie) => cookie.trim().startsWith("is_admin="))
+        const isAdminFromCookie = isAdminCookie ? isAdminCookie.split("=")[1] === "true" : false
+
+        if (isAdminFromCookie) {
+          setIsAdmin(true)
+          setError("")
+        } else {
+          setIsAdmin(false)
+          setError("Authentication required. Please log in again.")
+          setTimeout(() => {
+            router.push("/admin-login?redirect=/admin")
+          }, 2000)
+        }
+      } catch (err) {
+        console.error("Auth check error:", err)
+        setIsAdmin(false)
+        setError("Authentication check failed. Please log in again.")
         setTimeout(() => {
           router.push("/admin-login?redirect=/admin")
         }, 2000)
