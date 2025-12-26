@@ -1,22 +1,39 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
+import { getUserFromRequest } from "@/lib/auth-utils"
+import { db } from "@/lib/db"
+import { isTwilioConfigured } from "@/lib/enhanced-sms-utils"
 
 export async function GET(request: Request) {
   try {
-    const isAdmin = (await cookies()).get("is_admin")?.value === "true"
+    const user = await getUserFromRequest(request as any)
 
-    if (!isAdmin) {
+    if (!user || user.role !== "admin") {
       console.log("System Status API: Not an admin")
-      return NextResponse.json({ message: "Forbidden", error: "Not an admin" }, { status: 403 })
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    // Always return configured status for all services
+    let databaseStatus = "ok"
+    try {
+      await db`SELECT 1 as connected`
+    } catch {
+      databaseStatus = "error"
+    }
+
+    let smsStatus = "misconfigured"
+    try {
+      const twilioConfig = await isTwilioConfigured()
+      smsStatus = twilioConfig.configured ? "configured" : "misconfigured"
+    } catch {
+      smsStatus = "error"
+    }
+
+    // Return dynamic status
     return NextResponse.json({
       success: true,
       status: {
         database: {
-          status: "ok",
-          message: "Connected",
+          status: databaseStatus,
+          message: databaseStatus === "ok" ? "Connected" : "Connection failed",
           responseTime: "< 100ms",
         },
         verification: {
@@ -29,12 +46,12 @@ export async function GET(request: Request) {
         },
         notification: {
           email: {
-            status: "configured",
-            message: "Configured",
+            status: process.env.EMAIL_SERVER ? "configured" : "misconfigured",
+            message: process.env.EMAIL_SERVER ? "Configured" : "Not configured",
           },
           sms: {
-            status: "configured",
-            message: "Configured",
+            status: smsStatus,
+            message: smsStatus === "configured" ? "Configured" : "Not configured",
           },
         },
         lastMigration: {
@@ -46,21 +63,6 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     console.error("Error getting system status:", error)
-
-    // Even in case of error, return all services as configured
-    return NextResponse.json({
-      success: true,
-      status: {
-        database: { status: "ok", message: "Connected" },
-        verification: { status: "active", message: "Active" },
-        passwordReset: { status: "active", message: "Active" },
-        notification: {
-          email: { status: "configured", message: "Configured" },
-          sms: { status: "configured", message: "Configured" },
-        },
-        lastMigration: { message: "Up to date", date: new Date().toISOString() },
-        maintenance: false,
-      },
-    })
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
   }
 }
