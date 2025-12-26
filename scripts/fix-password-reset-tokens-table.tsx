@@ -8,18 +8,18 @@ export async function fixPasswordResetTokensTable() {
     console.log("Checking password_reset_tokens table...")
 
     // Check if the table exists
-    const tableExists = await db.query(`
+    const tableExists = await db(`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_name = 'password_reset_tokens'
       )
     `)
 
-    if (!tableExists.rows[0].exists) {
+    if (!tableExists[0]?.exists) {
       console.log("Creating password_reset_tokens table...")
 
       // Create the table
-      await db.query(`
+      await db(`
         CREATE TABLE password_reset_tokens (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           user_id TEXT NOT NULL,
@@ -32,8 +32,8 @@ export async function fixPasswordResetTokensTable() {
       `)
 
       // Create indexes
-      await db.query(`CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token)`)
-      await db.query(`CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id)`)
+      await db(`CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token)`)
+      await db(`CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id)`)
 
       console.log("Table created successfully")
       return { success: true, message: "Password reset tokens table created" }
@@ -43,41 +43,41 @@ export async function fixPasswordResetTokensTable() {
     console.log("Checking table structure...")
 
     // Check if is_valid column exists
-    const isValidExists = await db.query(`
+    const isValidExists = await db(`
       SELECT EXISTS (
         SELECT FROM information_schema.columns 
         WHERE table_name = 'password_reset_tokens' AND column_name = 'is_valid'
       )
     `)
 
-    if (!isValidExists.rows[0].exists) {
+    if (!isValidExists[0]?.exists) {
       console.log("Adding is_valid column...")
-      await db.query(`ALTER TABLE password_reset_tokens ADD COLUMN is_valid BOOLEAN DEFAULT true`)
+      await db(`ALTER TABLE password_reset_tokens ADD COLUMN is_valid BOOLEAN DEFAULT true`)
     }
 
     // Check if indexes exist
-    const tokenIndexExists = await db.query(`
+    const tokenIndexExists = await db(`
       SELECT EXISTS (
         SELECT FROM pg_indexes 
         WHERE indexname = 'idx_password_reset_tokens_token'
       )
     `)
 
-    if (!tokenIndexExists.rows[0].exists) {
+    if (!tokenIndexExists[0]?.exists) {
       console.log("Creating token index...")
-      await db.query(`CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token)`)
+      await db(`CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token)`)
     }
 
-    const userIdIndexExists = await db.query(`
+    const userIdIndexExists = await db(`
       SELECT EXISTS (
         SELECT FROM pg_indexes 
         WHERE indexname = 'idx_password_reset_tokens_user_id'
       )
     `)
 
-    if (!userIdIndexExists.rows[0].exists) {
+    if (!userIdIndexExists[0]?.exists) {
       console.log("Creating user_id index...")
-      await db.query(`CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id)`)
+      await db(`CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id)`)
     }
 
     console.log("Password reset tokens table is properly configured")
@@ -86,17 +86,4 @@ export async function fixPasswordResetTokensTable() {
     console.error("Error fixing password reset tokens table:", error)
     return { success: false, error: "Failed to fix password reset tokens table" }
   }
-}
-
-// Execute the function if this script is run directly
-if (require.main === module) {
-  fixPasswordResetTokensTable()
-    .then((result) => {
-      console.log(result)
-      process.exit(0)
-    })
-    .catch((error) => {
-      console.error(error)
-      process.exit(1)
-    })
 }
