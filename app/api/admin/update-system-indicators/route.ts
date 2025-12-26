@@ -4,8 +4,7 @@ import { sql } from "@/lib/db"
 
 export async function POST(request: Request) {
   try {
-    // Check admin authentication
-    const isAdmin = cookies().get("is_admin")?.value === "true"
+    const isAdmin = (await cookies()).get("is_admin")?.value === "true"
 
     if (!isAdmin) {
       console.log("Update System Indicators API: Not an admin")

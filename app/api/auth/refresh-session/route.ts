@@ -5,8 +5,7 @@ import { generateToken } from "@/lib/auth-utils"
 
 export async function POST(request: Request) {
   try {
-    // Get the current session token
-    const sessionToken = cookies().get("session")?.value
+    const sessionToken = (await cookies()).get("session")?.value
 
     if (!sessionToken) {
       return NextResponse.json({ success: false, message: "No session token found" }, { status: 401 })
@@ -19,8 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Invalid session" }, { status: 401 })
     }
 
-    // Check if the session is for an admin
-    const isAdmin = cookies().get("is_admin")?.value === "true"
+    const isAdmin = (await cookies()).get("is_admin")?.value === "true"
 
     // Generate a new token
     const newToken = generateToken()

@@ -12,8 +12,8 @@ import { sendSMS } from "@/lib/sms-utils"
 import { logError } from "@/lib/error-logger"
 import { sendEmail } from "@/lib/email-utils"
 
-export function getSessionToken(): string | undefined {
-  return cookies().get("session")?.value
+export async function getSessionToken(): Promise<string | undefined> {
+  return (await cookies()).get("session")?.value
 }
 
 export async function getUserIdFromToken(token: string): Promise<string | null> {
@@ -58,8 +58,8 @@ export function createResponseWithCookie(data: any, token: string): any {
   return response
 }
 
-export function clearSessionCookie(): void {
-  cookies().delete("session")
+export async function clearSessionCookie(): Promise<void> {
+  ;(await cookies()).delete("session")
 }
 
 // Add back the getCurrentUser function that was missing
@@ -70,7 +70,7 @@ export async function getCurrentUser(): Promise<{
   role: string
 } | null> {
   try {
-    const token = getSessionToken()
+    const token = await getSessionToken()
 
     if (!token) {
       console.log("No session token found")
@@ -104,7 +104,7 @@ export async function verifyAdminSession(request: Request): Promise<{
   name: string | null
   role: string
 } | null> {
-  const sessionToken = getSessionToken()
+  const sessionToken = await getSessionToken()
   if (!sessionToken) {
     return null
   }
@@ -127,8 +127,7 @@ export async function verifyAdminSession(request: Request): Promise<{
  */
 export async function getUserFromRequest(request: Request | NextRequest) {
   try {
-    // Get the session token from the cookie
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const sessionToken = cookieStore.get("session")?.value
 
     if (!sessionToken) {

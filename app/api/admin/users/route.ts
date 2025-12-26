@@ -4,8 +4,7 @@ import { getAllUsersWithDetails } from "@/lib/db"
 
 export async function GET(request: Request) {
   try {
-    // Check admin authentication
-    const isAdmin = cookies().get("is_admin")?.value === "true"
+    const isAdmin = (await cookies()).get("is_admin")?.value === "true"
 
     if (!isAdmin) {
       console.log("Users API: Not an admin")

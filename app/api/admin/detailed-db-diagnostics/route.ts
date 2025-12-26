@@ -4,8 +4,7 @@ import { sql } from "@/lib/db"
 
 export async function GET() {
   try {
-    // Check admin authentication
-    const isAdmin = cookies().get("is_admin")?.value === "true"
+    const isAdmin = (await cookies()).get("is_admin")?.value === "true"
 
     if (!isAdmin) {
       return NextResponse.json({ message: "Forbidden", error: "Not an admin" }, { status: 403 })

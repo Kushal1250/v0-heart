@@ -3,8 +3,7 @@ import { cookies } from "next/headers"
 
 export async function GET(request: Request) {
   try {
-    // Check admin authentication
-    const isAdmin = cookies().get("is_admin")?.value === "true"
+    const isAdmin = (await cookies()).get("is_admin")?.value === "true"
 
     if (!isAdmin) {
       console.log("System Status API: Not an admin")
