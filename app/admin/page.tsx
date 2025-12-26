@@ -22,6 +22,7 @@ import {
   Mail,
   MessageSquare,
   Wrench,
+  CheckCircle,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -805,24 +806,51 @@ export default function AdminDashboard() {
               <div className="space-y-1">
                 <p className="text-sm font-medium text-white">Database</p>
                 <div className="flex items-center">
-                  <AlertTriangle className="h-4 w-4 text-yellow-500 mr-1" />
-                  <span className="text-sm text-yellow-500">Unknown</span>
+                  {systemHealth.database ? (
+                    <>
+                      <CheckCircle className="h-4 w-4 text-green-500 mr-1" />
+                      <span className="text-sm text-green-500">Connected</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-4 w-4 text-yellow-500 mr-1" />
+                      <span className="text-sm text-yellow-500">Disconnected</span>
+                    </>
+                  )}
                 </div>
               </div>
 
               <div className="space-y-1">
                 <p className="text-sm font-medium text-white">Email Service</p>
                 <div className="flex items-center">
-                  <AlertTriangle className="h-4 w-4 text-yellow-500 mr-1" />
-                  <span className="text-sm text-yellow-500">Not Configured</span>
+                  {systemHealth.email ? (
+                    <>
+                      <CheckCircle className="h-4 w-4 text-green-500 mr-1" />
+                      <span className="text-sm text-green-500">Configured</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-4 w-4 text-yellow-500 mr-1" />
+                      <span className="text-sm text-yellow-500">Not Configured</span>
+                    </>
+                  )}
                 </div>
               </div>
 
               <div className="space-y-1">
                 <p className="text-sm font-medium text-white">SMS Service</p>
                 <div className="flex items-center">
-                  <AlertTriangle className="h-4 w-4 text-yellow-500 mr-1" />
-                  <span className="text-sm text-yellow-500">Not Configured</span>
+                  {systemHealth.sms ? (
+                    <>
+                      <CheckCircle className="h-4 w-4 text-green-500 mr-1" />
+                      <span className="text-sm text-green-500">Configured</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-4 w-4 text-yellow-500 mr-1" />
+                      <span className="text-sm text-yellow-500">Not Configured</span>
+                    </>
+                  )}
                 </div>
               </div>
 
