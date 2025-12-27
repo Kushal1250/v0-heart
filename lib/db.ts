@@ -415,6 +415,13 @@ export async function deleteUser(userId: string) {
       throw new Error("User ID is required to delete user")
     }
 
+    // Delete in order of dependencies
+    await sql`DELETE FROM predictions WHERE user_id = ${userId}`
+    await sql`DELETE FROM sessions WHERE user_id = ${userId}`
+    await sql`DELETE FROM password_reset_tokens WHERE user_id = ${userId}`
+    await sql`DELETE FROM verification_codes WHERE user_id = ${userId}`
+
+    // Finally delete the user
     await sql`DELETE FROM users WHERE id = ${userId}`
     return true
   } catch (error) {
