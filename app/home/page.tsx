@@ -31,9 +31,9 @@ export default function HomePage() {
     }
   }, [])
 
-  // If not authenticated and not loading, redirect to login
   useEffect(() => {
-    if (!user && !isLoading) {
+    if (isLoading === false && !user) {
+      console.log("[v0] User not authenticated, redirecting to login from home page")
       router.push("/login")
     }
   }, [user, isLoading, router])
@@ -50,7 +50,7 @@ export default function HomePage() {
   }
 
   if (!user) {
-    return null // Will redirect in useEffect
+    return null // Will redirect in useEffect above
   }
 
   return (

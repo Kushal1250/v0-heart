@@ -89,7 +89,8 @@ export async function getUserByEmail(email: string) {
       throw new Error("Email is required to get user")
     }
 
-    const users = await sql`SELECT * FROM users WHERE email = ${email}`
+    const normalizedEmail = email.toLowerCase().trim()
+    const users = await sql`SELECT * FROM users WHERE LOWER(email) = ${normalizedEmail}`
     return users[0] || null
   } catch (error) {
     console.error("Database error in getUserByEmail:", error)
@@ -412,20 +413,43 @@ export async function updateUserRole(userId: string, role: "user" | "admin") {
 export async function deleteUser(userId: string) {
   try {
     if (!userId) {
-      throw new Error("User ID is required to delete user")
+      throw new Error("User ID is required")
     }
 
-    // Delete in order of dependencies
+    console.log("[v0] Attempting to delete user:", userId)
+
+    // First delete all related records in dependency order
+    // Delete predictions
     await sql`DELETE FROM predictions WHERE user_id = ${userId}`
+    console.log("[v0] Deleted predictions for user:", userId)
+
+    // Delete sessions
     await sql`DELETE FROM sessions WHERE user_id = ${userId}`
+    console.log("[v0] Deleted sessions for user:", userId)
+
+    // Delete password reset tokens
     await sql`DELETE FROM password_reset_tokens WHERE user_id = ${userId}`
+    console.log("[v0] Deleted password reset tokens for user:", userId)
+
+    // Delete password resets
+    await sql`DELETE FROM password_resets WHERE user_id = ${userId}`
+    console.log("[v0] Deleted password resets for user:", userId)
+
+    // Delete verification codes
     await sql`DELETE FROM verification_codes WHERE user_id = ${userId}`
+    console.log("[v0] Deleted verification codes for user:", userId)
+
+    // Delete error logs
+    await sql`DELETE FROM error_logs WHERE user_id = ${userId}`
+    console.log("[v0] Deleted error logs for user:", userId)
 
     // Finally delete the user
-    await sql`DELETE FROM users WHERE id = ${userId}`
+    const result = await sql`DELETE FROM users WHERE id = ${userId}`
+    console.log("[v0] Successfully deleted user:", userId, "Result:", result)
+
     return true
   } catch (error) {
-    console.error("Database error in deleteUser:", error)
+    console.error("[v0] Error deleting user:", error)
     throw new Error(`Failed to delete user: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }

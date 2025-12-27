@@ -71,8 +71,8 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get user from database - normalize email to lowercase
-    const user = await getUserByEmail(email.toLowerCase().trim())
+    const normalizedEmail = email.toLowerCase().trim()
+    const user = await getUserByEmail(normalizedEmail)
 
     if (!user) {
       console.log("[v0] User not found for email:", email)
