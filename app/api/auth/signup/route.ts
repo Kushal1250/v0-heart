@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createUser, getUserByEmail } from "@/lib/db"
-import bcrypt from "bcryptjs"
+import { hash } from "bcrypt-ts"
 
 // Phone number validation function
 function isValidPhoneNumber(phone: string): boolean {
@@ -72,9 +72,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "User with this email already exists" }, { status: 409 })
     }
 
-    // Hash password
-    const saltRounds = 12
-    const hashedPassword = await bcrypt.hash(password, saltRounds)
+    // Hash password using bcrypt-ts for consistency with login
+    const hashedPassword = await hash(password, 12)
 
     // Create user
     const userId = await createUser(email.toLowerCase().trim(), hashedPassword, name.trim(), phone.trim())

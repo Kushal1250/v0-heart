@@ -148,11 +148,9 @@ export async function getUserById(id: string) {
 
 export async function createUser(email: string, password: string, name: string, phone = "") {
   try {
-    const hashedPassword = await hash(password, 10)
-
     const result = await sql`
      INSERT INTO users (email, password, name, phone)
-     VALUES (${email}, ${hashedPassword}, ${name}, ${phone})
+     VALUES (${email}, ${password}, ${name}, ${phone})
      RETURNING id, email, name, role, phone
    `
 
