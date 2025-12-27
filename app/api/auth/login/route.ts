@@ -30,17 +30,18 @@ function isValidPhoneNumber(phone: string): boolean {
   }
 }
 
-// Normalize phone number for database comparison
 function normalizePhoneNumber(phone: string): string {
-  // Keep the format as +XX-XXXXXXXXXX
-  return phone.trim()
+  if (!phone) return ""
+  // Remove all non-digit characters except the leading +
+  const cleaned = phone.replace(/\D/g, "")
+  return cleaned
 }
 
 export async function POST(request: Request) {
   try {
     const { email, password, phone } = await request.json()
 
-    console.log("Login attempt for email:", email)
+    console.log("[v0] Login attempt for email:", email)
 
     // Validate required fields
     if (!email || !password || !phone) {
@@ -70,39 +71,44 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get user from database
+    // Get user from database - normalize email to lowercase
     const user = await getUserByEmail(email.toLowerCase().trim())
+
     if (!user) {
+      console.log("[v0] User not found for email:", email)
       return NextResponse.json({ success: false, message: "Invalid credentials" }, { status: 401 })
     }
+
+    console.log("[v0] User found:", user.email, "Phone field:", user.phone, "Phone_number field:", user.phone_number)
 
     // Verify password
     const isValidPassword = await verifyPassword(password, user.password)
     if (!isValidPassword) {
+      console.log("[v0] Password verification failed for user:", email)
       return NextResponse.json({ success: false, message: "Invalid credentials" }, { status: 401 })
     }
 
-    // Verify phone number matches the user's phone
-    if (user.phone) {
-      const normalizedInputPhone = normalizePhoneNumber(phone)
-      const normalizedUserPhone = normalizePhoneNumber(user.phone)
-
-      if (normalizedInputPhone !== normalizedUserPhone) {
-        console.log("Phone number mismatch:", {
-          input: normalizedInputPhone,
-          stored: normalizedUserPhone,
-        })
-        return NextResponse.json(
-          { success: false, message: "Phone number does not match our records" },
-          { status: 401 },
-        )
-      }
-    } else {
-      // If user doesn't have a phone number stored, we can't verify
+    const userPhone = user.phone || user.phone_number
+    if (!userPhone) {
+      console.log("[v0] No phone number stored for user:", email)
       return NextResponse.json(
         { success: false, message: "No phone number associated with this account" },
         { status: 401 },
       )
+    }
+
+    // Normalize both phone numbers for comparison - remove all non-digits except leading +
+    const normalizedInputPhone = normalizePhoneNumber(phone)
+    const normalizedUserPhone = normalizePhoneNumber(userPhone)
+
+    console.log("[v0] Phone comparison:", {
+      input: normalizedInputPhone,
+      stored: normalizedUserPhone,
+    })
+
+    if (normalizedInputPhone !== normalizedUserPhone) {
+      console.log("[v0] Phone number mismatch for user:", email)
+      return NextResponse.json({ success: false, message: "Phone number does not match our records" }, { status: 401 })
     }
 
     // Generate session token
@@ -112,7 +118,7 @@ export async function POST(request: Request) {
     // Create session in database
     await createSession(user.id, token, expiresAt)
 
-    console.log("Login successful for user:", user.email)
+    console.log("[v0] Login successful for user:", user.email)
 
     // Create response
     const response = NextResponse.json({
@@ -123,7 +129,7 @@ export async function POST(request: Request) {
         email: user.email,
         name: user.name,
         role: user.role,
-        phone: user.phone,
+        phone: user.phone || user.phone_number,
       },
     })
 
@@ -140,7 +146,7 @@ export async function POST(request: Request) {
 
     return response
   } catch (error) {
-    console.error("Login error:", error)
+    console.error("[v0] Login error:", error)
     return NextResponse.json(
       { success: false, message: "An error occurred during login. Please try again." },
       { status: 500 },

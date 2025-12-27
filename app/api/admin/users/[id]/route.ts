@@ -9,7 +9,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     const userId = params.id
 
     // Check if user is authenticated and is an admin
-    const sessionToken = getSessionToken()
+    const sessionToken = await getSessionToken()
     if (!sessionToken) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }

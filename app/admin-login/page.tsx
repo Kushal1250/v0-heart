@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, Eye, EyeOff, Heart } from "lucide-react"
+import { AlertCircle, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 
 export default function AdminLoginPage() {
@@ -79,23 +79,8 @@ export default function AdminLoginPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header with HeartPredict logo and Home link */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/" className="flex items-center">
-              <Heart className="h-6 w-6 text-red-500 fill-red-500 mr-2" />
-              <span className="font-bold text-xl text-gray-900">HeartPredict</span>
-            </Link>
-            <Link href="/" className="text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">
-              Home
-            </Link>
-          </div>
-        </div>
-      </div>
-
       {/* Main content */}
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
+      <div className="flex min-h-screen items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">Admin Login</CardTitle>
