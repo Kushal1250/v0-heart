@@ -461,6 +461,8 @@ export default function AdminDashboard() {
         throw new Error("Failed to delete user")
       }
 
+      setError("")
+
       // Remove user from state
       setUsers(users.filter((user) => user.id !== userId))
       setFilteredUsers(filteredUsers.filter((user) => user.id !== userId))
