@@ -5,8 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Calendar, Clock, Heart, Trash2 } from "lucide-react"
-import { getCurrentEmail, clearAssessmentHistory } from "@/lib/simplified-history"
+import { ArrowLeft, Calendar, Clock, Heart, Trash2, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import {
   AlertDialog,
@@ -21,155 +20,109 @@ import {
 
 export default function HistoryPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [assessments, setAssessments] = useState([])
-  const [userEmail, setUserEmail] = useState("")
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
-
-  const [isEditingEmail, setIsEditingEmail] = useState(false)
-  const [newEmail, setNewEmail] = useState("")
-
-  // Dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [clearDialogOpen, setClearDialogOpen] = useState(false)
-  const [assessmentToDelete, setAssessmentToDelete] = useState(null)
-
-  const { user } = useAuth() // Get user from auth context at the top level
-  const initialEmail = user?.email || getCurrentEmail() // Get initial email here
+  const [predictionToDelete, setPredictionToDelete] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
-    // Try to get email from multiple sources
-    const userEmail =
-      user?.email ||
-      localStorage.getItem("currentUserEmail") ||
-      localStorage.getItem("heart_current_user_email") ||
-      initialEmail ||
-      "guest@example.com"
-
-    setUserEmail(userEmail)
-
-    // Save this email to both storage locations for consistency
-    if (typeof window !== "undefined") {
-      localStorage.setItem("currentUserEmail", userEmail)
-      localStorage.setItem("heart_current_user_email", userEmail)
+    if (!user) {
+      router.push("/login")
+      return
     }
 
-    loadAssessmentHistory(userEmail)
-  }, [initialEmail, user])
+    loadUserPredictions()
+  }, [user])
 
-  const loadAssessmentHistory = (email) => {
+  const loadUserPredictions = async () => {
+    if (!user?.id) {
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     try {
-      // Try multiple storage keys to find history
-      const historyKeys = [
-        `assessmentHistory_${email}`,
-        `heart_assessment_history_${email}`,
-        `heart_assessment_history_${email.toLowerCase()}`,
-      ]
+      const response = await fetch(`/api/user/predictions?userId=${user.id}`, {
+        credentials: "include",
+      })
 
-      let history = []
-
-      // Check each possible key
-      for (const key of historyKeys) {
-        const data = localStorage.getItem(key)
-        if (data) {
-          try {
-            const parsed = JSON.parse(data)
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              console.log(`Found history in key: ${key} with ${parsed.length} items`)
-              history = parsed
-              break // Use the first valid history we find
-            }
-          } catch (e) {
-            console.error(`Error parsing data from ${key}:`, e)
-          }
-        }
+      if (!response.ok) {
+        throw new Error(`Failed to fetch predictions: ${response.status}`)
       }
 
-      // Check if we have a recent prediction that's not in history
-      const recentPrediction = localStorage.getItem("predictionResult")
-      if (recentPrediction && history.length === 0) {
-        try {
-          const prediction = JSON.parse(recentPrediction)
-          if (prediction && prediction.result) {
-            // Add ID and timestamp if missing
-            if (!prediction.id) {
-              prediction.id = Math.random().toString(36).substring(2, 15)
-            }
-            if (!prediction.timestamp) {
-              prediction.timestamp = Date.now()
-            }
-
-            history = [prediction]
-
-            // Save this to all history keys
-            for (const key of historyKeys) {
-              localStorage.setItem(key, JSON.stringify(history))
-            }
-            console.log("Created history from recent prediction")
-          }
-        } catch (e) {
-          console.error("Error using recent prediction:", e)
-        }
-      }
-
-      console.log(`Loaded ${history.length} assessments for ${email}`)
-      setAssessments(history)
+      const data = await response.json()
+      setAssessments(data.predictions || [])
     } catch (error) {
-      console.error("Error loading assessment history:", error)
+      console.error("Error loading predictions:", error)
       setAssessments([])
     } finally {
       setLoading(false)
     }
   }
 
-  const handleClearHistory = () => {
-    setClearDialogOpen(true)
+  const handleDeletePrediction = (predictionId) => {
+    setPredictionToDelete(predictionId)
+    setDeleteDialogOpen(true)
   }
 
-  const confirmClearHistory = () => {
-    clearAssessmentHistory(userEmail)
-    setAssessments([])
-    setClearDialogOpen(false)
-  }
+  const confirmDeletePrediction = async () => {
+    if (!predictionToDelete) return
 
-  const handleViewAssessment = (assessment) => {
-    // Store the assessment in localStorage for the results page to access
-    localStorage.setItem("predictionResult", JSON.stringify(assessment))
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/user/predictions/${predictionToDelete}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
 
-    // Navigate to results page
-    router.push("/predict/results")
-  }
+      if (!response.ok) {
+        throw new Error("Failed to delete prediction")
+      }
 
-  const handleChangeEmail = () => {
-    setNewEmail(userEmail)
-    setIsEditingEmail(true)
-  }
-
-  const handleSaveEmail = () => {
-    if (newEmail && newEmail !== userEmail) {
-      setUserEmail(newEmail)
-      localStorage.setItem("currentUserEmail", newEmail)
-      localStorage.setItem("heart_current_user_email", newEmail)
-      loadAssessmentHistory(newEmail)
+      setAssessments(assessments.filter((p) => p.id !== predictionToDelete))
+      setDeleteDialogOpen(false)
+      setPredictionToDelete(null)
+    } catch (error) {
+      console.error("Error deleting prediction:", error)
+      alert("Failed to delete prediction. Please try again.")
+    } finally {
+      setIsDeleting(false)
     }
-    setIsEditingEmail(false)
   }
 
-  const handleCancelEmailEdit = () => {
-    setIsEditingEmail(false)
-  }
-
-  // Filter assessments based on active tab
   const filteredAssessments = assessments.filter((assessment) => {
     if (activeTab === "all") return true
-    if (activeTab === "high" && assessment.result?.risk === "high") return true
-    if (activeTab === "moderate" && assessment.result?.risk === "moderate") return true
-    if (activeTab === "low" && assessment.result?.risk === "low") return true
+    const result = assessment.prediction_data?.risk || calculateRisk(assessment.result)
+    if (activeTab === "high" && result === "high") return true
+    if (activeTab === "moderate" && result === "moderate") return true
+    if (activeTab === "low" && result === "low") return true
     return false
   })
 
-  // Format date for display
+  // Helper function to calculate risk from probability
+  const calculateRisk = (probability) => {
+    if (probability >= 0.7) return "high"
+    if (probability >= 0.3) return "moderate"
+    return "low"
+  }
+
+  const getRiskColor = (probability) => {
+    const risk = calculateRisk(probability)
+    if (risk === "high") return "bg-red-500"
+    if (risk === "moderate") return "bg-yellow-500"
+    return "bg-green-500"
+  }
+
+  const getRiskText = (probability) => {
+    const risk = calculateRisk(probability)
+    if (risk === "high") return "High Risk Assessment"
+    if (risk === "moderate") return "Moderate Risk Assessment"
+    return "Low Risk Assessment"
+  }
+
   const formatDate = (dateString) => {
     try {
       const date = new Date(dateString)
@@ -179,39 +132,16 @@ export default function HistoryPage() {
     }
   }
 
-  const handleDeleteAssessment = (index) => {
-    setAssessmentToDelete(index)
-    setDeleteDialogOpen(true)
-  }
-
-  const confirmDeleteAssessment = () => {
-    if (assessmentToDelete !== null) {
-      const updatedAssessments = [...assessments]
-      updatedAssessments.splice(assessmentToDelete, 1)
-      setAssessments(updatedAssessments)
-
-      // Update localStorage with all possible keys
-      const historyKeys = [
-        `assessmentHistory_${userEmail}`,
-        `heart_assessment_history_${userEmail}`,
-        `heart_assessment_history_${userEmail.toLowerCase()}`,
-      ]
-
-      for (const key of historyKeys) {
-        localStorage.setItem(key, JSON.stringify(updatedAssessments))
-      }
-
-      setDeleteDialogOpen(false)
-      setAssessmentToDelete(null)
-    }
+  if (!user) {
+    return null
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <Button variant="ghost" onClick={() => router.push("/dashboard")} className="flex items-center">
+        <Button variant="ghost" onClick={() => router.push("/home")} className="flex items-center">
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Dashboard
+          Back to Home
         </Button>
       </div>
 
@@ -220,47 +150,17 @@ export default function HistoryPage() {
           <div className="flex justify-between items-start">
             <div>
               <CardTitle className="text-2xl">Assessment History</CardTitle>
-              {isEditingEmail ? (
-                <div className="flex items-center mt-2">
-                  <input
-                    type="email"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 mr-2 text-sm"
-                    placeholder="Enter email address"
-                  />
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={handleSaveEmail}
-                    className="bg-blue-600 hover:bg-blue-700 mr-2"
-                  >
-                    Save
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleCancelEmailEdit}>
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <CardDescription>
-                  Viewing history for: {userEmail}{" "}
-                  <Button variant="link" className="p-0 h-auto text-blue-400" onClick={handleChangeEmail}>
-                    Change
-                  </Button>
-                </CardDescription>
-              )}
+              <CardDescription>Your heart disease risk assessments</CardDescription>
             </div>
-            {assessments.length > 0 && (
-              <Button variant="destructive" size="sm" onClick={handleClearHistory}>
-                <Trash2 className="h-4 w-4 mr-1" /> Clear History
-              </Button>
-            )}
           </div>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="flex justify-center py-12">
-              <div className="animate-pulse">Loading assessment history...</div>
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                <p>Loading assessment history...</p>
+              </div>
             </div>
           ) : assessments.length === 0 ? (
             <div className="text-center py-12">
@@ -275,10 +175,16 @@ export default function HistoryPage() {
             <>
               <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="mb-6">
                 <TabsList className="grid grid-cols-4">
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="high">High Risk</TabsTrigger>
-                  <TabsTrigger value="moderate">Moderate Risk</TabsTrigger>
-                  <TabsTrigger value="low">Low Risk</TabsTrigger>
+                  <TabsTrigger value="all">All ({assessments.length})</TabsTrigger>
+                  <TabsTrigger value="high">
+                    High Risk ({assessments.filter((a) => calculateRisk(a.result) === "high").length})
+                  </TabsTrigger>
+                  <TabsTrigger value="moderate">
+                    Moderate ({assessments.filter((a) => calculateRisk(a.result) === "moderate").length})
+                  </TabsTrigger>
+                  <TabsTrigger value="low">
+                    Low Risk ({assessments.filter((a) => calculateRisk(a.result) === "low").length})
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
 
@@ -288,48 +194,34 @@ export default function HistoryPage() {
                     <p className="text-gray-400">No assessments found for this filter.</p>
                   </div>
                 ) : (
-                  filteredAssessments.map((assessment, index) => (
-                    <Card key={index} className="bg-gray-800 border-gray-700 overflow-hidden">
+                  filteredAssessments.map((assessment) => (
+                    <Card key={assessment.id} className="bg-gray-800 border-gray-700 overflow-hidden">
                       <div className="flex">
-                        <div
-                          className={`w-2 ${
-                            assessment.result?.risk === "high"
-                              ? "bg-red-500"
-                              : assessment.result?.risk === "moderate"
-                                ? "bg-yellow-500"
-                                : "bg-green-500"
-                          }`}
-                        ></div>
+                        <div className={`w-2 ${getRiskColor(assessment.result)}`}></div>
                         <div className="p-4 flex-1">
                           <div className="flex justify-between items-start">
                             <div>
-                              <h3 className="font-medium mb-1">
-                                {assessment.result?.risk === "high"
-                                  ? "High Risk Assessment"
-                                  : assessment.result?.risk === "moderate"
-                                    ? "Moderate Risk Assessment"
-                                    : "Low Risk Assessment"}
-                              </h3>
+                              <h3 className="font-medium mb-1">{getRiskText(assessment.result)}</h3>
                               <div className="flex items-center text-sm text-gray-400 mb-2">
                                 <Clock className="h-3 w-3 mr-1" />
-                                {formatDate(assessment.timestamp)}
+                                {formatDate(assessment.created_at)}
                               </div>
                             </div>
                             <div className="flex flex-col items-center">
                               <div
                                 className={`flex items-center justify-center rounded-full w-10 h-10 ${
-                                  assessment.result?.risk === "high"
+                                  calculateRisk(assessment.result) === "high"
                                     ? "bg-red-900/30"
-                                    : assessment.result?.risk === "moderate"
+                                    : calculateRisk(assessment.result) === "moderate"
                                       ? "bg-yellow-900/30"
                                       : "bg-green-900/30"
                                 }`}
                               >
                                 <Heart
                                   className={`h-5 w-5 ${
-                                    assessment.result?.risk === "high"
+                                    calculateRisk(assessment.result) === "high"
                                       ? "text-red-500"
-                                      : assessment.result?.risk === "moderate"
+                                      : calculateRisk(assessment.result) === "moderate"
                                         ? "text-yellow-500"
                                         : "text-green-500"
                                   }`}
@@ -339,10 +231,8 @@ export default function HistoryPage() {
                                 variant="ghost"
                                 size="sm"
                                 className="p-0 h-6 w-6 mt-1 text-gray-400 hover:text-red-500"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleDeleteAssessment(index)
-                                }}
+                                disabled={isDeleting}
+                                onClick={() => handleDeletePrediction(assessment.id)}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -350,31 +240,21 @@ export default function HistoryPage() {
                           </div>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
                             <div>
-                              <p className="text-xs text-gray-500">Age</p>
-                              <p className="text-sm">{assessment.age} years</p>
+                              <p className="text-xs text-gray-500">Risk Score</p>
+                              <p className="text-sm">{(assessment.result * 100).toFixed(1)}%</p>
                             </div>
                             <div>
-                              <p className="text-xs text-gray-500">Gender</p>
-                              <p className="text-sm">{assessment.sex === "1" ? "Male" : "Female"}</p>
+                              <p className="text-xs text-gray-500">Age</p>
+                              <p className="text-sm">{assessment.prediction_data?.age || "N/A"} years</p>
                             </div>
                             <div>
                               <p className="text-xs text-gray-500">Blood Pressure</p>
-                              <p className="text-sm">{assessment.trestbps} mm Hg</p>
+                              <p className="text-sm">{assessment.prediction_data?.trestbps || "N/A"} mm Hg</p>
                             </div>
                             <div>
                               <p className="text-xs text-gray-500">Cholesterol</p>
-                              <p className="text-sm">{assessment.chol} mg/dl</p>
+                              <p className="text-sm">{assessment.prediction_data?.chol || "N/A"} mg/dl</p>
                             </div>
-                          </div>
-                          <div className="flex justify-end">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleViewAssessment(assessment)}
-                              className="text-xs"
-                            >
-                              View Details
-                            </Button>
                           </div>
                         </div>
                       </div>
@@ -387,7 +267,6 @@ export default function HistoryPage() {
         </CardContent>
       </Card>
 
-      {/* Delete Assessment Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent className="bg-gray-900 border-gray-800">
           <AlertDialogHeader>
@@ -398,26 +277,12 @@ export default function HistoryPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-gray-800 hover:bg-gray-700 border-gray-700">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteAssessment} className="bg-red-600 hover:bg-red-700">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Clear History Dialog */}
-      <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
-        <AlertDialogContent className="bg-gray-900 border-gray-800">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Clear Assessment History</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to clear your entire assessment history? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-gray-800 hover:bg-gray-700 border-gray-700">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmClearHistory} className="bg-red-600 hover:bg-red-700">
-              Clear All
+            <AlertDialogAction
+              onClick={confirmDeletePrediction}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

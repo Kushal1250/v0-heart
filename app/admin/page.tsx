@@ -473,6 +473,30 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleDeletePrediction = async (predictionId: string) => {
+    try {
+      const response = await fetch(`/api/admin/predictions/${predictionId}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete prediction")
+      }
+
+      // Remove prediction from local state
+      const updatedPredictions = predictions.filter((p) => p.id !== predictionId)
+      setPredictions(updatedPredictions)
+      setFilteredPredictions(updatedPredictions)
+
+      // Show success message
+      console.log("[v0] Prediction deleted successfully:", predictionId)
+    } catch (error) {
+      console.error("Error deleting prediction:", error)
+      setError(`Failed to delete prediction: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
   const handleUpdateUserRole = async (userId: string, newRole: "user" | "admin") => {
     try {
       const response = await fetch("/api/admin/users/role", {
@@ -1061,10 +1085,23 @@ export default function AdminDashboard() {
                       </TableCell>
                       <TableCell>{new Date(pred.timestamp).toLocaleString()}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handlePredictionClick(pred)}>
-                          <Eye className="h-4 w-4" />
-                          <span className="sr-only">View details</span>
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => handlePredictionClick(pred)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-900/20"
+                            onClick={() => {
+                              if (confirm("Are you sure you want to delete this prediction?")) {
+                                handleDeletePrediction(pred.id)
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

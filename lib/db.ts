@@ -416,33 +416,40 @@ export async function deleteUser(userId: string) {
 
     console.log("[v0] Attempting to delete user:", userId)
 
+    // Convert userId to proper format for all tables
+    const userUUID = userId
+
     // First delete all related records in dependency order
-    // Delete predictions
-    await sql`DELETE FROM predictions WHERE user_id = ${userId}`
+    // Delete predictions (user_id is UUID)
+    await sql`DELETE FROM predictions WHERE user_id = ${userUUID}::uuid`
     console.log("[v0] Deleted predictions for user:", userId)
 
-    // Delete sessions
-    await sql`DELETE FROM sessions WHERE user_id = ${userId}`
+    // Delete sessions (user_id is UUID)
+    await sql`DELETE FROM sessions WHERE user_id = ${userUUID}::uuid`
     console.log("[v0] Deleted sessions for user:", userId)
 
-    // Delete password reset tokens
+    // Delete password reset tokens (user_id is TEXT)
     await sql`DELETE FROM password_reset_tokens WHERE user_id = ${userId}`
     console.log("[v0] Deleted password reset tokens for user:", userId)
 
-    // Delete password resets
-    await sql`DELETE FROM password_resets WHERE user_id = ${userId}`
+    // Delete password resets (user_id is UUID)
+    await sql`DELETE FROM password_resets WHERE user_id = ${userUUID}::uuid`
     console.log("[v0] Deleted password resets for user:", userId)
 
-    // Delete verification codes
+    // Delete verification codes (user_id is TEXT)
     await sql`DELETE FROM verification_codes WHERE user_id = ${userId}`
     console.log("[v0] Deleted verification codes for user:", userId)
 
-    // Delete error logs
+    // Delete simple reset tokens (user_id is TEXT)
+    await sql`DELETE FROM simple_reset_tokens WHERE user_id = ${userId}`
+    console.log("[v0] Deleted simple reset tokens for user:", userId)
+
+    // Delete error logs (user_id is TEXT)
     await sql`DELETE FROM error_logs WHERE user_id = ${userId}`
     console.log("[v0] Deleted error logs for user:", userId)
 
-    // Finally delete the user
-    const result = await sql`DELETE FROM users WHERE id = ${userId}`
+    // Finally delete the user (id is UUID)
+    const result = await sql`DELETE FROM users WHERE id = ${userUUID}::uuid`
     console.log("[v0] Successfully deleted user:", userId, "Result:", result)
 
     return true

@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { cookies } from "next/headers"
 import { runPrediction, fallbackPrediction, type PredictionInput } from "@/lib/prediction"
+import { sql } from "@/lib/db"
 
 export type PredictionResult = {
   prediction: number
@@ -14,6 +16,22 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error("Failed to parse request body:", error)
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
+
+    const sessionToken = (await cookies()).get("sessionToken")?.value
+    let userId = null
+
+    if (sessionToken) {
+      try {
+        const sessionResult = await sql`
+          SELECT user_id FROM sessions WHERE token = $1 LIMIT 1
+        `[sessionToken]
+        if (sessionResult.length > 0) {
+          userId = sessionResult[0].user_id
+        }
+      } catch (sessionError) {
+        console.warn("Could not retrieve user from session:", sessionError)
+      }
     }
 
     // Extract user email from the request
@@ -69,6 +87,39 @@ export async function POST(request: NextRequest) {
       risk,
       score: Math.round(probability * 100),
       hasDisease: result.prediction === 1,
+    }
+
+    if (userId) {
+      try {
+        const predictionData = {
+          age: body.age,
+          sex: body.sex,
+          trestbps: body.trestbps,
+          chol: body.chol,
+          cp: body.cp,
+          fbs: body.fbs,
+          restecg: body.restecg,
+          thalach: body.thalach,
+          exang: body.exang,
+          oldpeak: body.oldpeak,
+          slope: body.slope,
+          ca: body.ca,
+          thal: body.thal,
+          foodHabits: body.foodHabits,
+          junkFoodConsumption: body.junkFoodConsumption,
+          sleepingHours: body.sleepingHours,
+        }
+
+        await sql`
+          INSERT INTO predictions (user_id, result, prediction_data, created_at)
+          VALUES ($1, $2, $3, NOW())
+        `[(userId, result.probability, JSON.stringify(predictionData))]
+
+        console.log("[v0] Prediction saved to database for user:", userId)
+      } catch (dbError) {
+        console.error("Error saving prediction to database:", dbError)
+        // Continue even if database save fails - don't block the user from getting their result
+      }
     }
 
     return NextResponse.json({
