@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer"
 import { logError } from "./error-logger"
 
-// Email configuration
+// Email configuration from environment variables
 const emailConfig = {
   host: process.env.EMAIL_SERVER || "",
   port: Number.parseInt(process.env.EMAIL_PORT || "587"),
@@ -12,15 +12,26 @@ const emailConfig = {
   },
 }
 
+export interface EmailResult {
+  success: boolean
+  messageId?: string
+  error?: string
+}
+
 /**
- * Send an email
+ * Send an email using nodemailer
  * @param to Recipient email address
  * @param subject Email subject
  * @param html HTML content
  * @param text Plain text content (optional)
- * @returns Success status and message
+ * @returns Success status and message ID
  */
-export async function sendEmail(to: string, subject: string, html: string, text?: string) {
+export async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  text?: string
+): Promise<EmailResult> {
   try {
     // Validate email configuration
     if (!emailConfig.host || !emailConfig.auth.user || !emailConfig.auth.pass) {
@@ -28,41 +39,81 @@ export async function sendEmail(to: string, subject: string, html: string, text?
         hasHost: !!emailConfig.host,
         hasUser: !!emailConfig.auth.user,
         hasPass: !!emailConfig.auth.pass,
+        server: process.env.EMAIL_SERVER,
+        user: process.env.EMAIL_USER,
       })
-      return { success: false, error: "Email service not configured" }
+      return {
+        success: false,
+        error: "Email service not configured. Please check EMAIL_SERVER, EMAIL_USER, and EMAIL_PASSWORD environment variables.",
+      }
     }
 
-    console.log("[v0] Creating email transporter with config:", {
+    console.log("[v0] Email configuration validated:", {
       host: emailConfig.host,
       port: emailConfig.port,
       secure: emailConfig.secure,
+      user: emailConfig.auth.user.substring(0, 3) + "***",
     })
 
     // Create transporter
+    console.log("[v0] Creating email transporter...")
     const transporter = nodemailer.createTransport(emailConfig)
 
     // Verify connection
     console.log("[v0] Verifying email connection...")
-    await transporter.verify()
-    console.log("[v0] Email connection verified successfully")
+    try {
+      const verified = await transporter.verify()
+      console.log("[v0] Email connection verified:", verified)
+    } catch (verifyError) {
+      console.warn("[v0] Email connection verification failed, continuing anyway:", verifyError)
+    }
 
     // Send email
     console.log(`[v0] Sending email to: ${to}, subject: ${subject}`)
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || "noreply@example.com",
+      from: process.env.EMAIL_FROM || `noreply@${emailConfig.host}`,
       to,
       subject,
       text: text || html.replace(/<[^>]*>/g, ""),
       html,
     })
 
-    console.log("[v0] Email sent successfully:", info.messageId)
-    return { success: true, messageId: info.messageId }
+    console.log("[v0] Email sent successfully:", {
+      messageId: info.messageId,
+      response: info.response,
+    })
+
+    return {
+      success: true,
+      messageId: info.messageId,
+    }
   } catch (error) {
-    console.error("[v0] Error sending email:", error)
     const errorMessage = error instanceof Error ? error.message : "Unknown error"
-    logError("Email sending failed", { error: errorMessage, to, subject })
-    return { success: false, error: errorMessage }
+    const errorStack = error instanceof Error ? error.stack : ""
+
+    console.error("[v0] Error sending email:", {
+      error: errorMessage,
+      stack: errorStack,
+      to,
+      subject,
+      config: {
+        host: emailConfig.host,
+        port: emailConfig.port,
+        secure: emailConfig.secure,
+      },
+    })
+
+    logError("Email sending failed", {
+      error: errorMessage,
+      to,
+      subject,
+      stack: errorStack,
+    })
+
+    return {
+      success: false,
+      error: errorMessage,
+    }
   }
 }
 
@@ -73,7 +124,11 @@ export async function sendEmail(to: string, subject: string, html: string, text?
  * @param username Optional username for personalization
  * @returns Success status and message
  */
-export async function sendPasswordResetEmail(to: string, resetLink: string, username?: string) {
+export async function sendPasswordResetEmail(
+  to: string,
+  resetLink: string,
+  username?: string
+): Promise<EmailResult> {
   const subject = "Reset Your Password"
 
   const html = `
