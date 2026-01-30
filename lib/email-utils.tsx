@@ -22,10 +22,32 @@ const emailConfig = {
  */
 export async function sendEmail(to: string, subject: string, html: string, text?: string) {
   try {
+    // Validate email configuration
+    if (!emailConfig.host || !emailConfig.auth.user || !emailConfig.auth.pass) {
+      console.error("[v0] Email configuration incomplete:", {
+        hasHost: !!emailConfig.host,
+        hasUser: !!emailConfig.auth.user,
+        hasPass: !!emailConfig.auth.pass,
+      })
+      return { success: false, error: "Email service not configured" }
+    }
+
+    console.log("[v0] Creating email transporter with config:", {
+      host: emailConfig.host,
+      port: emailConfig.port,
+      secure: emailConfig.secure,
+    })
+
     // Create transporter
     const transporter = nodemailer.createTransport(emailConfig)
 
+    // Verify connection
+    console.log("[v0] Verifying email connection...")
+    await transporter.verify()
+    console.log("[v0] Email connection verified successfully")
+
     // Send email
+    console.log(`[v0] Sending email to: ${to}, subject: ${subject}`)
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || "noreply@example.com",
       to,
@@ -34,12 +56,13 @@ export async function sendEmail(to: string, subject: string, html: string, text?
       html,
     })
 
-    console.log("Email sent:", info.messageId)
+    console.log("[v0] Email sent successfully:", info.messageId)
     return { success: true, messageId: info.messageId }
   } catch (error) {
-    console.error("Error sending email:", error)
-    logError("Email sending failed", { error, to, subject })
-    return { success: false, error: "Failed to send email" }
+    console.error("[v0] Error sending email:", error)
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    logError("Email sending failed", { error: errorMessage, to, subject })
+    return { success: false, error: errorMessage }
   }
 }
 

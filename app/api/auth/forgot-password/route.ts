@@ -7,24 +7,26 @@ export async function POST(request: Request) {
   try {
     const { email } = await request.json()
 
-    console.log(`Password reset request received - Email: ${email}`)
+    console.log(`[v0] Password reset request received - Email: ${email}`)
 
     // Validate email
     if (!email) {
+      console.warn("[v0] Email not provided in password reset request")
       return NextResponse.json({ message: "Email is required" }, { status: 400 })
     }
 
     if (!isValidEmail(email)) {
+      console.warn(`[v0] Invalid email format: ${email}`)
       return NextResponse.json({ message: "Please enter a valid email address" }, { status: 400 })
     }
 
     // Find user by email
     let user
     try {
-      console.log(`Looking up user by email: ${email}`)
+      console.log(`[v0] Looking up user by email: ${email}`)
       user = await getUserByEmail(email)
     } catch (dbError) {
-      console.error("Database error when fetching user:", dbError)
+      console.error("[v0] Database error when fetching user:", dbError)
       return NextResponse.json(
         { message: "Unable to connect to the database. Please try again later." },
         { status: 500 },
@@ -33,18 +35,23 @@ export async function POST(request: Request) {
 
     // Always return success even if user doesn't exist (security best practice)
     if (!user) {
-      console.log(`No user found with email: ${email}`)
+      console.log(`[v0] No user found with email: ${email}`)
       return NextResponse.json({
         message: "If an account exists with this email, a verification code has been sent",
       })
     }
 
+    console.log(`[v0] User found: ${user.id} (${user.email})`)
+
     try {
       // Generate a 6-digit verification code
       const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
+      console.log(`[v0] Generated verification code for user ${user.id}`)
 
       // Store the code in the database
+      console.log(`[v0] Attempting to create verification code in database...`)
       await createVerificationCode(user.id, verificationCode)
+      console.log(`[v0] Verification code stored successfully`)
 
       // Create email content
       const subject = "Your Password Reset Code"
@@ -99,14 +106,15 @@ export async function POST(request: Request) {
       `
 
       // Send the email directly using the sendEmail function from email-utils
+      console.log(`[v0] Sending verification code email to: ${user.email}`)
       const emailResult = await sendEmail(user.email, subject, html, text)
 
       if (!emailResult.success) {
-        console.error("Failed to send email:", emailResult)
+        console.error("[v0] Failed to send email:", emailResult)
         return NextResponse.json({ message: "Failed to send verification code. Please try again." }, { status: 500 })
       }
 
-      console.log(`Verification code sent to: ${user.email}`)
+      console.log(`[v0] Verification code email sent successfully to: ${user.email}`)
 
       return NextResponse.json({
         message: "If an account exists with this email, a verification code has been sent",
@@ -114,11 +122,11 @@ export async function POST(request: Request) {
         ...(process.env.NODE_ENV === "development" ? { previewCode: verificationCode } : {}),
       })
     } catch (error) {
-      console.error("Error creating or sending verification code:", error)
+      console.error("[v0] Error creating or sending verification code:", error)
       return NextResponse.json({ message: "Failed to send verification code. Please try again." }, { status: 500 })
     }
   } catch (error) {
-    console.error("Password reset request error:", error)
+    console.error("[v0] Password reset request error:", error)
     return NextResponse.json({ message: "An unexpected error occurred. Please try again later." }, { status: 500 })
   }
 }
