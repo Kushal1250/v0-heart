@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 
       // Store the code in the database
       console.log(`[v0] Attempting to create verification code in database...`)
-      await createVerificationCode(user.id, verificationCode)
+      await createVerificationCode(user.email, verificationCode)
       console.log(`[v0] Verification code stored successfully`)
 
       // Create email content
