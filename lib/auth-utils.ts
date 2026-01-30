@@ -106,3 +106,24 @@ export function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
 }
+
+export async function verifyAdminSession(request?: any) {
+  try {
+    if (request) {
+      const user = await getUserFromRequest(request)
+      if (user && user.role === "admin") {
+        return user
+      }
+      return null
+    }
+
+    const user = await getCurrentUser()
+    if (user && user.role === "admin") {
+      return user
+    }
+    return null
+  } catch (error) {
+    console.error("[v0] Error verifying admin session:", error)
+    return null
+  }
+}
