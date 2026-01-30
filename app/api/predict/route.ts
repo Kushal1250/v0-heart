@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
           userId = sessionResult[0].user_id
         }
       } catch (sessionError) {
-        console.warn("Could not retrieve user from session:", sessionError)
+        console.warn("[v0] Could not retrieve user from session:", sessionError)
       }
     }
 
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       "cp",
       "fbs",
       "restecg",
-      "thalach", // Make sure thalach is included in required fields
+      "thalach",
       "exang",
       "oldpeak",
       "slope",
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       // Try to use the trained model
       result = await runPrediction(body)
     } catch (error) {
-      console.warn("Falling back to simple prediction:", error)
+      console.warn("[v0] Falling back to simple prediction:", error)
       // Fall back to simple prediction if model fails
       result = fallbackPrediction(body)
     }
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
 
         console.log("[v0] Prediction saved to database for user:", userId)
       } catch (dbError) {
-        console.error("Error saving prediction to database:", dbError)
+        console.error("[v0] Error saving prediction to database:", dbError)
         // Continue even if database save fails - don't block the user from getting their result
       }
     }
