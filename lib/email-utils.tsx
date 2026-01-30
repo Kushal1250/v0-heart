@@ -1,189 +1,119 @@
-import nodemailer from "nodemailer"
-import { logError } from "./error-logger"
+import nodemailer from 'nodemailer';
 
-// Email configuration from environment variables
-const emailConfig = {
-  host: process.env.EMAIL_SERVER || "",
-  port: Number.parseInt(process.env.EMAIL_PORT || "587"),
-  secure: process.env.EMAIL_SECURE === "true",
-  auth: {
-    user: process.env.EMAIL_USER || "",
-    pass: process.env.EMAIL_PASSWORD || "",
-  },
+let transporter: any = null;
+
+function getTransporter() {
+  if (transporter) return transporter;
+
+  const emailServer = process.env.EMAIL_SERVER;
+  const emailPort = parseInt(process.env.EMAIL_PORT || '587', 10);
+  const emailSecure = process.env.EMAIL_SECURE === 'true';
+  const emailUser = process.env.EMAIL_USER;
+  const emailPassword = process.env.EMAIL_PASSWORD;
+
+  if (!emailServer || !emailUser || !emailPassword) {
+    console.error('[v0] Email configuration incomplete:', {
+      hasServer: !!emailServer,
+      hasUser: !!emailUser,
+      hasPassword: !!emailPassword,
+    });
+    return null;
+  }
+
+  try {
+    transporter = nodemailer.createTransport({
+      host: emailServer,
+      port: emailPort,
+      secure: emailSecure,
+      auth: {
+        user: emailUser,
+        pass: emailPassword,
+      },
+    });
+
+    console.log('[v0] Email transporter initialized successfully');
+    return transporter;
+  } catch (error) {
+    console.error('[v0] Failed to create email transporter:', error);
+    return null;
+  }
 }
 
-export interface EmailResult {
-  success: boolean
-  messageId?: string
-  error?: string
-}
-
-/**
- * Send an email using nodemailer
- * @param to Recipient email address
- * @param subject Email subject
- * @param html HTML content
- * @param text Plain text content (optional)
- * @returns Success status and message ID
- */
 export async function sendEmail(
   to: string,
   subject: string,
   html: string,
   text?: string
-): Promise<EmailResult> {
+): Promise<{ success: boolean; error?: string }> {
   try {
-    // Validate email configuration
-    if (!emailConfig.host || !emailConfig.auth.user || !emailConfig.auth.pass) {
-      console.error("[v0] Email configuration incomplete:", {
-        hasHost: !!emailConfig.host,
-        hasUser: !!emailConfig.auth.user,
-        hasPass: !!emailConfig.auth.pass,
-        server: process.env.EMAIL_SERVER,
-        user: process.env.EMAIL_USER,
-      })
-      return {
-        success: false,
-        error: "Email service not configured. Please check EMAIL_SERVER, EMAIL_USER, and EMAIL_PASSWORD environment variables.",
-      }
+    const emailFrom = process.env.EMAIL_FROM;
+
+    if (!emailFrom) {
+      console.error('[v0] EMAIL_FROM not configured');
+      return { success: false, error: 'Email sender not configured' };
     }
 
-    console.log("[v0] Email configuration validated:", {
-      host: emailConfig.host,
-      port: emailConfig.port,
-      secure: emailConfig.secure,
-      user: emailConfig.auth.user.substring(0, 3) + "***",
-    })
-
-    // Create transporter
-    console.log("[v0] Creating email transporter...")
-    const transporter = nodemailer.createTransport(emailConfig)
-
-    // Verify connection
-    console.log("[v0] Verifying email connection...")
-    try {
-      const verified = await transporter.verify()
-      console.log("[v0] Email connection verified:", verified)
-    } catch (verifyError) {
-      console.warn("[v0] Email connection verification failed, continuing anyway:", verifyError)
+    const transport = getTransporter();
+    if (!transport) {
+      console.error('[v0] Email transporter not available');
+      return { success: false, error: 'Email service not available' };
     }
 
-    // Send email
-    console.log(`[v0] Sending email to: ${to}, subject: ${subject}`)
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || `noreply@${emailConfig.host}`,
+    const mailOptions = {
+      from: emailFrom,
       to,
       subject,
-      text: text || html.replace(/<[^>]*>/g, ""),
       html,
-    })
+      text: text || html.replace(/<[^>]*>/g, ''),
+    };
 
-    console.log("[v0] Email sent successfully:", {
-      messageId: info.messageId,
-      response: info.response,
-    })
+    console.log('[v0] Sending email to:', to);
+    const result = await transport.sendMail(mailOptions);
+    console.log('[v0] Email sent successfully:', result.messageId);
 
-    return {
-      success: true,
-      messageId: info.messageId,
-    }
+    return { success: true };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error"
-    const errorStack = error instanceof Error ? error.stack : ""
-
-    console.error("[v0] Error sending email:", {
-      error: errorMessage,
-      stack: errorStack,
-      to,
-      subject,
-      config: {
-        host: emailConfig.host,
-        port: emailConfig.port,
-        secure: emailConfig.secure,
-      },
-    })
-
-    logError("Email sending failed", {
-      error: errorMessage,
-      to,
-      subject,
-      stack: errorStack,
-    })
-
-    return {
-      success: false,
-      error: errorMessage,
-    }
+    console.error('[v0] Failed to send email:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: errorMessage };
   }
 }
 
-/**
- * Send a password reset email
- * @param to Recipient email address
- * @param resetLink Password reset link
- * @param username Optional username for personalization
- * @returns Success status and message
- */
-export async function sendPasswordResetEmail(
-  to: string,
-  resetLink: string,
-  username?: string
-): Promise<EmailResult> {
-  const subject = "Reset Your Password"
-
+export async function sendVerificationCodeEmail(
+  email: string,
+  code: string
+): Promise<{ success: boolean; error?: string }> {
+  const subject = 'Your Verification Code';
   const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #0070f3; color: white; padding: 10px 20px; text-align: center; }
-        .content { padding: 20px; background-color: #f9f9f9; }
-        .button { display: inline-block; background-color: #0070f3; color: white; padding: 10px 20px; 
-                 text-decoration: none; border-radius: 4px; margin: 20px 0; }
-        .footer { font-size: 12px; color: #666; text-align: center; margin-top: 20px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>Password Reset Request</h1>
-        </div>
-        <div class="content">
-          <p>Hello ${username || "there"},</p>
-          <p>We received a request to reset your password. Click the button below to create a new password:</p>
-          <p style="text-align: center;">
-            <a href="${resetLink}" class="button">Reset Password</a>
-          </p>
-          <p>If you didn't request a password reset, you can ignore this email.</p>
-          <p>This link will expire in 1 hour for security reasons.</p>
-          <p>If the button doesn't work, copy and paste this link into your browser:</p>
-          <p>${resetLink}</p>
-        </div>
-        <div class="footer">
-          <p>This is an automated message, please do not reply to this email.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Verify Your Email</h2>
+      <p>Your verification code is:</p>
+      <h1 style="text-align: center; color: #e74c3c; letter-spacing: 5px;">${code}</h1>
+      <p>This code will expire in 10 minutes.</p>
+      <p>If you didn't request this code, please ignore this email.</p>
+    </div>
+  `;
 
-  const text = `
-    Password Reset Request
-    
-    Hello ${username || "there"},
-    
-    We received a request to reset your password. Please visit the following link to create a new password:
-    
-    ${resetLink}
-    
-    If you didn't request a password reset, you can ignore this email.
-    
-    This link will expire in 1 hour for security reasons.
-    
-    This is an automated message, please do not reply to this email.
-  `
+  return sendEmail(email, subject, html);
+}
 
-  return await sendEmail(to, subject, html, text)
+export async function sendPasswordResetEmail(
+  email: string,
+  resetLink: string
+): Promise<{ success: boolean; error?: string }> {
+  const subject = 'Reset Your Password';
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Reset Your Password</h2>
+      <p>Click the link below to reset your password:</p>
+      <a href="${resetLink}" style="display: inline-block; padding: 10px 20px; background-color: #e74c3c; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">
+        Reset Password
+      </a>
+      <p>Or copy this link: ${resetLink}</p>
+      <p>This link will expire in 1 hour.</p>
+      <p>If you didn't request this, please ignore this email.</p>
+    </div>
+  `;
+
+  return sendEmail(email, subject, html);
 }
