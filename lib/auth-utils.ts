@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server"
 import { cookies } from "next/headers"
 import { sql } from "@/lib/db"
+import { randomBytes } from "crypto"
 
 export async function getUserFromRequest(request: NextRequest) {
   try {
@@ -40,4 +41,68 @@ export async function getUserFromRequest(request: NextRequest) {
     console.error("[v0] Error getting user from request:", error)
     return null
   }
+}
+
+export async function getCurrentUser(request?: NextRequest) {
+  try {
+    if (request) {
+      return await getUserFromRequest(request)
+    }
+
+    // Get from cookies if no request provided
+    const cookieStore = await cookies()
+    const sessionToken = cookieStore.get("sessionToken")?.value
+
+    if (!sessionToken) {
+      return null
+    }
+
+    const sessions = await sql`
+      SELECT user_id FROM sessions WHERE token = $1 LIMIT 1
+    `[sessionToken]
+
+    if (sessions.length === 0) {
+      return null
+    }
+
+    const userId = sessions[0].user_id
+    const users = await sql`
+      SELECT id, email, name, role FROM users WHERE id = $1 LIMIT 1
+    `[userId]
+
+    return users.length > 0 ? users[0] : null
+  } catch (error) {
+    console.error("[v0] Error getting current user:", error)
+    return null
+  }
+}
+
+export async function getSessionToken() {
+  try {
+    const cookieStore = await cookies()
+    return cookieStore.get("sessionToken")?.value || null
+  } catch (error) {
+    console.error("[v0] Error getting session token:", error)
+    return null
+  }
+}
+
+export function generateToken(length = 32): string {
+  return randomBytes(length).toString("hex")
+}
+
+export async function clearSessionCookie() {
+  try {
+    const cookieStore = await cookies()
+    cookieStore.delete("sessionToken")
+    return true
+  } catch (error) {
+    console.error("[v0] Error clearing session cookie:", error)
+    return false
+  }
+}
+
+export function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
 }
